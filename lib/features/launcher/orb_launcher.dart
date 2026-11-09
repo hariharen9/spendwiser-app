@@ -159,6 +159,7 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                                 Expanded(
                                   child: TextField(
                                     controller: _search,
+                                    textAlignVertical: TextAlignVertical.center,
                                     style: AppTypography.sans(
                                       size: 14,
                                       color: c.tx,
@@ -181,6 +182,9 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                                       }
                                     },
                                     decoration: InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      border: InputBorder.none,
                                       hintText: 'Jump to anything, or ask a question…',
                                       hintStyle: AppTypography.sans(
                                         size: 14,

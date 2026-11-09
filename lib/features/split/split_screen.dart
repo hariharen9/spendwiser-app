@@ -747,10 +747,14 @@ class _Field extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: TextField(
         controller: controller,
+        textAlignVertical: TextAlignVertical.center,
         keyboardType: number ? TextInputType.number : TextInputType.text,
         onChanged: onChanged,
         style: AppTypography.sans(size: 13, color: c.tx),
         decoration: InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
           hintText: hint,
           hintStyle: AppTypography.sans(size: 13, color: c.mu),
         ),

@@ -199,10 +199,15 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: c.ln),
           ),
+          alignment: Alignment.center,
           child: TextField(
             controller: _name,
+            textAlignVertical: TextAlignVertical.center,
             style: AppTypography.sans(size: 15, color: c.tx),
             decoration: InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
               hintText: 'What should we call you?',
               hintStyle: AppTypography.sans(size: 15, color: c.mu),
             ),

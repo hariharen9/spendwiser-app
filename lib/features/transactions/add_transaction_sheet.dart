@@ -258,9 +258,13 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
                 alignment: Alignment.centerLeft,
                 child: TextField(
                   controller: _note,
+                  textAlignVertical: TextAlignVertical.center,
                   style: AppTypography.sans(size: 13, color: c.tx),
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
                     hintText: 'Note',
                     hintStyle: AppTypography.sans(size: 13, color: c.mu),
                   ),

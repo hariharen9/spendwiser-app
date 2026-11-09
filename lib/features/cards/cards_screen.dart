@@ -793,6 +793,7 @@ class _Transactions extends ConsumerWidget {
           onChanged: (value) => onCycle(value ?? 'all'),
         ),
         Container(
+          height: 48,
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.only(left: 16, right: 6),
           decoration: BoxDecoration(
@@ -800,16 +801,20 @@ class _Transactions extends ConsumerWidget {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: c.ln),
           ),
+          alignment: Alignment.center,
           child: Row(
             children: [
               Expanded(
                 child: TextField(
+                  textAlignVertical: TextAlignVertical.center,
                   style: AppTypography.sans(size: 14, color: c.tx),
                   onChanged: onQuery,
                   decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
                     hintText: 'Search this card…',
                     hintStyle: AppTypography.sans(size: 14, color: c.mu),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 13),
                   ),
                 ),
               ),

@@ -128,6 +128,7 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
           }),
         ),
         Container(
+          height: 48,
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.only(left: 16, right: 6),
           decoration: BoxDecoration(
@@ -136,16 +137,20 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
             border: Border.all(color: c.ln),
             gradient: c.dark ? c.cardGradient : null,
           ),
+          alignment: Alignment.center,
           child: Row(
             children: [
               Expanded(
                 child: TextField(
+                  textAlignVertical: TextAlignVertical.center,
                   style: AppTypography.sans(size: 14, color: c.tx),
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
                     hintText: 'Search merchants, notes…',
                     hintStyle: AppTypography.sans(size: 14, color: c.mu),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 13),
                   ),
                 ),
               ),

@@ -427,10 +427,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: context.spend.c2,
               borderRadius: BorderRadius.circular(14),
             ),
+            alignment: Alignment.center,
             child: TextField(
               controller: controller,
+              textAlignVertical: TextAlignVertical.center,
               style: AppTypography.sans(size: 14, color: context.spend.tx),
               decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
                 hintText: 'Your name',
                 hintStyle: AppTypography.sans(
                   size: 13,
@@ -664,10 +669,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: c.c2,
                   borderRadius: BorderRadius.circular(14),
                 ),
+                alignment: Alignment.center,
                 child: TextField(
                   obscureText: true,
+                  textAlignVertical: TextAlignVertical.center,
                   style: AppTypography.sans(size: 14, color: c.tx),
                   decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
                     hintText: 'API key',
                     hintStyle: AppTypography.sans(size: 13, color: c.mu),
                   ),
@@ -784,10 +794,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: sheetContext.spend.c2,
               borderRadius: BorderRadius.circular(14),
             ),
+            alignment: Alignment.center,
             child: TextField(
               obscureText: true,
+              textAlignVertical: TextAlignVertical.center,
               style: AppTypography.sans(size: 14, color: sheetContext.spend.tx),
               decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
                 hintText: 'Passphrase',
                 hintStyle: AppTypography.sans(
                   size: 13,
@@ -1118,12 +1133,16 @@ class _CategoriesSheetState extends ConsumerState<_CategoriesSheet> {
                     color: c.c2,
                     borderRadius: BorderRadius.circular(14),
                   ),
+                  alignment: Alignment.center,
                   child: TextField(
                     controller: _nameController,
+                    textAlignVertical: TextAlignVertical.center,
                     style: AppTypography.sans(size: 14, color: c.tx),
                     autofocus: true,
                     textCapitalization: TextCapitalization.words,
                     decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
                       hintText: 'e.g. Groceries, Fitness, Pets…',
                       hintStyle: AppTypography.sans(size: 13, color: c.mu),
                       border: InputBorder.none,
@@ -1269,12 +1288,16 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
             color: c.c2,
             borderRadius: BorderRadius.circular(14),
           ),
+          alignment: Alignment.center,
           child: TextField(
             controller: _controller,
             enabled: !isProtected,
+            textAlignVertical: TextAlignVertical.center,
             style: AppTypography.sans(size: 14, color: c.tx),
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
               hintText: 'Category name',
               hintStyle: AppTypography.sans(size: 13, color: c.mu),
               border: InputBorder.none,

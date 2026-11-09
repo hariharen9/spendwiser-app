@@ -298,12 +298,17 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
               color: c.c2,
               borderRadius: BorderRadius.circular(14),
             ),
+            alignment: Alignment.centerLeft,
             child: TextField(
               controller: _gstAmount,
+              textAlignVertical: TextAlignVertical.center,
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
               style: AppTypography.sans(size: 14, color: c.tx),
               decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
                 hintText: 'Amount before GST',
                 hintStyle: AppTypography.sans(size: 13, color: c.mu),
               ),

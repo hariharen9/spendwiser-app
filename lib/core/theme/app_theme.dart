@@ -126,7 +126,10 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
         isDense: true,
+        contentPadding: EdgeInsets.zero,
         hintStyle: AppTypography.sans(size: 14, color: spend.mu),
       ),
     );

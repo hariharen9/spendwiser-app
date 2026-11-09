@@ -81,16 +81,21 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
               color: c.c2,
               borderRadius: BorderRadius.circular(16),
             ),
+            alignment: Alignment.center,
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    textAlignVertical: TextAlignVertical.center,
                     autofocus: false,
                     style: AppTypography.sans(size: 14, color: c.tx),
                     textInputAction: TextInputAction.search,
                     onSubmitted: _ask,
                     decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
                       hintText: 'e.g. Food last month, Uber this week',
                       hintStyle: AppTypography.sans(size: 13, color: c.mu),
                     ),
@@ -142,27 +147,40 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                style: AppTypography.sans(size: 14, color: c.tx),
-                textInputAction: TextInputAction.search,
-                onSubmitted: _ask,
-                decoration: InputDecoration(
-                  hintText: 'Ask another question…',
-                  hintStyle: AppTypography.sans(size: 13, color: c.mu),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.only(left: 14, right: 6),
+          decoration: BoxDecoration(
+            color: c.c2,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: AppTypography.sans(size: 14, color: c.tx),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: _ask,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    hintText: 'Ask another question…',
+                    hintStyle: AppTypography.sans(size: 13, color: c.mu),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            AppPill(
-              label: 'Ask',
-              active: true,
-              onTap: () => _ask(_controller.text),
-            ),
-          ],
+              const SizedBox(width: 8),
+              AppPill(
+                label: 'Ask',
+                active: true,
+                onTap: () => _ask(_controller.text),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 18),
         Text(result.label, style: AppTypography.sans(size: 12, color: c.mu)),

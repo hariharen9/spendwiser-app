@@ -343,27 +343,31 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
   Widget build(BuildContext context) {
     final c = context.spend;
     return Container(
+      height: 48,
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.only(left: 16, right: 6, top: 4, bottom: 4),
+      padding: const EdgeInsets.only(left: 16, right: 6),
       decoration: BoxDecoration(
         color: c.c1,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: c.ln),
         gradient: c.dark ? c.cardGradient : null,
       ),
+      alignment: Alignment.center,
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
+              textAlignVertical: TextAlignVertical.center,
               style: AppTypography.sans(size: 14, color: c.tx),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submit(),
               decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
                 hintText: 'Type “chai 40” or “uber 280”…',
                 hintStyle: AppTypography.sans(size: 14, color: c.mu),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 11),
               ),
             ),
           ),

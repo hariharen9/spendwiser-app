@@ -133,6 +133,7 @@ class _PayCardSheetState extends ConsumerState<_PayCardSheet> {
           alignment: Alignment.centerLeft,
           child: TextField(
             controller: _input,
+            textAlignVertical: TextAlignVertical.center,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: AppTypography.sans(size: 14, color: c.tx),
             onChanged: (value) {
@@ -140,6 +141,9 @@ class _PayCardSheetState extends ConsumerState<_PayCardSheet> {
               if (parsed != null) setState(() => _amount = parsed);
             },
             decoration: InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
               hintText: 'Or enter an amount',
               hintStyle: AppTypography.sans(size: 13, color: c.mu),
             ),
@@ -765,10 +769,14 @@ class _SheetField extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: TextField(
         controller: controller,
+        textAlignVertical: TextAlignVertical.center,
         keyboardType: number ? TextInputType.number : TextInputType.text,
         maxLength: maxLength,
         style: AppTypography.sans(size: 13, color: c.tx),
         decoration: InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
           counterText: '',
           hintText: hint,
           hintStyle: AppTypography.sans(size: 13, color: c.mu),
