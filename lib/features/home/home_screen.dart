@@ -8,7 +8,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helpers.dart';
-import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
@@ -29,6 +28,9 @@ import '../../data/services/finance_calculator.dart';
 import '../shell/app_module.dart';
 import '../transactions/add_transaction_sheet.dart';
 import 'customize_home_sheet.dart';
+import 'services/capture_parser.dart';
+import 'widgets/receipt_scanner_sheet.dart';
+import 'widgets/voice_capture_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key, required this.onNavigate});
@@ -274,69 +276,35 @@ class _CaptureBar extends ConsumerStatefulWidget {
 class _CaptureBarState extends ConsumerState<_CaptureBar> {
   final _controller = TextEditingController();
 
-  static const _shortcuts = <String, String>{
-    'chai': 'Food',
-    'coffee': 'Food',
-    'uber': 'Travel',
-    'ola': 'Travel',
-    'netflix': 'Fun',
-    'movie': 'Fun',
-    'rent': 'Bills',
-    'bill': 'Bills',
-    'amazon': 'Shop',
-    'myntra': 'Shop',
-  };
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  String _categoryFor(String merchant) {
-    final lower = merchant.toLowerCase();
-    for (final entry in _shortcuts.entries) {
-      if (lower.contains(entry.key)) return entry.value;
-    }
-    if (RegExp(r'uber|ola|metro|auto|fuel|petrol|cab').hasMatch(lower)) {
-      return 'Travel';
-    }
-    if (RegExp(r'amazon|myntra|flipkart|shop').hasMatch(lower)) return 'Shop';
-    if (RegExp(r'netflix|movie|bms|game|pvr').hasMatch(lower)) return 'Fun';
-    if (RegExp(r'rent|electric|wifi|recharge').hasMatch(lower)) return 'Bills';
-    return 'Food';
-  }
-
   Future<void> _submit() async {
     final input = _controller.text.trim();
-    final match = RegExp(r'(\d[\d,]*)').firstMatch(input);
-    if (match == null) {
-      ref.read(toastProvider.notifier).show('Add an amount, e.g. “chai 40”');
+    if (input.isEmpty) return;
+
+    final parsed = CaptureParser.parse(input);
+    if (parsed == null) {
+      ref.read(toastProvider.notifier).show('Add an amount, e.g. “chai 40” or “uber 280”');
       return;
     }
-    final amount = double.parse(match.group(1)!.replaceAll(',', ''));
-    var merchant = input.replaceFirst(match.group(0)!, '').trim();
-    if (merchant.isEmpty) merchant = 'Expense';
-    final category = _categoryFor(merchant);
-    merchant = merchant[0].toUpperCase() + merchant.substring(1).toLowerCase();
+
     final account = widget.snapshot.accounts.isEmpty
         ? null
         : widget.snapshot.accounts.first;
-    await ref
-        .read(transactionRepositoryProvider)
-        .addTransaction(
-          TransactionDraft(
-            merchant: merchant,
-            category: category,
-            amount: -amount,
-            date: DateTime.now(),
-            accountId: account?.id,
-          ),
-        );
+
+    await ref.read(transactionRepositoryProvider).addTransaction(
+      parsed.toDraft(accountId: account?.id),
+    );
+
     _controller.clear();
-    ref
-        .read(toastProvider.notifier)
-        .show('Logged · $category ${rupee(amount)}');
+    final label = parsed.isIncome
+        ? 'Received · ${parsed.merchant} ${rupee(parsed.amount)}'
+        : 'Logged · ${parsed.category} ${rupee(parsed.amount)}';
+    ref.read(toastProvider.notifier).show(label);
   }
 
   @override
@@ -429,264 +397,11 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 void _showVoice(BuildContext context) {
-  showAppSheet(context, (_) => const _VoiceSheet());
-}
-
-class _VoiceSheet extends ConsumerStatefulWidget {
-  const _VoiceSheet();
-
-  @override
-  ConsumerState<_VoiceSheet> createState() => _VoiceSheetState();
-}
-
-class _VoiceSheetState extends ConsumerState<_VoiceSheet> {
-  String _text = 'Listening…';
-  Timer? _one;
-  Timer? _two;
-
-  @override
-  void initState() {
-    super.initState();
-    _one = Timer(const Duration(milliseconds: 1500), () {
-      if (!mounted) return;
-      setState(() => _text = '“Zomato four eighty six”');
-      _two = Timer(const Duration(milliseconds: 1100), () async {
-        if (!mounted) return;
-        Navigator.of(context).pop();
-        await ref
-            .read(transactionRepositoryProvider)
-            .addTransaction(
-              TransactionDraft(
-                merchant: 'Zomato',
-                category: 'Food',
-                amount: -486,
-                date: DateTime.now(),
-                accountId: ref.read(financeSnapshotProvider).accounts.isEmpty
-                    ? null
-                    : ref.read(financeSnapshotProvider).accounts.first.id,
-              ),
-            );
-        ref.read(toastProvider.notifier).show('Logged ${rupee(486)} · Zomato');
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _one?.cancel();
-    _two?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.spend;
-    return Column(
-      children: [
-        const SizedBox(height: 14),
-        Container(
-          width: 84,
-          height: 84,
-          decoration: BoxDecoration(
-            color: c.ac,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: c.ac.withValues(alpha: 0.45),
-                blurRadius: 0,
-                spreadRadius: 20,
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: SpendIcon('mic', size: 34, color: c.aci, strokeWidth: 1.8),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          _text,
-          style: AppTypography.serif(size: 28, color: c.tx),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Try “chai forty” or “uber two eighty”',
-          style: AppTypography.sans(size: 12, color: c.mu),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
+  showVoiceCaptureSheet(context);
 }
 
 void _showScan(BuildContext context) {
-  showAppSheet(context, (_) => const _ScanSheet());
-}
-
-class _ScanSheet extends ConsumerStatefulWidget {
-  const _ScanSheet();
-
-  @override
-  ConsumerState<_ScanSheet> createState() => _ScanSheetState();
-}
-
-class _ScanSheetState extends ConsumerState<_ScanSheet> {
-  bool _detected = false;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer(const Duration(milliseconds: 2000), () {
-      if (mounted) setState(() => _detected = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _confirm() async {
-    Navigator.of(context).pop();
-    await ref
-        .read(transactionRepositoryProvider)
-        .addTransaction(
-          TransactionDraft(
-            merchant: 'Blinkit',
-            category: 'Food',
-            amount: -842,
-            date: DateTime.now(),
-            accountId: ref.read(financeSnapshotProvider).accounts.isEmpty
-                ? null
-                : ref.read(financeSnapshotProvider).accounts.first.id,
-          ),
-        );
-    ref.read(toastProvider.notifier).show('Logged ${rupee(842)} · Blinkit');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.spend;
-    if (!_detected) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('Scan receipt'),
-          const SizedBox(height: 12),
-          _Viewfinder(),
-          const SizedBox(height: 12),
-          Text(
-            'Reading merchant, items and total…',
-            textAlign: TextAlign.center,
-            style: AppTypography.sans(size: 12, color: c.mu),
-          ),
-          const SizedBox(height: 16),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Receipt detected',
-          style: AppTypography.sans(size: 14, color: c.mu),
-        ),
-        const SizedBox(height: 4),
-        Text(rupee(842), style: AppTypography.serif(size: 46, color: c.tx)),
-        Text(
-          'Blinkit · Food',
-          style: AppTypography.sans(size: 14, color: c.tx),
-        ),
-        const SizedBox(height: 14),
-        AppCard(
-          child: Column(
-            children: [
-              for (final item in const [
-                ['Amul milk ×2', 128],
-                ['Eggs ×12', 96],
-                ['Basmati rice 5kg', 520],
-                ['Delivery', 98],
-              ])
-                KeyValueRow(
-                  label: item[0] as String,
-                  value: MoneyText(
-                    rupee(item[1] as int),
-                    style: AppTypography.sans(size: 14, color: c.tx),
-                  ),
-                  border: item != const ['Delivery', 98],
-                ),
-            ],
-          ),
-        ),
-        PrimaryButton(label: 'Confirm & log', onTap: _confirm),
-      ],
-    );
-  }
-}
-
-class _Viewfinder extends StatefulWidget {
-  @override
-  State<_Viewfinder> createState() => _ViewfinderState();
-}
-
-class _ViewfinderState extends State<_Viewfinder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.spend;
-    return Container(
-      height: 190,
-      decoration: BoxDecoration(
-        color: c.c2,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: c.ln, width: 2),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SpendIcon('scan', size: 36, color: c.mu),
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Positioned(
-                left: 0,
-                right: 0,
-                top: 12 + _controller.value * 150,
-                child: Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: c.ac,
-                    boxShadow: [
-                      BoxShadow(color: c.ac, blurRadius: 18, spreadRadius: 1),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  showReceiptScannerSheet(context);
 }
 
 class _SafeRing extends StatelessWidget {
