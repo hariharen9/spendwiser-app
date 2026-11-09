@@ -32,4 +32,22 @@ class Investment {
     value: value ?? this.value,
     monthlySip: monthlySip ?? this.monthlySip,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'type': type,
+    'invested': invested,
+    'value': value,
+    'monthlySip': monthlySip,
+  };
+
+  factory Investment.fromJson(Map<String, dynamic> j) => Investment(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    type: j['type'] as String? ?? 'Mutual Fund',
+    invested: (j['invested'] as num? ?? 0).toDouble(),
+    value: (j['value'] as num? ?? 0).toDouble(),
+    monthlySip: (j['monthlySip'] as num? ?? 0).toDouble(),
+  );
 }

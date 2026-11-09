@@ -42,10 +42,23 @@ class MockFinanceStore
         IGoalRepository,
         ISubscriptionRepository,
         ISplitRepository {
-  MockFinanceStore.seeded({DateTime? now}) {
+  final void Function(Map<String, dynamic>)? _saveState;
+
+  MockFinanceStore.seeded({
+    DateTime? now,
+    Map<String, dynamic>? Function()? loadState,
+    void Function(Map<String, dynamic>)? saveState,
+    // ignore: prefer_initializing_formals
+  }) : _saveState = saveState {
     _now = now;
-    _seed();
+    final restored = loadState?.call();
+    if (restored != null) {
+      _importState(restored);
+    } else {
+      _seed();
+    }
   }
+
 
   DateTime? _now;
   final _controller = StreamController<FinanceSnapshot>.broadcast();
@@ -712,6 +725,114 @@ class MockFinanceStore
       generatedAt: _now ?? DateTime.now(),
     );
     if (!_controller.isClosed) _controller.add(_snapshot);
+    _saveState?.call(_exportState());
+  }
+
+  Map<String, dynamic> _exportState() => {
+    'version': 1,
+    'now': _now?.toIso8601String(),
+    'revision': _revision,
+    'txCounter': _txCounter,
+    'idCounter': _idCounter,
+    'transactions': _transactions.map((e) => e.toJson()).toList(),
+    'accounts': _accounts.map((e) => e.toJson()).toList(),
+    'cards': _cards.map((e) => e.toJson()).toList(),
+    'loans': _loans.map((e) => e.toJson()).toList(),
+    'budgets': _budgets.map((e) => e.toJson()).toList(),
+    'goals': _goals.map((e) => e.toJson()).toList(),
+    'subscriptions': _subscriptions.map((e) => e.toJson()).toList(),
+    'recurring': _recurring.map((e) => e.toJson()).toList(),
+    'groups': _groups.map((e) => e.toJson()).toList(),
+    'investments': _investments.map((e) => e.toJson()).toList(),
+    'tags': _tags,
+  };
+
+  void _importState(Map<String, dynamic> j) {
+    final nowRaw = j['now'] as String?;
+    if (nowRaw != null) {
+      _now = DateTime.tryParse(nowRaw) ?? _now;
+    }
+    _revision = (j['revision'] as num? ?? 0).toInt();
+    _txCounter = (j['txCounter'] as num? ?? 0).toInt();
+    _idCounter = (j['idCounter'] as num? ?? 0).toInt();
+    _transactions
+      ..clear()
+      ..addAll(
+        ((j['transactions'] as List?) ?? []).map(
+          (e) => Transaction.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _accounts
+      ..clear()
+      ..addAll(
+        ((j['accounts'] as List?) ?? []).map(
+          (e) => Account.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _cards
+      ..clear()
+      ..addAll(
+        ((j['cards'] as List?) ?? []).map(
+          (e) => CreditCard.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _loans
+      ..clear()
+      ..addAll(
+        ((j['loans'] as List?) ?? []).map(
+          (e) => Loan.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _budgets
+      ..clear()
+      ..addAll(
+        ((j['budgets'] as List?) ?? []).map(
+          (e) => Budget.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _goals
+      ..clear()
+      ..addAll(
+        ((j['goals'] as List?) ?? []).map(
+          (e) => Goal.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _subscriptions
+      ..clear()
+      ..addAll(
+        ((j['subscriptions'] as List?) ?? []).map(
+          (e) => Subscription.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _recurring
+      ..clear()
+      ..addAll(
+        ((j['recurring'] as List?) ?? []).map(
+          (e) => RecurringTransaction.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _groups
+      ..clear()
+      ..addAll(
+        ((j['groups'] as List?) ?? []).map(
+          (e) => SplitGroup.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _investments
+      ..clear()
+      ..addAll(
+        ((j['investments'] as List?) ?? []).map(
+          (e) => Investment.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    final tags = (j['tags'] as List?)?.map((e) => e as String).toList();
+    if (tags != null && tags.isNotEmpty) {
+      _tags
+        ..clear()
+        ..addAll(tags);
+    }
+    _recalc();
+    _commit();
   }
 
   CreditCard _cloneCard(CreditCard card) {

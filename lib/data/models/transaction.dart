@@ -71,6 +71,32 @@ class Transaction {
       hasReceipt: hasReceipt ?? this.hasReceipt,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'merchant': merchant,
+    'category': category,
+    'amount': amount,
+    'date': date.toIso8601String(),
+    'accountId': accountId,
+    'cardId': cardId,
+    'note': note,
+    'tags': tags,
+    'hasReceipt': hasReceipt,
+  };
+
+  factory Transaction.fromJson(Map<String, dynamic> j) => Transaction(
+    id: j['id'] as String,
+    merchant: j['merchant'] as String,
+    category: j['category'] as String,
+    amount: (j['amount'] as num).toDouble(),
+    date: DateTime.parse(j['date'] as String),
+    accountId: j['accountId'] as String?,
+    cardId: j['cardId'] as String?,
+    note: j['note'] as String? ?? '',
+    tags: ((j['tags'] as List?) ?? []).map((e) => e as String).toList(),
+    hasReceipt: j['hasReceipt'] as bool? ?? false,
+  );
 }
 
 @immutable

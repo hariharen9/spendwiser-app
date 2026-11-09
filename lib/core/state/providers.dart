@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:hive/hive.dart';
 import '../theme/app_colors.dart';
 import '../../data/mock/mock_finance_store.dart';
 import '../../data/mock/mock_settings_repository.dart';
@@ -17,18 +18,35 @@ import '../../data/repositories/i_goal_repository.dart';
 import '../../data/repositories/i_loan_repository.dart';
 import '../../data/repositories/i_settings_repository.dart';
 import '../../data/repositories/i_split_repository.dart';
-import '../../data/repositories/i_subscription_repository.dart';
 import '../../data/repositories/i_transaction_repository.dart';
+import '../../data/repositories/i_subscription_repository.dart';
+import '../../data/persistence/hive_persistence.dart';
+
+/// Returns the already-open Hive box for [name], or null in tests / not yet
+/// initialized. Never throws.
+Box<String>? _hiveBox(String name) {
+  try {
+    if (Hive.isBoxOpen(name)) return Hive.box(name);
+  } catch (_) {}
+  return null;
+}
+
+AppSettings loadPersistedSettings() {
+  final box = _hiveBox('settings');
+  if (box == null) return const AppSettings();
+  return HiveSettingsRepository(box).loadSync();
+}
 
 /// In-memory settings adapter. Replacing this with a persisted implementation
-/// does not touch any screen.
-final settingsRepositoryProvider = Provider<ISettingsRepository>(
-  (ref) => MockSettingsRepository(),
-);
+final settingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
+  final box = _hiveBox('settings');
+  if (box != null) return HiveSettingsRepository(box);
+  return MockSettingsRepository();
+});
 
 class SettingsNotifier extends Notifier<AppSettings> {
   @override
-  AppSettings build() => const AppSettings();
+  AppSettings build() => loadPersistedSettings();
 
   void update(AppSettings next) {
     state = next;
@@ -123,7 +141,12 @@ final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(
 // ------------------------------------------------------------- finance DI ---
 
 final mockFinanceStoreProvider = Provider<MockFinanceStore>((ref) {
-  final store = MockFinanceStore.seeded();
+  final box = _hiveBox('finance');
+  final persister = box == null ? null : HiveFinancePersister(box);
+  final store = MockFinanceStore.seeded(
+    loadState: persister?.loadState,
+    saveState: persister?.saveState,
+  );
   ref.onDispose(store.dispose);
   return store;
 });

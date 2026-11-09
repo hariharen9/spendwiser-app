@@ -29,6 +29,24 @@ class Subscription {
     active: active ?? this.active,
     note: note ?? this.note,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'price': price,
+    'renewsInDays': renewsInDays,
+    'active': active,
+    'note': note,
+  };
+
+  factory Subscription.fromJson(Map<String, dynamic> j) => Subscription(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    price: (j['price'] as num? ?? 0).toDouble(),
+    renewsInDays: (j['renewsInDays'] as num? ?? 0).toInt(),
+    active: j['active'] as bool? ?? true,
+    note: j['note'] as String?,
+  );
 }
 
 enum RecurringFrequency {
@@ -81,4 +99,23 @@ class RecurringTransaction {
     isIncome: isIncome ?? this.isIncome,
     active: active ?? this.active,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'amount': amount,
+    'frequency': frequency.label,
+    'isIncome': isIncome,
+    'active': active,
+  };
+
+  factory RecurringTransaction.fromJson(Map<String, dynamic> j) =>
+      RecurringTransaction(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        amount: (j['amount'] as num? ?? 0).toDouble(),
+        frequency: RecurringFrequency.fromLabel(j['frequency'] as String? ?? 'monthly'),
+        isIncome: j['isIncome'] as bool? ?? false,
+        active: j['active'] as bool? ?? true,
+      );
 }

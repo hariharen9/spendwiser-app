@@ -34,6 +34,25 @@ class LoanPayment {
   final LoanPaymentType type;
   final double interest;
   final double principal;
+
+  Map<String, dynamic> toJson() => {
+    'date': date.toIso8601String(),
+    'amount': amount,
+    'type': type.name,
+    'interest': interest,
+    'principal': principal,
+  };
+
+  factory LoanPayment.fromJson(Map<String, dynamic> j) => LoanPayment(
+    date: DateTime.parse(j['date'] as String),
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    type: LoanPaymentType.values.firstWhere(
+      (e) => e.name == j['type'],
+      orElse: () => LoanPaymentType.emi,
+    ),
+    interest: (j['interest'] as num? ?? 0).toDouble(),
+    principal: (j['principal'] as num? ?? 0).toDouble(),
+  );
 }
 
 @immutable
@@ -107,6 +126,38 @@ class Loan {
       payments: payments ?? this.payments,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'lender': lender,
+    'type': type.label,
+    'outstanding': outstanding,
+    'original': original,
+    'rate': rate,
+    'emi': emi,
+    'emiDay': emiDay,
+    'tenureMonths': tenureMonths,
+    'startDate': startDate.toIso8601String(),
+    'payments': payments.map((p) => p.toJson()).toList(),
+  };
+
+  factory Loan.fromJson(Map<String, dynamic> j) => Loan(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    lender: j['lender'] as String? ?? '',
+    type: LoanType.fromLabel(j['type'] as String? ?? 'Other'),
+    outstanding: (j['outstanding'] as num? ?? 0).toDouble(),
+    original: (j['original'] as num? ?? 0).toDouble(),
+    rate: (j['rate'] as num? ?? 0).toDouble(),
+    emi: (j['emi'] as num? ?? 0).toDouble(),
+    emiDay: (j['emiDay'] as num? ?? 1).toInt(),
+    tenureMonths: (j['tenureMonths'] as num?)?.toInt(),
+    startDate: DateTime.parse(j['startDate'] as String),
+    payments: ((j['payments'] as List?) ?? [])
+        .map((e) => LoanPayment.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+  );
 }
 
 @immutable

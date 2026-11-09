@@ -107,4 +107,51 @@ class AppSettings {
       categories: categories ?? this.categories,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'theme': theme.name,
+    'accent': accent.toARGB32(),
+    'font': font.name,
+    'userName': userName,
+    'hideBalances': hideBalances,
+    'haptics': haptics,
+    'budgetAlerts': budgetAlerts,
+    'onboardingSeen': onboardingSeen,
+    'roundUps': roundUps,
+    'monthStart': monthStart,
+    'homeWidgets': homeWidgets.map((e) => e.name).toList(),
+    'hiddenWidgets': hiddenWidgets.map((e) => e.name).toList(),
+    'billReminders': billReminders,
+    'weeklyDigest': weeklyDigest,
+    'categories': categories.map((k, v) => MapEntry(k, v.toARGB32())),
+  };
+
+  factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
+    theme: AppThemeMode.values.firstWhere(
+      (e) => e.name == j['theme'],
+      orElse: () => AppThemeMode.dark,
+    ),
+    accent: Color(((j['accent'] as num?) ?? 0xFFD4FF3A).toInt()),
+    font: AppFontMode.values.firstWhere(
+      (e) => e.name == j['font'],
+      orElse: () => AppFontMode.dmSans,
+    ),
+    userName: j['userName'] as String? ?? 'Arjun',
+    hideBalances: j['hideBalances'] as bool? ?? false,
+    haptics: j['haptics'] as bool? ?? true,
+    budgetAlerts: j['budgetAlerts'] as bool? ?? true,
+    onboardingSeen: j['onboardingSeen'] as bool? ?? false,
+    roundUps: j['roundUps'] as bool? ?? false,
+    monthStart: (j['monthStart'] as num? ?? 1).toInt(),
+    homeWidgets: ((j['homeWidgets'] as List?) ?? HomeWidget.values.map((e) => e.name).toList())
+        .map((e) => HomeWidget.values.firstWhere((w) => w.name == e, orElse: () => HomeWidget.netWorth))
+        .toList(),
+    hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
+        .map((e) => HomeWidget.values.firstWhere((w) => w.name == e, orElse: () => HomeWidget.netWorth))
+        .toSet(),
+    billReminders: j['billReminders'] as bool? ?? true,
+    weeklyDigest: j['weeklyDigest'] as bool? ?? false,
+    categories: ((j['categories'] as Map?) ?? {})
+        .map((k, v) => MapEntry(k as String, Color((v as num).toInt()))),
+  );
 }

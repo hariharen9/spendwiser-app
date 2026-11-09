@@ -101,6 +101,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               ],
             ),
           ),
+          if (sorted.isEmpty)
+            EmptyState(
+              title: 'No subscriptions tracked',
+              message: 'Log recurring charges so nothing slips by.',
+              actionLabel: 'Add subscription',
+              onAction: () => _addSubscription(context),
+            ),
           const SectionCaption('Renewals'),
           AppCard(
             child: Column(
@@ -142,6 +149,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             ],
           ),
           const SizedBox(height: 10),
+          if (recurring.isEmpty)
+            EmptyState(
+              title: 'No recurring items',
+              message: 'Add salary, rent or SIPs to forecast cash flow.',
+              actionLabel: 'Add recurring',
+              onAction: () => _addRecurring(context),
+            ),
           AppCard(
             child: Column(
               children: [

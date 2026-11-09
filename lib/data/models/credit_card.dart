@@ -42,6 +42,31 @@ class CardStatement {
   final StatementStatus status;
 
   double get paidRatio => amount <= 0 ? 0 : (paid / amount).clamp(0, 1);
+
+  Map<String, dynamic> toJson() => {
+    'index': index,
+    'start': start.toIso8601String(),
+    'end': end.toIso8601String(),
+    'dueDate': dueDate.toIso8601String(),
+    'amount': amount,
+    'paid': paid,
+    'remaining': remaining,
+    'status': status.name,
+  };
+
+  factory CardStatement.fromJson(Map<String, dynamic> j) => CardStatement(
+    index: (j['index'] as num? ?? 0).toInt(),
+    start: DateTime.parse(j['start'] as String),
+    end: DateTime.parse(j['end'] as String),
+    dueDate: DateTime.parse(j['dueDate'] as String),
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    paid: (j['paid'] as num? ?? 0).toDouble(),
+    remaining: (j['remaining'] as num? ?? 0).toDouble(),
+    status: StatementStatus.values.firstWhere(
+      (e) => e.name == j['status'],
+      orElse: () => StatementStatus.nil,
+    ),
+  );
 }
 
 @immutable
@@ -57,6 +82,20 @@ class CardCycle {
   final DateTime end;
   final double amount;
   final int daysLeft;
+
+  Map<String, dynamic> toJson() => {
+    'start': start.toIso8601String(),
+    'end': end.toIso8601String(),
+    'amount': amount,
+    'daysLeft': daysLeft,
+  };
+
+  factory CardCycle.fromJson(Map<String, dynamic> j) => CardCycle(
+    start: DateTime.parse(j['start'] as String),
+    end: DateTime.parse(j['end'] as String),
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    daysLeft: (j['daysLeft'] as num? ?? 0).toInt(),
+  );
 }
 
 @immutable
@@ -72,6 +111,22 @@ class CardPayment {
   final double amount;
   final String accountId;
   final DateTime? statementEnd;
+
+  Map<String, dynamic> toJson() => {
+    'date': date.toIso8601String(),
+    'amount': amount,
+    'accountId': accountId,
+    'statementEnd': statementEnd?.toIso8601String(),
+  };
+
+  factory CardPayment.fromJson(Map<String, dynamic> j) => CardPayment(
+    date: DateTime.parse(j['date'] as String),
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    accountId: j['accountId'] as String? ?? '',
+    statementEnd: j['statementEnd'] == null
+        ? null
+        : DateTime.parse(j['statementEnd'] as String),
+  );
 }
 
 @immutable
@@ -87,6 +142,23 @@ class CardDue {
   final int days;
   final StatementStatus status;
   final DateTime dueDate;
+
+  Map<String, dynamic> toJson() => {
+    'amount': amount,
+    'days': days,
+    'status': status.name,
+    'dueDate': dueDate.toIso8601String(),
+  };
+
+  factory CardDue.fromJson(Map<String, dynamic> j) => CardDue(
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    days: (j['days'] as num? ?? 0).toInt(),
+    status: StatementStatus.values.firstWhere(
+      (e) => e.name == j['status'],
+      orElse: () => StatementStatus.due,
+    ),
+    dueDate: DateTime.parse(j['dueDate'] as String),
+  );
 }
 
 class CreditCard {
@@ -184,6 +256,65 @@ class CreditCard {
       dueLabel: dueLabel ?? this.dueLabel,
       cycleLeftDays: cycleLeftDays ?? this.cycleLeftDays,
     );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'gradient': gradient.map((c) => c.toARGB32()).toList(),
+    'last4': last4,
+    'limit': limit,
+    'statementDay': statementDay,
+    'dueDay': dueDay,
+    'outstanding': outstanding,
+    'minimumDue': minimumDue,
+    'rewardPoints': rewardPoints,
+    'onlinePayments': onlinePayments,
+    'international': international,
+    'tapToPay': tapToPay,
+    'frozen': frozen,
+    'payments': payments.map((e) => e.toJson()).toList(),
+    'statements': statements.map((e) => e.toJson()).toList(),
+    'openCycle': openCycle?.toJson(),
+    'due': due?.toJson(),
+    'dueLabel': dueLabel,
+    'cycleLeftDays': cycleLeftDays,
+  };
+
+  factory CreditCard.fromJson(Map<String, dynamic> j) {
+    final card = CreditCard(
+      id: j['id'] as String,
+      name: j['name'] as String,
+      gradient: ((j['gradient'] as List?) ?? [])
+          .map((e) => Color((e as num).toInt()))
+          .toList(),
+      last4: j['last4'] as String? ?? '',
+      limit: (j['limit'] as num? ?? 0).toDouble(),
+      statementDay: (j['statementDay'] as num? ?? 1).toInt(),
+      dueDay: (j['dueDay'] as num? ?? 1).toInt(),
+      outstanding: (j['outstanding'] as num? ?? 0).toDouble(),
+      minimumDue: (j['minimumDue'] as num? ?? 0).toDouble(),
+      rewardPoints: (j['rewardPoints'] as num? ?? 0).toInt(),
+      onlinePayments: j['onlinePayments'] as bool? ?? true,
+      international: j['international'] as bool? ?? false,
+      tapToPay: j['tapToPay'] as bool? ?? true,
+      frozen: j['frozen'] as bool? ?? false,
+      payments: ((j['payments'] as List?) ?? [])
+          .map((e) => CardPayment.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      statements: ((j['statements'] as List?) ?? [])
+          .map((e) => CardStatement.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      openCycle: j['openCycle'] == null
+          ? null
+          : CardCycle.fromJson(Map<String, dynamic>.from(j['openCycle'] as Map)),
+      due: j['due'] == null
+          ? null
+          : CardDue.fromJson(Map<String, dynamic>.from(j['due'] as Map)),
+      dueLabel: j['dueLabel'] as String? ?? '—',
+      cycleLeftDays: (j['cycleLeftDays'] as num? ?? 0).toInt(),
+    );
+    return card;
   }
 
   static const iciciGradient = [Color(0xFF7A3B12), Color(0xFF1A0D05)];

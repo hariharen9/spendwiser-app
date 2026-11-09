@@ -36,6 +36,28 @@ class SplitExpense {
   final String? settledTo;
 
   bool get isSettlement => settledTo != null;
+
+  Map<String, dynamic> toJson() => {
+    'description': description,
+    'amount': amount,
+    'paidBy': paidBy,
+    'shares': shares,
+    'type': type.code,
+    'date': date.toIso8601String(),
+    'settledTo': settledTo,
+  };
+
+  factory SplitExpense.fromJson(Map<String, dynamic> j) => SplitExpense(
+    description: j['description'] as String? ?? 'Expense',
+    amount: (j['amount'] as num? ?? 0).toDouble(),
+    paidBy: j['paidBy'] as String? ?? 'You',
+    shares: ((j['shares'] as Map?) ?? {}).map(
+      (k, v) => MapEntry(k as String, (v as num).toDouble()),
+    ),
+    type: SplitType.fromCode(j['type'] as String? ?? 'eq'),
+    date: DateTime.parse(j['date'] as String),
+    settledTo: j['settledTo'] as String?,
+  );
 }
 
 class SplitGroup {
@@ -108,6 +130,24 @@ class SplitGroup {
     }
     return transfers;
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'members': members,
+    'expenses': expenses.map((e) => e.toJson()).toList(),
+  };
+
+  factory SplitGroup.fromJson(Map<String, dynamic> j) => SplitGroup(
+    id: j['id'] as String,
+    name: j['name'] as String? ?? 'Group',
+    members: ((j['members'] as List?) ?? [])
+        .map((e) => e as String)
+        .toList(),
+    expenses: ((j['expenses'] as List?) ?? [])
+        .map((e) => SplitExpense.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+  );
 }
 
 @immutable

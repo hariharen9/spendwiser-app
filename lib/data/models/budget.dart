@@ -37,6 +37,22 @@ class Budget {
     rollover: rollover ?? this.rollover,
     alertAt: alertAt ?? this.alertAt,
   );
+
+  Map<String, dynamic> toJson() => {
+    'category': category,
+    'limit': limit,
+    'spent': spent,
+    'rollover': rollover,
+    'alertAt': alertAt,
+  };
+
+  factory Budget.fromJson(Map<String, dynamic> j) => Budget(
+    category: j['category'] as String,
+    limit: (j['limit'] as num? ?? 0).toDouble(),
+    spent: (j['spent'] as num? ?? 0).toDouble(),
+    rollover: j['rollover'] as bool? ?? false,
+    alertAt: (j['alertAt'] as num? ?? 80).toInt(),
+  );
 }
 
 @immutable

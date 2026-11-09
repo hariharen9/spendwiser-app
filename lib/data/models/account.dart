@@ -41,4 +41,24 @@ class Account {
         last4: last4,
         gradient: gradient,
       );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'type': type.label,
+    'balance': balance,
+    'last4': last4,
+    'gradient': gradient.map((c) => c.toARGB32()).toList(),
+  };
+
+  factory Account.fromJson(Map<String, dynamic> j) => Account(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    type: AccountType.fromLabel(j['type'] as String? ?? 'Savings'),
+    balance: (j['balance'] as num? ?? 0).toDouble(),
+    last4: j['last4'] as String?,
+    gradient: ((j['gradient'] as List?) ?? [])
+        .map((e) => Color((e as num).toInt()))
+        .toList(),
+  );
 }
