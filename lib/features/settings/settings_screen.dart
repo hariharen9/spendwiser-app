@@ -453,14 +453,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _export(String label) async {
     ref.read(toastProvider.notifier).show('Preparing $label…');
     try {
+      final snapshot = ref.read(financeSnapshotProvider);
       if (label.contains('CSV')) {
-        final snapshot = ref.read(financeSnapshotProvider);
         await BackupService.exportLedgerCsv(snapshot, _range);
+      } else if (label.contains('PDF')) {
+        await BackupService.exportAnnualSummaryPdf(snapshot);
+      } else if (label.contains('XLSX')) {
+        await BackupService.exportStatementsXlsx(snapshot, _range);
       } else if (label.contains('backup')) {
         await BackupService.exportFullBackup();
       } else {
-        ref.read(toastProvider.notifier).show('Ledger CSV is available today');
-        final snapshot = ref.read(financeSnapshotProvider);
         await BackupService.exportLedgerCsv(snapshot, _range);
       }
       _logHistory(label);
