@@ -16,6 +16,7 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/pressable.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/app_settings.dart';
@@ -326,7 +327,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         AppButton(
-          label: PinVault.hasPin ? 'PIN & biometrics' : 'Set PIN',
+          label: ref.watch(securityProvider).hasPin
+              ? 'PIN & biometrics'
+              : 'Set PIN',
           onTap: () => _showPinVault(context),
         ),
         AppCard(
@@ -825,62 +828,125 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showPinVault(BuildContext context) {
-    var biometrics = PinVault.biometricsEnabled;
     showAppSheet<void>(
       context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
+      (sheetContext) => Consumer(
+        builder: (context, ref, _) {
+          final security = ref.watch(securityProvider);
+          final hasPin = security.hasPin;
+          final biometrics = security.biometricsEnabled;
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SheetTitle('PIN & biometrics'),
+              const SheetTitle(
+                'PIN & biometrics',
+                subtitle: 'Protect your financial data with device security.',
+              ),
               const SizedBox(height: 12),
               AppCard(
                 child: Column(
                   children: [
                     _ToggleRow(
-                      label: 'Face ID / fingerprint',
-                      detail: 'Fast unlock when available',
-                      value: biometrics,
-                      onChanged: (v) async {
-                        setSheetState(() => biometrics = v);
-                        await PinVault.setBiometricsEnabled(v);
+                      label: 'App PIN',
+                      detail: hasPin ? '4-digit PIN configured' : 'Not set',
+                      value: hasPin,
+                      onChanged: (v) {
+                        Navigator.of(sheetContext).pop();
+                        if (!v) {
+                          _showPinVerification(
+                            context,
+                            title: 'Remove PIN',
+                            subtitle:
+                                'Enter your current PIN to turn off app lock.',
+                            onVerified: () async {
+                              await ref
+                                  .read(securityProvider.notifier)
+                                  .removePin();
+                              ref
+                                  .read(toastProvider.notifier)
+                                  .show('App PIN removed');
+                            },
+                          );
+                        } else {
+                          _showPinSetup(context, mode: _PinSheetMode.setup);
+                        }
                       },
                     ),
                     _ToggleRow(
-                      label: 'App PIN',
-                      detail: PinVault.hasPin ? 'Set' : 'Not set',
-                      value: PinVault.hasPin,
+                      label: 'Face ID / Fingerprint',
+                      detail: !security.biometricsSupported
+                          ? 'Not available on device'
+                          : !hasPin
+                              ? 'Set a PIN first'
+                              : 'Fast biometric unlock',
+                      value: biometrics,
                       onChanged: (v) async {
-                        if (!v) {
-                          await PinVault.clearPin();
-                          setSheetState(() {});
-                          ref.read(toastProvider.notifier).show('PIN removed');
+                        if (!hasPin) {
+                          ref
+                              .read(toastProvider.notifier)
+                              .show('Set a PIN first');
+                          return;
+                        }
+                        if (v) {
+                          final verified = await ref
+                              .read(securityProvider.notifier)
+                              .authenticateBiometrics(
+                                reason:
+                                    'Verify fingerprint or face to enable biometric unlock',
+                                isSetup: true,
+                              );
+                          if (verified) {
+                            await ref
+                                .read(securityProvider.notifier)
+                                .setBiometricsEnabled(true);
+                            ref
+                                .read(toastProvider.notifier)
+                                .show('Biometrics enabled');
+                          } else {
+                            ref
+                                .read(toastProvider.notifier)
+                                .show('Biometric setup canceled or failed');
+                          }
                         } else {
-                          Navigator.of(sheetContext).pop();
-                          _showPinSetup(context);
+                          await ref
+                              .read(securityProvider.notifier)
+                              .setBiometricsEnabled(false);
+                          ref
+                              .read(toastProvider.notifier)
+                              .show('Biometrics disabled');
                         }
                       },
-                      last: true,
+                      last: !hasPin,
                     ),
-                    if (PinVault.hasPin)
+                    if (hasPin)
                       AppButton(
                         label: 'Change PIN',
                         centered: true,
                         onTap: () {
                           Navigator.of(sheetContext).pop();
-                          _showPinSetup(context);
+                          _showPinSetup(context, mode: _PinSheetMode.change);
                         },
                       ),
                   ],
                 ),
               ),
-              if (!PinVault.hasPin)
+              const SizedBox(height: 12),
+              if (!hasPin)
                 PrimaryButton(
-                  label: 'Set PIN',
+                  label: 'Set 4-digit PIN',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _showPinSetup(context);
+                    _showPinSetup(context, mode: _PinSheetMode.setup);
+                  },
+                )
+              else
+                PrimaryButton(
+                  label: 'Lock app now',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    ref.read(securityProvider.notifier).lock();
+                    widget.onLock();
                   },
                 ),
             ],
@@ -890,10 +956,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showPinSetup(BuildContext context) {
+  void _showPinSetup(
+    BuildContext context, {
+    _PinSheetMode mode = _PinSheetMode.setup,
+  }) {
     showAppSheet<void>(
       context,
-      (sheetContext) => const _PinSetupSheet(),
+      (sheetContext) => _PinSetupSheet(mode: mode),
+    );
+  }
+
+  void _showPinVerification(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required VoidCallback onVerified,
+  }) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => _PinSetupSheet(
+        mode: _PinSheetMode.verify,
+        titleOverride: title,
+        subtitleOverride: subtitle,
+        onVerified: () {
+          Navigator.of(sheetContext).pop();
+          onVerified();
+        },
+      ),
     );
   }
 
@@ -1746,34 +1835,196 @@ class _EditTagSheetState extends ConsumerState<_EditTagSheet> {
   }
 }
 
-class _PinSetupSheet extends StatefulWidget {
-  const _PinSetupSheet();
+enum _PinSheetMode { setup, change, verify }
+
+class _PinSetupSheet extends ConsumerStatefulWidget {
+  const _PinSetupSheet({
+    this.mode = _PinSheetMode.setup,
+    this.titleOverride,
+    this.subtitleOverride,
+    this.onVerified,
+  });
+
+  final _PinSheetMode mode;
+  final String? titleOverride;
+  final String? subtitleOverride;
+  final VoidCallback? onVerified;
 
   @override
-  State<_PinSetupSheet> createState() => _PinSetupSheetState();
+  ConsumerState<_PinSetupSheet> createState() => _PinSetupSheetState();
 }
 
-class _PinSetupSheetState extends State<_PinSetupSheet> {
+class _PinSetupSheetState extends ConsumerState<_PinSetupSheet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  int _step = 0;
   String _pin = '';
-  bool _confirm = false;
-  String _first = '';
+  String _firstNew = '';
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -12.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -12.0, end: 12.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 12.0, end: -8.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 8.0, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  String get _title {
+    if (widget.titleOverride != null && _step == 0) {
+      return widget.titleOverride!;
+    }
+    switch (widget.mode) {
+      case _PinSheetMode.setup:
+        return _step == 0 ? 'Set a 4-digit PIN' : 'Confirm your PIN';
+      case _PinSheetMode.change:
+        if (_step == 0) return 'Enter current PIN';
+        if (_step == 1) return 'Enter new 4-digit PIN';
+        return 'Confirm new PIN';
+      case _PinSheetMode.verify:
+        return widget.titleOverride ?? 'Enter your PIN';
+    }
+  }
+
+  String get _subtitle {
+    if (widget.subtitleOverride != null && _step == 0) {
+      return widget.subtitleOverride!;
+    }
+    switch (widget.mode) {
+      case _PinSheetMode.setup:
+        return _step == 0
+            ? 'Stored as an encrypted hash on this device only.'
+            : 'Re-enter your 4-digit PIN to confirm.';
+      case _PinSheetMode.change:
+        if (_step == 0) return 'Verify your identity to change PIN.';
+        if (_step == 1) return 'Choose a new 4-digit PIN.';
+        return 'Re-enter your new PIN to confirm.';
+      case _PinSheetMode.verify:
+        return widget.subtitleOverride ?? 'Verify your PIN to continue.';
+    }
+  }
+
+  void _triggerError(String msg) {
+    Haptics.heavy();
+    setState(() {
+      _error = msg;
+      _pin = '';
+    });
+    _shakeController.forward(from: 0);
+  }
 
   void _append(String digit) {
     if (_pin.length >= 4) return;
-    setState(() => _pin += digit);
+    Haptics.light();
+    setState(() {
+      _error = null;
+      _pin += digit;
+    });
+
     if (_pin.length == 4) {
-      if (!_confirm) {
-        setState(() { _first = _pin; _confirm = true; _pin = ''; });
-      } else if (_pin == _first) {
-        PinVault.setPin(_pin).then((_) {
-          if (mounted) Navigator.of(context).pop();
-        });
-      } else {
-        setState(() { _pin = ''; _confirm = false; _first = ''; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PINs do not match')),
-        );
-      }
+      _handleCompletePin();
+    }
+  }
+
+  void _backspace() {
+    if (_pin.isEmpty) return;
+    Haptics.light();
+    setState(() {
+      _error = null;
+      _pin = _pin.substring(0, _pin.length - 1);
+    });
+  }
+
+  void _handleCompletePin() {
+    final entered = _pin;
+    switch (widget.mode) {
+      case _PinSheetMode.setup:
+        if (_step == 0) {
+          setState(() {
+            _firstNew = entered;
+            _step = 1;
+            _pin = '';
+          });
+        } else {
+          if (entered == _firstNew) {
+            ref.read(securityProvider.notifier).setPin(entered).then((_) {
+              if (!mounted) return;
+              Haptics.medium();
+              ref.read(toastProvider.notifier).show('PIN set successfully');
+              Navigator.of(context).pop();
+            });
+          } else {
+            _triggerError('PINs do not match. Try again.');
+            setState(() {
+              _step = 0;
+              _firstNew = '';
+            });
+          }
+        }
+        break;
+
+      case _PinSheetMode.change:
+        if (_step == 0) {
+          if (PinVault.verify(entered)) {
+            Haptics.light();
+            setState(() {
+              _step = 1;
+              _pin = '';
+            });
+          } else {
+            _triggerError('Incorrect current PIN');
+          }
+        } else if (_step == 1) {
+          setState(() {
+            _firstNew = entered;
+            _step = 2;
+            _pin = '';
+          });
+        } else {
+          if (entered == _firstNew) {
+            ref.read(securityProvider.notifier).setPin(entered).then((_) {
+              if (!mounted) return;
+              Haptics.medium();
+              ref.read(toastProvider.notifier).show('PIN changed successfully');
+              Navigator.of(context).pop();
+            });
+          } else {
+            _triggerError('New PINs do not match. Try again.');
+            setState(() {
+              _step = 1;
+              _firstNew = '';
+            });
+          }
+        }
+        break;
+
+      case _PinSheetMode.verify:
+        if (PinVault.verify(entered)) {
+          Haptics.medium();
+          widget.onVerified?.call();
+        } else {
+          _triggerError('Incorrect PIN');
+        }
+        break;
     }
   }
 
@@ -1783,55 +2034,146 @@ class _PinSetupSheetState extends State<_PinSetupSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SheetTitle(_confirm ? 'Confirm PIN' : 'Set a 4-digit PIN',
-            subtitle: 'Stored as a hash on this device only.'),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < 4; i++)
-              Container(
+        SheetTitle(_title, subtitle: _subtitle),
+        const SizedBox(height: 12),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: AppTypography.sans(size: 13, color: c.co),
+            ),
+          ),
+        AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(_shakeAnimation.value, 0),
+              child: child,
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(4, (index) {
+              final isFilled = index < _pin.length;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 14, height: 14,
+                width: isFilled ? 16 : 14,
+                height: isFilled ? 16 : 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: i < _pin.length ? c.ac : c.c2,
-                  border: Border.all(color: i < _pin.length ? c.ac : c.ln),
+                  color: isFilled ? (_error != null ? c.co : c.ac) : c.c2,
+                  border: Border.all(
+                    color: isFilled ? (_error != null ? c.co : c.ac) : c.ln,
+                    width: 1.5,
+                  ),
                 ),
-              ),
-          ],
+              );
+            }),
+          ),
         ),
-        const SizedBox(height: 20),
-        for (final row in [['1','2','3'],['4','5','6'],['7','8','9']])
+        const SizedBox(height: 24),
+        for (final row in [
+          ['1', '2', '3'],
+          ['4', '5', '6'],
+          ['7', '8', '9']
+        ]) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (final d in row)
-                GestureDetector(
-                  onTap: () => _append(d),
-                  child: Container(
-                    width: 72, height: 56, alignment: Alignment.center,
-                    child: Text(d, style: AppTypography.sans(size: 22, color: c.tx)),
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 24),
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Pressable(
+                    onTap: () => _append(row[i]),
+                    scale: 0.92,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: c.c1.withValues(alpha: 0.9),
+                        border: Border.all(color: c.ln.withValues(alpha: 0.6)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        row[i],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'DMSans',
+                          fontSize: 26,
+                          fontWeight: FontWeight.w500,
+                          height: 1.0,
+                          color: c.tx,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
+              ],
             ],
           ),
+          const SizedBox(height: 14),
+        ],
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 72),
-            GestureDetector(
-              onTap: () => _append('0'),
-              child: Container(width: 72, height: 56, alignment: Alignment.center,
-                child: Text('0', style: AppTypography.sans(size: 22, color: c.tx))),
+            const SizedBox(width: 72, height: 72),
+            const SizedBox(width: 24),
+            SizedBox(
+              width: 72,
+              height: 72,
+              child: Pressable(
+                onTap: () => _append('0'),
+                scale: 0.92,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: c.c1.withValues(alpha: 0.9),
+                    border: Border.all(color: c.ln.withValues(alpha: 0.6)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '0',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'DMSans',
+                      fontSize: 26,
+                      fontWeight: FontWeight.w500,
+                      height: 1.0,
+                      color: c.tx,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            GestureDetector(
-              onTap: () { if (_pin.isNotEmpty) setState(() => _pin = _pin.substring(0, _pin.length - 1)); },
-              child: Container(width: 72, height: 56, alignment: Alignment.center,
-                child: Text('⌫', style: AppTypography.sans(size: 22, color: c.tx))),
+            const SizedBox(width: 24),
+            SizedBox(
+              width: 72,
+              height: 72,
+              child: Pressable(
+                onTap: _backspace,
+                scale: 0.92,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.backspace_outlined,
+                    size: 26,
+                    color: c.tx,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 12),
       ],
     );
   }

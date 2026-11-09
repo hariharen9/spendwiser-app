@@ -22,6 +22,7 @@ import '../../data/repositories/i_split_repository.dart';
 import '../../data/repositories/i_transaction_repository.dart';
 import '../../data/repositories/i_subscription_repository.dart';
 import '../../data/persistence/hive_persistence.dart';
+export 'security_provider.dart';
 
 /// Returns the already-open Hive box for [name], or null in tests / not yet
 /// initialized. Never throws.
@@ -316,6 +317,10 @@ abstract final class Haptics {
 
   static void medium() {
     if (enabled) HapticFeedback.mediumImpact();
+  }
+
+  static void heavy() {
+    if (enabled) HapticFeedback.heavyImpact();
   }
 
   static void selection() {

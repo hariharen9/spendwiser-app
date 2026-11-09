@@ -39,81 +39,6 @@ class AccountsScreen extends ConsumerWidget {
           title: 'Banks',
           subtitle: 'Net worth ${rupee(snapshot.netWorth)}',
         ),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Assets',
-                    style: AppTypography.sans(size: 14, color: c.mu),
-                  ),
-                  const Spacer(),
-                  MoneyText(
-                    rupee(assets),
-                    style: AppTypography.sans(
-                      size: 14,
-                      color: c.tx,
-                      weight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: LinearProgressIndicator(
-                  value: assets + dues == 0 ? 0 : assets / (assets + dues),
-                  minHeight: 6,
-                  backgroundColor: c.c2,
-                  valueColor: AlwaysStoppedAnimation(c.ac),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    'Card dues',
-                    style: AppTypography.sans(size: 14, color: c.mu),
-                  ),
-                  const Spacer(),
-                  MoneyText(
-                    rupee(dues),
-                    style: AppTypography.sans(size: 14, color: c.co),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        for (final type in AccountType.values) ...[
-          if (snapshot.accounts.any((a) => a.type == type)) ...[
-            SectionCaption(type.label),
-            AppCard(
-              child: Column(
-                children: [
-                  for (final entry
-                      in snapshot.accounts
-                          .where((a) => a.type == type)
-                          .toList()
-                          .asMap()
-                          .entries)
-                    _AccountRow(
-                      account: entry.value,
-                      showDivider:
-                          entry.key <
-                          snapshot.accounts
-                                  .where((a) => a.type == type)
-                                  .length -
-                              1,
-                      onTap: () => _showAccount(context, ref, entry.value),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
         const SectionCaption('Portfolio'),
         AppCard(
           child: Column(
@@ -220,6 +145,82 @@ class AccountsScreen extends ConsumerWidget {
             ],
           ),
         ),
+        const SectionCaption('Accounts & Dues'),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Assets',
+                    style: AppTypography.sans(size: 14, color: c.mu),
+                  ),
+                  const Spacer(),
+                  MoneyText(
+                    rupee(assets),
+                    style: AppTypography.sans(
+                      size: 14,
+                      color: c.tx,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: LinearProgressIndicator(
+                  value: assets + dues == 0 ? 0 : assets / (assets + dues),
+                  minHeight: 6,
+                  backgroundColor: c.c2,
+                  valueColor: AlwaysStoppedAnimation(c.ac),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    'Card dues',
+                    style: AppTypography.sans(size: 14, color: c.mu),
+                  ),
+                  const Spacer(),
+                  MoneyText(
+                    rupee(dues),
+                    style: AppTypography.sans(size: 14, color: c.co),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        for (final type in AccountType.values) ...[
+          if (snapshot.accounts.any((a) => a.type == type)) ...[
+            SectionCaption(type.label),
+            AppCard(
+              child: Column(
+                children: [
+                  for (final entry
+                      in snapshot.accounts
+                          .where((a) => a.type == type)
+                          .toList()
+                          .asMap()
+                          .entries)
+                    _AccountRow(
+                      account: entry.value,
+                      showDivider:
+                          entry.key <
+                          snapshot.accounts
+                                  .where((a) => a.type == type)
+                                  .length -
+                              1,
+                      onTap: () => _showAccount(context, ref, entry.value),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
         AppButton(
           label: '+ Add account',
           onTap: () => _showAddAccount(context, ref),

@@ -38,16 +38,16 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   AppModule _module = AppModule.home;
   bool _launcherOpen = false;
   bool _radialOpen = false;
   Offset? _radialPointer;
   final _radialKey = GlobalKey<RadialOrbitOverlayState>();
-  bool _locked = false;
   bool _showOnboarding = false;
   bool _hintVisible = false;
   bool _hintShown = false;
+  DateTime? _pausedAt;
 
   late final AnimationController _fabPulse;
   late final AnimationController _hintFade;
@@ -57,6 +57,7 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _showOnboarding = !ref.read(settingsProvider).onboardingSeen;
     _fabPulse = AnimationController(
       vsync: this,
@@ -79,7 +80,36 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final sec = ref.read(securityProvider);
+    final secNotifier = ref.read(securityProvider.notifier);
+
+    if (state == AppLifecycleState.paused) {
+      if (!sec.isAuthenticatingBiometrics) {
+        _pausedAt = DateTime.now();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      final pausedTime = _pausedAt;
+      _pausedAt = null;
+
+      // Do not re-lock if biometrics are in progress or completed just now
+      if (sec.isAuthenticatingBiometrics ||
+          secNotifier.wasRecentlyAuthenticated) {
+        return;
+      }
+
+      // Only lock if app was truly backgrounded for more than a transient dialog duration
+      if (pausedTime != null && sec.isLockEnabled) {
+        if (DateTime.now().difference(pausedTime).inMilliseconds > 800) {
+          secNotifier.lock();
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hintShowTimer?.cancel();
     _hintHideTimer?.cancel();
     _fabPulse.dispose();
@@ -122,7 +152,7 @@ class _AppShellState extends ConsumerState<AppShell>
       AppModule.insights => InsightsScreen(onNavigate: _go),
       AppModule.tools => ToolsScreen(onNavigate: _go),
       AppModule.settings => SettingsScreen(
-        onLock: () => setState(() => _locked = true),
+        onLock: () => ref.read(securityProvider.notifier).lock(),
         onReset: () => _go(AppModule.home),
         onReplayWelcome: () => setState(() => _showOnboarding = true),
       ),
@@ -313,10 +343,10 @@ class _AppShellState extends ConsumerState<AppShell>
               right: 20,
               child: const _ToastOverlay(),
             ),
-            if (_locked)
+            if (ref.watch(securityProvider).isLocked)
               Positioned.fill(
                 child: LockScreen(
-                  onUnlocked: () => setState(() => _locked = false),
+                  onUnlocked: () => ref.read(securityProvider.notifier).unlock(),
                 ),
               ),
             if (_showOnboarding)
