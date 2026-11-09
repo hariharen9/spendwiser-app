@@ -118,18 +118,7 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
           onUndo: () {
             ref
                 .read(transactionRepositoryProvider)
-                .addTransaction(
-                  TransactionDraft(
-                    merchant: _original.merchant,
-                    category: _original.category,
-                    amount: _original.amount,
-                    date: _original.date,
-                    accountId: _original.accountId,
-                    cardId: _original.cardId,
-                    note: _original.note,
-                    tags: _original.tags,
-                  ),
-                );
+                .restoreTransaction(_original);
           },
           duration: const Duration(seconds: 5),
         );

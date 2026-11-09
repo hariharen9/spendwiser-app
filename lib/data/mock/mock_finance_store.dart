@@ -918,6 +918,14 @@ class MockFinanceStore
   }
 
   @override
+  Future<void> restoreTransaction(Transaction transaction) async {
+    if (_transactions.any((t) => t.id == transaction.id)) return;
+    _transactions.add(transaction);
+    _applyAccountDelta(transaction, 1);
+    _commit();
+  }
+
+  @override
   Future<void> addTag(String tag) async {
     final clean = tag.trim().replaceAll('#', '');
     if (clean.isEmpty || _tags.contains(clean)) return;

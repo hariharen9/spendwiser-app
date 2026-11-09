@@ -7,6 +7,7 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
 import 'features/shell/app_shell.dart';
+import 'data/services/notifications_service.dart';
 
 class SpendwiserApp extends ConsumerWidget {
   const SpendwiserApp({super.key});
@@ -15,6 +16,8 @@ class SpendwiserApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     AppTypography.fontMode = settings.font;
+    final snapshot = ref.watch(financeSnapshotProvider);
+    NotificationsService.reschedule(snapshot, settings);
     AppColors.dynamicCategories = Map.of(settings.categories);
     Haptics.enabled = settings.haptics;
     SystemChrome.setSystemUIOverlayStyle(

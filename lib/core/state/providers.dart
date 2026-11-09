@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,49 @@ AppSettings loadPersistedSettings() {
   final box = _hiveBox('settings');
   if (box == null) return const AppSettings();
   return HiveSettingsRepository(box).loadSync();
+}
+
+/// Exported backup payload (settings + finance state).
+Future<Map<String, dynamic>> exportBackup() async {
+  final box = _hiveBox('finance');
+  final financeRaw = box?.get('financeStateJson');
+  Map<String, dynamic> finance = {};
+  if (financeRaw != null && financeRaw.isNotEmpty) {
+    finance = jsonDecode(financeRaw) as Map<String, dynamic>;
+  }
+  final settingsBox = _hiveBox('settings');
+  final settings = settingsBox == null
+      ? const AppSettings().toJson()
+      : HiveSettingsRepository(settingsBox).loadSync().toJson();
+  return {
+    'app': 'spendwiser',
+    'version': 1,
+    'exportedAt': DateTime.now().toIso8601String(),
+    'settings': settings,
+    'finance': finance,
+  };
+}
+
+/// Restore: write backup payload into the Hive boxes. Caller must then
+/// invalidate the finance + settings providers so they rebuild from disk.
+Future<void> importBackupPayload(Map<String, dynamic> payload) async {
+  final financeBox = _hiveBox('finance');
+  if (financeBox == null) {
+    throw StateError('Finance storage is not open');
+  }
+  final finance = payload['finance'];
+  if (finance is Map) {
+    await financeBox.put(
+      'financeStateJson',
+      jsonEncode(finance),
+    );
+  }
+  final settingsBox = _hiveBox('settings');
+  final settings = payload['settings'];
+  if (settingsBox != null && settings is Map) {
+    final json = Map<String, dynamic>.from(settings);
+    await settingsBox.put('settingsJson', jsonEncode(json));
+  }
 }
 
 /// In-memory settings adapter. Replacing this with a persisted implementation

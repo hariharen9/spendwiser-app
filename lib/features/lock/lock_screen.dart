@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../core/state/providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -7,6 +8,7 @@ import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/pressable.dart';
+import '../../data/persistence/pin_vault.dart';
 
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.onUnlocked});
@@ -20,6 +22,8 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _unlock;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _authenticating = false;
 
   @override
   void initState() {
@@ -43,9 +47,40 @@ class _LockScreenState extends State<LockScreen>
     widget.onUnlocked();
   }
 
+  Future<void> _tryBiometric() async {
+    if (_authenticating) return;
+    setState(() => _authenticating = true);
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final enabled = await _localAuth.isDeviceSupported();
+      if (!canCheck || !enabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Biometrics are not available')),
+          );
+        }
+        return;
+      }
+      final did = await _localAuth.authenticate(
+        localizedReason: 'Unlock Spendwiser',
+        biometricOnly: true,
+      );
+      if (did && mounted) await _unlockNow();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric unlock failed')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _authenticating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final biometricAvailable = PinVault.biometricsEnabled;
     return AnimatedBuilder(
       animation: _unlock,
       builder: (context, child) {
@@ -76,7 +111,7 @@ class _LockScreenState extends State<LockScreen>
               Text('Locked', style: AppTypography.sans(size: 14, color: c.mu)),
               const SizedBox(height: 22),
               Pressable(
-                onTap: _unlockNow,
+                onTap: _authenticating ? null : _tryBiometric,
                 scale: 0.94,
                 child: Container(
                   width: 84,
@@ -99,25 +134,45 @@ class _LockScreenState extends State<LockScreen>
               ),
               const SizedBox(height: 14),
               Text(
-                'Tap to unlock with Face ID',
+                _authenticating
+                    ? 'Waiting for biometrics…'
+                    : biometricAvailable
+                    ? 'Tap to unlock with Face ID / fingerprint'
+                    : 'Tap to unlock with biometrics',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
               const SizedBox(height: 18),
-              Pressable(
-                onTap: () => showAppSheet<void>(
-                  context,
-                  (sheetContext) => _PinSheet(
-                    onComplete: () {
-                      Navigator.of(sheetContext).pop();
-                      _unlockNow();
-                    },
-                  ),
-                ),
-                child: Text(
-                  'Use PIN instead',
-                  style: AppTypography.sans(size: 12, color: c.ac),
-                ),
-              ),
+              PinVault.hasPin
+                  ? Pressable(
+                      onTap: () => showAppSheet<void>(
+                        context,
+                        (sheetContext) => _PinSheet(
+                          onComplete: () {
+                            Navigator.of(sheetContext).pop();
+                            _unlockNow();
+                          },
+                        ),
+                      ),
+                      child: Text(
+                        'Use PIN instead',
+                        style: AppTypography.sans(size: 12, color: c.ac),
+                      ),
+                    )
+                  : Pressable(
+                      onTap: () => showAppSheet<void>(
+                        context,
+                        (sheetContext) => _PinSetupSheet(
+                          onDone: () {
+                            Navigator.of(sheetContext).pop();
+                            _unlockNow();
+                          },
+                        ),
+                      ),
+                      child: Text(
+                        'Set a PIN',
+                        style: AppTypography.sans(size: 12, color: c.ac),
+                      ),
+                    ),
             ],
           ),
         ),
@@ -126,33 +181,51 @@ class _LockScreenState extends State<LockScreen>
   }
 }
 
-class _PinSheet extends StatefulWidget {
-  const _PinSheet({required this.onComplete});
+class _PinSetupSheet extends StatefulWidget {
+  const _PinSetupSheet({required this.onDone});
 
-  final VoidCallback onComplete;
+  final VoidCallback onDone;
 
   @override
-  State<_PinSheet> createState() => _PinSheetState();
+  State<_PinSetupSheet> createState() => _PinSetupSheetState();
 }
 
-class _PinSheetState extends State<_PinSheet> {
+class _PinSetupSheetState extends State<_PinSetupSheet> {
   String _pin = '';
+  bool _confirm = false;
+  String _first = '';
 
   void _append(String digit) {
-    Haptics.light();
     if (_pin.length >= 4) return;
     setState(() => _pin += digit);
     if (_pin.length == 4) {
-      Future<void>.delayed(
-        const Duration(milliseconds: 180),
-        widget.onComplete,
-      );
+      if (!_confirm) {
+        setState(() {
+          _first = _pin;
+          _confirm = true;
+          _pin = '';
+        });
+      } else {
+        if (_pin == _first) {
+          PinVault.setPin(_pin).then((_) {
+            if (mounted) widget.onDone();
+          });
+        } else {
+          setState(() {
+            _pin = '';
+            _confirm = false;
+            _first = '';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PINs do not match')),
+          );
+        }
+      }
     }
   }
 
   void _backspace() {
     if (_pin.isEmpty) return;
-    Haptics.light();
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
@@ -162,9 +235,9 @@ class _PinSheetState extends State<_PinSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SheetTitle(
-          'Enter your PIN',
-          subtitle: 'Any 4 digits unlock the demo.',
+        SheetTitle(
+          _confirm ? 'Confirm PIN' : 'Set a 4-digit PIN',
+          subtitle: 'Stored as a hash on this device only.',
         ),
         const SizedBox(height: 20),
         Row(
@@ -184,48 +257,161 @@ class _PinSheetState extends State<_PinSheet> {
           ],
         ),
         const SizedBox(height: 24),
-        for (final row in const [
-          ['1', '2', '3'],
-          ['4', '5', '6'],
-          ['7', '8', '9'],
-          ['', '0', '⌫'],
-        ])
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                for (var i = 0; i < row.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child: row[i].isEmpty
-                        ? const SizedBox(height: 52)
-                        : GestureDetector(
-                            onTap: row[i] == '⌫'
-                                ? _backspace
-                                : () => _append(row[i]),
-                            child: Container(
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: c.c2,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                row[i],
-                                style: AppTypography.sans(
-                                  size: 18,
-                                  color: c.tx,
-                                  weight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+        _PinPad(onDigit: _append, onBack: _backspace),
       ],
+    );
+  }
+}
+
+class _PinSheet extends StatefulWidget {
+  const _PinSheet({required this.onComplete});
+
+  final VoidCallback onComplete;
+
+  @override
+  State<_PinSheet> createState() => _PinSheetState();
+}
+
+class _PinSheetState extends State<_PinSheet> {
+  String _pin = '';
+  String? _error;
+  int _attempts = 0;
+
+  void _append(String digit) {
+    if (_pin.length >= 4) return;
+    setState(() {
+      _pin += digit;
+      _error = null;
+    });
+    if (_pin.length == 4) {
+      if (PinVault.verify(_pin)) {
+        _attempts = 0;
+        Future<void>.delayed(const Duration(milliseconds: 180), widget.onComplete);
+      } else {
+        _attempts++;
+        setState(() {
+          _error = _attempts >= 5
+              ? 'Too many attempts — wait 30s or use biometrics'
+              : 'Wrong PIN';
+          _pin = '';
+        });
+        if (_attempts >= 5) {
+          Future<void>.delayed(const Duration(seconds: 30), () {
+            if (mounted) setState(() => _attempts = 0);
+          });
+        }
+      }
+    }
+  }
+
+  void _backspace() {
+    if (_pin.isEmpty) return;
+    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final locked = _attempts >= 5;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetTitle('Enter your PIN'),
+        const SizedBox(height: 8),
+        if (_error != null)
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: AppTypography.sans(size: 12, color: c.co),
+          ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < 4; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < _pin.length ? c.ac : c.c2,
+                  border: Border.all(color: i < _pin.length ? c.ac : c.ln),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        if (locked)
+          Text(
+            'PIN locked for 30 seconds',
+            textAlign: TextAlign.center,
+            style: AppTypography.sans(size: 12, color: c.mu),
+          )
+        else
+          _PinPad(onDigit: _append, onBack: _backspace),
+      ],
+    );
+  }
+}
+
+class _PinPad extends StatelessWidget {
+  const _PinPad({required this.onDigit, required this.onBack});
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+    ];
+    return Column(
+      children: [
+        for (final row in rows)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (final d in row)
+                _PinKey(digit: d, onTap: () => onDigit(d)),
+            ],
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const _PinKey(digit: '', onTap: null),
+            _PinKey(digit: '0', onTap: () => onDigit('0')),
+            _PinKey(digit: '⌫', onTap: onBack),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PinKey extends StatelessWidget {
+  const _PinKey({required this.digit, required this.onTap});
+
+  final String digit;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    if (digit.isEmpty) return const SizedBox(width: 72, height: 56);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        height: 56,
+        alignment: Alignment.center,
+        child: Text(
+          digit,
+          style: AppTypography.sans(size: 22, color: c.tx),
+        ),
+      ),
     );
   }
 }

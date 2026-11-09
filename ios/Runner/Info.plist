@@ -51,6 +51,19 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Spendwiser uses the microphone for voice capture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Spendwiser uses the camera to scan receipts.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock Spendwiser with Face ID.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Spendwiser reads receipt photos you pick.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:hive/hive.dart';
 
 import '../../core/state/providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -15,7 +20,10 @@ import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/finance_snapshot.dart';
+import '../../data/persistence/pin_vault.dart';
+import '../../data/services/notifications_service.dart';
 import '../../data/models/transaction.dart';
+import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -43,9 +51,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _appKey = GlobalKey();
   String _range = 'm';
   String _backup = 'w';
-  final List<List<String>> _history = [
-    ['Full ledger · CSV', '2 days ago'],
-  ];
+  List<List<String>> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    try {
+      if (Hive.isBoxOpen('settings')) {
+        final raw = Hive.box('settings').get('backupHistoryJson') as String?;
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as List;
+          _history = decoded
+              .map((e) => (e as List).map((v) => v as String).toList())
+              .toList();
+          return;
+        }
+      }
+    } catch (_) {}
+    _history = [
+      ['No backups yet', 'Create one below'],
+    ];
+  }
+
+  void _logHistory(String label) {
+    final now = DateTime.now();
+    final stamp =
+        '${now.day}/${now.month}/${now.year} · ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    setState(() {
+      _history.removeWhere((h) => h[0] == 'No backups yet');
+      _history.insert(0, [label, stamp]);
+      if (_history.length > 20) _history.length = 20;
+    });
+    try {
+      if (Hive.isBoxOpen('settings')) {
+        Hive.box('settings').put('backupHistoryJson', jsonEncode(_history));
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -279,6 +325,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
         ),
+        AppButton(
+          label: PinVault.hasPin ? 'PIN & biometrics' : 'Set PIN',
+          onTap: () => _showPinVault(context),
+        ),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +349,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                '18 MB · last backup 2 hours ago',
+                _history.isEmpty || _history.first[0] == 'No backups yet'
+                    ? 'Stored locally · no backups yet'
+                    : 'Stored locally · last: ${_history.first[0]}',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
             ],
@@ -330,10 +382,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           margin: EdgeInsets.only(top: 12, bottom: 8),
         ),
         AppButton(
-          label: 'Import from CSV',
-          onTap: () {
-            ref.read(toastProvider.notifier).show('Choose a bank statement');
-          },
+          label: 'Restore from backup file',
+          onTap: () => _importBackup(),
         ),
         AppButton(
           label: 'Encrypted backup & restore',
@@ -392,7 +442,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Spendwiser · UI mock v1',
+          'Spendwiser · v1.0.0',
           textAlign: TextAlign.center,
           style: AppTypography.sans(size: 12, color: c.mu),
         ),
@@ -400,11 +450,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _export(String label) {
+  Future<void> _export(String label) async {
     ref.read(toastProvider.notifier).show('Preparing $label…');
-    setState(() {
-      _history.insert(0, [label, 'just now']);
-    });
+    try {
+      if (label.contains('CSV')) {
+        final snapshot = ref.read(financeSnapshotProvider);
+        await BackupService.exportLedgerCsv(snapshot, _range);
+      } else if (label.contains('backup')) {
+        await BackupService.exportFullBackup();
+      } else {
+        ref.read(toastProvider.notifier).show('Ledger CSV is available today');
+        final snapshot = ref.read(financeSnapshotProvider);
+        await BackupService.exportLedgerCsv(snapshot, _range);
+      }
+      _logHistory(label);
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Export failed: $e');
+    }
+  }
+
+  Future<void> _importBackup() async {
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      if (picked.isEmpty) return;
+      final file = File(picked.first.path!);
+      final contents = await file.readAsString();
+      final payload = BackupService.parseBackup(contents);
+      await importBackupPayload(payload);
+      ref.invalidate(mockFinanceStoreProvider);
+      ref.invalidate(settingsProvider);
+      _logHistory('Restored backup');
+      ref.read(toastProvider.notifier).show('Backup restored');
+    } on FormatException catch (e) {
+      ref.read(toastProvider.notifier).show(e.message);
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Restore failed: $e');
+    }
   }
 
   Future<void> _editProfile(BuildContext context, AppSettings settings) async {
@@ -575,7 +659,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               PrimaryButton(
                 label: 'Save',
-                onTap: () {
+                onTap: () async {
+                  await NotificationsService.requestPermissions();
                   ref
                       .read(settingsProvider.notifier)
                       .patch(
@@ -583,6 +668,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         budgetAlerts: alerts,
                         weeklyDigest: digest,
                       );
+                  final snapshot = ref.read(financeSnapshotProvider);
+                  final updated = ref.read(settingsProvider);
+                  await NotificationsService.reschedule(snapshot, updated);
+                  if (!sheetContext.mounted) return;
                   Navigator.of(sheetContext).pop();
                   ref
                       .read(toastProvider.notifier)
@@ -733,6 +822,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showPinVault(BuildContext context) {
+    var biometrics = PinVault.biometricsEnabled;
+    showAppSheet<void>(
+      context,
+      (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SheetTitle('PIN & biometrics'),
+              const SizedBox(height: 12),
+              AppCard(
+                child: Column(
+                  children: [
+                    _ToggleRow(
+                      label: 'Face ID / fingerprint',
+                      detail: 'Fast unlock when available',
+                      value: biometrics,
+                      onChanged: (v) async {
+                        setSheetState(() => biometrics = v);
+                        await PinVault.setBiometricsEnabled(v);
+                      },
+                    ),
+                    _ToggleRow(
+                      label: 'App PIN',
+                      detail: PinVault.hasPin ? 'Set' : 'Not set',
+                      value: PinVault.hasPin,
+                      onChanged: (v) async {
+                        if (!v) {
+                          await PinVault.clearPin();
+                          setSheetState(() {});
+                          ref.read(toastProvider.notifier).show('PIN removed');
+                        } else {
+                          Navigator.of(sheetContext).pop();
+                          _showPinSetup(context);
+                        }
+                      },
+                      last: true,
+                    ),
+                    if (PinVault.hasPin)
+                      AppButton(
+                        label: 'Change PIN',
+                        centered: true,
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _showPinSetup(context);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              if (!PinVault.hasPin)
+                PrimaryButton(
+                  label: 'Set PIN',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showPinSetup(context);
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showPinSetup(BuildContext context) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => const _PinSetupSheet(),
+    );
+  }
+
   void _showBackup(BuildContext context) {
     showAppSheet<void>(
       context,
@@ -771,19 +933,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           PrimaryButton(
             label: 'Create backup',
-            onTap: () {
+            onTap: () async {
               Navigator.of(sheetContext).pop();
+              await _export('Full backup');
               ref.read(toastProvider.notifier).show('Backup created');
             },
           ),
           AppButton(
             label: 'Restore from backup',
             centered: true,
-            onTap: () {
+            onTap: () async {
               Navigator.of(sheetContext).pop();
-              ref
-                  .read(toastProvider.notifier)
-                  .show('Restore is unavailable in the demo');
+              await _importBackup();
             },
           ),
         ],
@@ -817,7 +978,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               widget.onReset();
               ref
                   .read(toastProvider.notifier)
-                  .show('Demo only — nothing erased');
+                  .show('All data erased');
             },
           ),
         ],
@@ -1578,6 +1739,97 @@ class _EditTagSheetState extends ConsumerState<_EditTagSheet> {
           onTap: _delete,
         ),
         const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class _PinSetupSheet extends StatefulWidget {
+  const _PinSetupSheet();
+
+  @override
+  State<_PinSetupSheet> createState() => _PinSetupSheetState();
+}
+
+class _PinSetupSheetState extends State<_PinSetupSheet> {
+  String _pin = '';
+  bool _confirm = false;
+  String _first = '';
+
+  void _append(String digit) {
+    if (_pin.length >= 4) return;
+    setState(() => _pin += digit);
+    if (_pin.length == 4) {
+      if (!_confirm) {
+        setState(() { _first = _pin; _confirm = true; _pin = ''; });
+      } else if (_pin == _first) {
+        PinVault.setPin(_pin).then((_) {
+          if (mounted) Navigator.of(context).pop();
+        });
+      } else {
+        setState(() { _pin = ''; _confirm = false; _first = ''; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PINs do not match')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SheetTitle(_confirm ? 'Confirm PIN' : 'Set a 4-digit PIN',
+            subtitle: 'Stored as a hash on this device only.'),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < 4; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                width: 14, height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < _pin.length ? c.ac : c.c2,
+                  border: Border.all(color: i < _pin.length ? c.ac : c.ln),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        for (final row in [['1','2','3'],['4','5','6'],['7','8','9']])
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (final d in row)
+                GestureDetector(
+                  onTap: () => _append(d),
+                  child: Container(
+                    width: 72, height: 56, alignment: Alignment.center,
+                    child: Text(d, style: AppTypography.sans(size: 22, color: c.tx)),
+                  ),
+                ),
+            ],
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(width: 72),
+            GestureDetector(
+              onTap: () => _append('0'),
+              child: Container(width: 72, height: 56, alignment: Alignment.center,
+                child: Text('0', style: AppTypography.sans(size: 22, color: c.tx))),
+            ),
+            GestureDetector(
+              onTap: () { if (_pin.isNotEmpty) setState(() => _pin = _pin.substring(0, _pin.length - 1)); },
+              child: Container(width: 72, height: 56, alignment: Alignment.center,
+                child: Text('⌫', style: AppTypography.sans(size: 22, color: c.tx))),
+            ),
+          ],
+        ),
       ],
     );
   }

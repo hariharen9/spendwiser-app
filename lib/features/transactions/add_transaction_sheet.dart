@@ -11,6 +11,7 @@ import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/transaction.dart';
+import '../../data/services/notifications_service.dart';
 
 Future<void> showAddTransactionSheet(
   BuildContext context, {
@@ -145,13 +146,20 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
           .toList();
       if (matching.isNotEmpty &&
           matching.first.progress >= matching.first.alertAt / 100) {
+        final progress = matching.first.progress;
+        final alertAt = matching.first.alertAt;
         Future<void>.delayed(
           const Duration(milliseconds: 1800),
-          () => ref
-              .read(toastProvider.notifier)
-              .show(
-                '$category envelope at ${(matching.first.progress * 100).round()}%',
-              ),
+          () async {
+            ref
+                .read(toastProvider.notifier)
+                .show('$category envelope at ${(progress * 100).round()}%');
+            await NotificationsService.budgetAlert(
+              category,
+              progress,
+              alertAt,
+            );
+          },
         );
       }
     }

@@ -7,6 +7,8 @@ abstract interface class ITransactionRepository {
 
   Future<void> deleteTransaction(String transactionId);
 
+  Future<void> restoreTransaction(Transaction transaction);
+
   Future<void> addTag(String tag);
 
   Future<void> deleteTag(String tag);

@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'data/services/notifications_service.dart';
 
 import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationsService.init();
+  await NotificationsService.requestPermissions();
   await Hive.initFlutter();
   await Hive.openBox<String>('finance');
   await Hive.openBox<String>('settings');
