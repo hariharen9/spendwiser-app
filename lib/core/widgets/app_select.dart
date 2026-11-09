@@ -39,7 +39,7 @@ class AppSelect<T> extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
-          value: value,
+          value: options.any((o) => o.value == value) ? value : null,
           isExpanded: true,
           hint: hint == null
               ? null

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/state/providers.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_typography.dart';
 import 'features/shell/app_shell.dart';
 
 class SpendwiserApp extends ConsumerWidget {
@@ -12,6 +14,8 @@ class SpendwiserApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    AppTypography.fontMode = settings.font;
+    AppColors.dynamicCategories = Map.of(settings.categories);
     Haptics.enabled = settings.haptics;
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(

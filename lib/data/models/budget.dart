@@ -25,12 +25,13 @@ class Budget {
   bool get shouldAlert => progress >= alertAt / 100;
 
   Budget copyWith({
+    String? category,
     double? limit,
     double? spent,
     bool? rollover,
     int? alertAt,
   }) => Budget(
-    category: category,
+    category: category ?? this.category,
     limit: limit ?? this.limit,
     spent: spent ?? this.spent,
     rollover: rollover ?? this.rollover,

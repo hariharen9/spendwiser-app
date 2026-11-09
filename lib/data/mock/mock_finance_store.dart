@@ -1412,6 +1412,21 @@ class MockFinanceStore
     _commit();
   }
 
+  void renameCategory(String from, String to) {
+    for (var i = 0; i < _transactions.length; i++) {
+      if (_transactions[i].category == from) {
+        _transactions[i] = _transactions[i].copyWith(category: to);
+      }
+    }
+    for (var i = 0; i < _budgets.length; i++) {
+      if (_budgets[i].category == from) {
+        _budgets[i] = _budgets[i].copyWith(category: to);
+      }
+    }
+    _recalc();
+    _commit();
+  }
+
   Future<void> dispose() async {
     await _controller.close();
   }

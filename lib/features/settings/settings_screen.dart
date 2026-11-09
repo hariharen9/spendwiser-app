@@ -228,7 +228,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           key: _moneyKey,
         ),
         AppButton(
-          label: 'Categories · ${AppColors.categoryList.length - 1}',
+          label:
+              'Categories · ${settings.categories.keys.where((c) => c != 'Transfer').length}',
           onTap: () => _showCategories(context),
         ),
         AppButton(
@@ -457,24 +458,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showCategories(BuildContext context) {
     showAppSheet<void>(
       context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('Categories'),
-          const SizedBox(height: 8),
-          for (final category in AppColors.categoryList.where(
-            (c) => c != 'Transfer',
-          ))
-            KeyValueRow(
-              label: category,
-              value: MerchantAvatar(
-                merchant: category,
-                category: category,
-                size: 32,
-              ),
-            ),
-        ],
-      ),
+      (sheetContext) => const _CategoriesSheet(),
     );
   }
 
@@ -936,6 +920,425 @@ class _ToggleRow extends StatelessWidget {
           AppToggle(value: value, onChanged: onChanged),
         ],
       ),
+    );
+  }
+}
+
+class _CategoriesSheet extends ConsumerStatefulWidget {
+  const _CategoriesSheet();
+
+  @override
+  ConsumerState<_CategoriesSheet> createState() => _CategoriesSheetState();
+}
+
+class _CategoriesSheetState extends ConsumerState<_CategoriesSheet> {
+  final _nameController = TextEditingController();
+  Color _selectedColor = AppColors.categoryPalette.first;
+  bool _showAdd = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ref.read(toastProvider.notifier).show('Enter a category name');
+      return;
+    }
+    final existing = ref.read(settingsProvider).categories;
+    if (existing.containsKey(name)) {
+      ref.read(toastProvider.notifier).show('Category "$name" already exists');
+      return;
+    }
+    ref.read(settingsProvider.notifier).addCategory(name, _selectedColor);
+    ref.read(toastProvider.notifier).show('Added category "$name"');
+    _nameController.clear();
+    setState(() => _showAdd = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final settings = ref.watch(settingsProvider);
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final categories = settings.categories.entries.toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetTitle(
+          'Categories',
+          subtitle: 'Tap to edit, drag handle to reorder.',
+        ),
+        const SizedBox(height: 12),
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: categories.length,
+            // ignore: deprecated_member_use
+            onReorder: (oldIndex, newIndex) {
+              Haptics.light();
+              ref
+                  .read(settingsProvider.notifier)
+                  .reorderCategories(oldIndex, newIndex);
+            },
+            itemBuilder: (context, i) {
+              final entry = categories[i];
+              final catName = entry.key;
+              final catColor = entry.value;
+              final count = snapshot.transactions
+                  .where((t) => t.category == catName)
+                  .length;
+
+              return Container(
+                key: ValueKey(catName),
+                decoration: BoxDecoration(
+                  border: i < categories.length - 1
+                      ? Border(bottom: BorderSide(color: c.ln))
+                      : null,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      ReorderableDragStartListener(
+                        index: i,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: Icon(
+                            Icons.drag_indicator_rounded,
+                            size: 18,
+                            color: c.mu.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _openEdit(context, catName, catColor),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Row(
+                            children: [
+                              MerchantAvatar(
+                                merchant: catName,
+                                category: catName,
+                                size: 36,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      catName,
+                                      style: AppTypography.sans(
+                                        size: 15,
+                                        color: c.tx,
+                                        weight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      count == 0
+                                          ? 'No transactions'
+                                          : '$count transaction${count == 1 ? '' : 's'}',
+                                      style: AppTypography.sans(
+                                        size: 12,
+                                        color: c.mu,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: catColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: c.tx.withValues(alpha: 0.2),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SpendIcon('chevronRight', size: 14, color: c.mu),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (!_showAdd)
+          AppButton(
+            label: '+ Add Category',
+            onTap: () => setState(() => _showAdd = true),
+          )
+        else
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'New Category',
+                      style: AppTypography.sans(
+                        size: 14,
+                        color: c.tx,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() => _showAdd = false),
+                      child: SpendIcon('close', size: 16, color: c.mu),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: c.c2,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    controller: _nameController,
+                    style: AppTypography.sans(size: 14, color: c.tx),
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Groceries, Fitness, Pets…',
+                      hintStyle: AppTypography.sans(size: 13, color: c.mu),
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => _add(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Color',
+                  style: AppTypography.sans(size: 12, color: c.mu),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      for (final color in AppColors.categoryPalette)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              Haptics.light();
+                              setState(() => _selectedColor = color);
+                            },
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: _selectedColor == color
+                                    ? Border.all(color: c.tx, width: 2.5)
+                                    : null,
+                                boxShadow: _selectedColor == color
+                                    ? [
+                                        BoxShadow(
+                                          color: color.withValues(alpha: 0.4),
+                                          blurRadius: 6,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                PrimaryButton(
+                  label: 'Add Category',
+                  onTap: _add,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openEdit(BuildContext context, String name, Color color) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => _EditCategorySheet(name: name, color: color),
+    );
+  }
+}
+
+class _EditCategorySheet extends ConsumerStatefulWidget {
+  const _EditCategorySheet({required this.name, required this.color});
+
+  final String name;
+  final Color color;
+
+  @override
+  ConsumerState<_EditCategorySheet> createState() => _EditCategorySheetState();
+}
+
+class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
+  late final TextEditingController _controller;
+  late Color _color;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.name);
+    _color = widget.color;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final newName = _controller.text.trim();
+    if (newName.isEmpty) {
+      ref.read(toastProvider.notifier).show('Category name cannot be empty');
+      return;
+    }
+    if (newName != widget.name) {
+      final existing = ref.read(settingsProvider).categories;
+      if (existing.containsKey(newName)) {
+        ref.read(toastProvider.notifier).show('Category "$newName" already exists');
+        return;
+      }
+      ref.read(settingsProvider.notifier).editCategory(widget.name, newName, _color);
+      ref.read(mockFinanceStoreProvider).renameCategory(widget.name, newName);
+    } else {
+      ref.read(settingsProvider.notifier).editCategory(widget.name, widget.name, _color);
+    }
+    ref.read(toastProvider.notifier).show('Saved category');
+    Navigator.of(context).pop();
+  }
+
+  void _delete() {
+    ref.read(settingsProvider.notifier).deleteCategory(widget.name);
+    ref.read(toastProvider.notifier).show('Deleted "${widget.name}"');
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final isProtected = widget.name == 'Transfer' || widget.name == 'Income';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetTitle(
+          'Edit Category',
+          subtitle: 'Update category name or accent color',
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            color: c.c2,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TextField(
+            controller: _controller,
+            enabled: !isProtected,
+            style: AppTypography.sans(size: 14, color: c.tx),
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              hintText: 'Category name',
+              hintStyle: AppTypography.sans(size: 13, color: c.mu),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Accent Color',
+          style: AppTypography.sans(size: 12, color: c.mu),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (final color in AppColors.categoryPalette)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      Haptics.light();
+                      setState(() => _color = color);
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: _color == color
+                            ? Border.all(color: c.tx, width: 2.5)
+                            : null,
+                        boxShadow: _color == color
+                            ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(
+          label: 'Save Changes',
+          onTap: _save,
+        ),
+        if (!isProtected) ...[
+          const SizedBox(height: 8),
+          AppButton(
+            label: 'Delete Category',
+            color: c.co,
+            onTap: _delete,
+          ),
+        ],
+      ],
     );
   }
 }

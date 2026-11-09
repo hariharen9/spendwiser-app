@@ -108,9 +108,18 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
       ref.read(toastProvider.notifier).show('Enter an amount');
       return;
     }
-    final category = _income ? 'Income' : _category;
+    final validCategories = ref
+        .read(settingsProvider)
+        .categories
+        .keys
+        .where((k) => k != 'Transfer' && k != 'Income');
+    final category = _income
+        ? 'Income'
+        : (validCategories.contains(_category)
+            ? _category
+            : (validCategories.isNotEmpty ? validCategories.first : _category));
     final merchant = _note.text.trim().isEmpty
-        ? (_income ? 'Income' : _category)
+        ? (_income ? 'Income' : category)
         : _note.text.trim();
     final isCard = _source.startsWith('c:');
     final sourceId = _source.substring(2);
@@ -152,9 +161,17 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
   Widget build(BuildContext context) {
     final c = context.spend;
     final snapshot = ref.watch(financeSnapshotProvider);
+    final settings = ref.watch(settingsProvider);
     final accounts = snapshot.accounts;
     final cards = snapshot.cards;
-    final categories = const ['Food', 'Travel', 'Bills', 'Shop', 'Fun', 'EMI'];
+    final categories = settings.categories.keys
+        .where((k) => k != 'Transfer' && k != 'Income')
+        .toList();
+    final effectiveCategory = _income
+        ? 'Income'
+        : (categories.contains(_category)
+            ? _category
+            : (categories.isNotEmpty ? categories.first : _category));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,7 +210,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
                 for (final category in categories) ...[
                   AppPill(
                     label: category,
-                    active: _category == category,
+                    active: effectiveCategory == category,
                     onTap: () => setState(() => _category = category),
                   ),
                   const SizedBox(width: 8),

@@ -31,6 +31,23 @@ abstract final class AppColors {
     Color(0xFFFFD23F), // Gold
   ];
 
+  static const categoryPalette = <Color>[
+    Color(0xFFFF9F43), // Orange
+    Color(0xFF4DABF7), // Blue
+    Color(0xFFC084FC), // Purple
+    Color(0xFFFF6B9D), // Pink
+    Color(0xFFD4FF3A), // Lime
+    Color(0xFF2DD4BF), // Teal
+    Color(0xFFFF6B4A), // Coral
+    Color(0xFFFFD23F), // Gold
+    Color(0xFF38BDF8), // Sky
+    Color(0xFFA78BFA), // Lavender
+    Color(0xFFFB7185), // Rose
+    Color(0xFF34D399), // Emerald
+    Color(0xFFFBBF24), // Amber
+    Color(0xFF94A3B8), // Slate
+  ];
+
   static const categories = <String, Color>{
     'Food': Color(0xFFFF9F43),
     'Travel': Color(0xFF4DABF7),
@@ -42,16 +59,9 @@ abstract final class AppColors {
     'Transfer': Color(0xFF8B8883),
   };
 
-  static const categoryList = <String>[
-    'Food',
-    'Travel',
-    'Bills',
-    'Shop',
-    'Income',
-    'Fun',
-    'EMI',
-    'Transfer',
-  ];
+  static Map<String, Color> dynamicCategories = Map.of(categories);
+
+  static List<String> get categoryList => dynamicCategories.keys.toList();
 
   /// Per-module atmosphere tint from the prototype.
   static const moduleTint = <String, Color>{
@@ -70,7 +80,8 @@ abstract final class AppColors {
     'settings': Color(0xFFB8B2A7),
   };
 
-  static Color category(String name) => categories[name] ?? mu;
+  static Color category(String name) =>
+      dynamicCategories[name] ?? categories[name] ?? mu;
 
   static Color fromHex(String hex) {
     final value = hex.replaceAll('#', '');

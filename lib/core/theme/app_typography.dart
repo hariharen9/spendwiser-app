@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../data/models/app_settings.dart';
+
 /// Instrument Serif for display / hero numbers, DM Sans for everything else.
 ///
 /// Both families are bundled under `assets/fonts` so the app renders exactly
 /// like the prototype even when the device is offline. Google Fonts is
 /// configured to resolve the bundled assets instead of fetching over HTTP.
 abstract final class AppTypography {
+  static AppFontMode fontMode = AppFontMode.dmSans;
+
+  static String get activeSansFamily => switch (fontMode) {
+    AppFontMode.dmSans => 'DMSans',
+    AppFontMode.serif => 'InstrumentSerif',
+    AppFontMode.mono => 'monospace',
+  };
+
+  static String get activeSerifFamily => switch (fontMode) {
+    AppFontMode.mono => 'monospace',
+    _ => 'InstrumentSerif',
+  };
+
   static TextStyle serif({
     double size = 16,
     Color? color,
@@ -16,6 +31,18 @@ abstract final class AppTypography {
     FontStyle style = FontStyle.normal,
     TextDecoration? decoration,
   }) {
+    if (fontMode == AppFontMode.mono) {
+      return TextStyle(
+        fontFamily: 'monospace',
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: letterSpacing,
+        fontStyle: style,
+        decoration: decoration,
+      );
+    }
     return GoogleFonts.instrumentSerif(
       fontSize: size,
       color: color,
@@ -49,6 +76,31 @@ abstract final class AppTypography {
     FontStyle style = FontStyle.normal,
     List<Shadow>? shadows,
   }) {
+    if (fontMode == AppFontMode.serif) {
+      return GoogleFonts.instrumentSerif(
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: letterSpacing,
+        decoration: decoration,
+        fontStyle: style,
+        shadows: shadows,
+      );
+    }
+    if (fontMode == AppFontMode.mono) {
+      return TextStyle(
+        fontFamily: 'monospace',
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: letterSpacing,
+        decoration: decoration,
+        fontStyle: style,
+        shadows: shadows,
+      );
+    }
     return GoogleFonts.dmSans(
       fontSize: size,
       color: color,

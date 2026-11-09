@@ -168,7 +168,10 @@ class _AppShellState extends ConsumerState<AppShell>
                 },
                 child: KeyedSubtree(
                   key: ValueKey(_module),
-                  child: _screenFor(_module),
+                  child: KeyedSubtree(
+                    key: ValueKey('${settings.font.name}_${settings.theme.name}'),
+                    child: _screenFor(_module),
+                  ),
                 ),
               ),
             ),

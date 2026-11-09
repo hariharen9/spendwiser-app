@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../theme/app_colors.dart';
 import '../../data/mock/mock_finance_store.dart';
 import '../../data/mock/mock_settings_repository.dart';
 import '../../data/models/app_settings.dart';
@@ -31,6 +32,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void update(AppSettings next) {
     state = next;
+    AppColors.dynamicCategories = Map.of(next.categories);
     ref.read(settingsRepositoryProvider).save(next);
   }
 
@@ -49,6 +51,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     Set<HomeWidget>? hiddenWidgets,
     bool? billReminders,
     bool? weeklyDigest,
+    Map<String, Color>? categories,
   }) {
     update(
       state.copyWith(
@@ -66,9 +69,45 @@ class SettingsNotifier extends Notifier<AppSettings> {
         hiddenWidgets: hiddenWidgets,
         billReminders: billReminders,
         weeklyDigest: weeklyDigest,
+        categories: categories,
       ),
     );
     if (haptics != null) Haptics.enabled = haptics;
+  }
+
+  void addCategory(String name, Color color) {
+    final next = Map<String, Color>.from(state.categories);
+    next[name] = color;
+    patch(categories: next);
+  }
+
+  void editCategory(String oldName, String newName, Color color) {
+    final next = <String, Color>{};
+    for (final entry in state.categories.entries) {
+      if (entry.key == oldName) {
+        next[newName] = color;
+      } else {
+        next[entry.key] = entry.value;
+      }
+    }
+    patch(categories: next);
+  }
+
+  void deleteCategory(String name) {
+    final next = Map<String, Color>.from(state.categories);
+    next.remove(name);
+    patch(categories: next);
+  }
+
+  void reorderCategories(int oldIndex, int newIndex) {
+    final list = state.categories.entries.toList();
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+    final next = Map<String, Color>.fromEntries(list);
+    patch(categories: next);
   }
 
   void toggleTheme() {

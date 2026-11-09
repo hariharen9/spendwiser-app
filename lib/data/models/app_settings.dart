@@ -39,6 +39,7 @@ class AppSettings {
     this.hiddenWidgets = const <HomeWidget>{},
     this.billReminders = true,
     this.weeklyDigest = false,
+    this.categories = AppColors.categories,
   });
 
   final AppThemeMode theme;
@@ -55,6 +56,7 @@ class AppSettings {
   final Set<HomeWidget> hiddenWidgets;
   final bool billReminders;
   final bool weeklyDigest;
+  final Map<String, Color> categories;
 
   bool get isDark => theme == AppThemeMode.dark;
 
@@ -85,6 +87,7 @@ class AppSettings {
     Set<HomeWidget>? hiddenWidgets,
     bool? billReminders,
     bool? weeklyDigest,
+    Map<String, Color>? categories,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -101,6 +104,7 @@ class AppSettings {
       hiddenWidgets: hiddenWidgets ?? this.hiddenWidgets,
       billReminders: billReminders ?? this.billReminders,
       weeklyDigest: weeklyDigest ?? this.weeklyDigest,
+      categories: categories ?? this.categories,
     );
   }
 }
