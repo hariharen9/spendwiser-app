@@ -14,9 +14,9 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/models/finance_snapshot.dart';
 import '../../data/models/transaction.dart';
 import '../home/customize_home_sheet.dart';
-import '../insights/insight_sheets.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
@@ -320,7 +320,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         for (final label in const [
           'Ledger · CSV',
-          'Tax report · PDF',
+          'Annual summary · PDF',
           'Statements · XLSX',
           'Full backup · encrypted',
         ])
@@ -338,10 +338,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         AppButton(
           label: 'Encrypted backup & restore',
           onTap: () => _showBackup(context),
-        ),
-        AppButton(
-          label: 'Tax helper',
-          onTap: () => showTaxHelperSheet(context),
         ),
         const SectionCaption(
           'Auto-backup',
@@ -468,47 +464,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showTags(BuildContext context) {
-    final snapshot = ref.read(financeSnapshotProvider);
     showAppSheet<void>(
       context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('Tags'),
-          const SizedBox(height: 8),
-          AppCard(
-            child: Column(
-              children: [
-                for (final tag in snapshot.tags)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        AppPill(
-                          label: '#$tag',
-                          color:
-                              AppColors.accents[snapshot.tags.indexOf(tag) %
-                                  AppColors.accents.length],
-                          textColor:
-                              AppColors.accents[snapshot.tags.indexOf(tag) %
-                                  AppColors.accents.length],
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${snapshot.transactions.where((t) => t.tags.contains(tag)).length} tagged',
-                          style: AppTypography.sans(
-                            size: 12,
-                            color: sheetContext.spend.mu,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      (sheetContext) => const _TagsSheet(),
     );
   }
 
@@ -1361,6 +1319,265 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
             onTap: _delete,
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _TagsSheet extends ConsumerStatefulWidget {
+  const _TagsSheet();
+
+  @override
+  ConsumerState<_TagsSheet> createState() => _TagsSheetState();
+}
+
+class _TagsSheetState extends ConsumerState<_TagsSheet> {
+  bool _showAdd = false;
+  final _addController = TextEditingController();
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addTag() async {
+    final text = _addController.text.trim().replaceAll('#', '');
+    if (text.isEmpty) return;
+    await ref.read(transactionRepositoryProvider).addTag(text);
+    _addController.clear();
+    setState(() => _showAdd = false);
+  }
+
+  void _editTag(String tag) {
+    showAppSheet<void>(
+      context,
+      (_) => _EditTagSheet(tag: tag),
+    );
+  }
+
+  Widget _buildTagRow(String tag, int i, FinanceSnapshot snapshot, BuildContext context) {
+    final c = context.spend;
+    final count = snapshot.transactions.where((t) => t.tags.contains(tag)).length;
+    final tagColor = AppColors.accents[i % AppColors.accents.length];
+
+    return Column(
+      children: [
+        InkWell(
+          onTap: () => _editTag(tag),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+            child: Row(
+              children: [
+                AppPill(
+                  label: '#$tag',
+                  color: tagColor,
+                  textColor: tagColor,
+                ),
+                const Spacer(),
+                Text(
+                  count == 0 ? 'Not used' : '$count tagged',
+                  style: AppTypography.sans(size: 12, color: c.mu),
+                ),
+                const SizedBox(width: 8),
+                SpendIcon('chevronRight', size: 14, color: c.mu),
+              ],
+            ),
+          ),
+        ),
+        if (i < snapshot.tags.length - 1)
+          Divider(color: c.ln, height: 1),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final snapshot = ref.watch(financeSnapshotProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SheetTitle('Tags', subtitle: 'Organize your transactions with custom tags'),
+            if (!_showAdd)
+              GestureDetector(
+                onTap: () => setState(() => _showAdd = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: c.ac,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '+ Add',
+                    style: AppTypography.sans(size: 12, color: c.aci, weight: FontWeight.w600),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (_showAdd) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: c.c1,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: c.ln),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('New tag', style: AppTypography.sans(size: 13, color: c.tx, weight: FontWeight.w600)),
+                    GestureDetector(
+                      onTap: () => setState(() => _showAdd = false),
+                      child: SpendIcon('close', size: 16, color: c.mu),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: c.c2,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: TextField(
+                    controller: _addController,
+                    autofocus: true,
+                    textAlignVertical: TextAlignVertical.center,
+                    style: AppTypography.sans(size: 14, color: c.tx),
+                    onSubmitted: (_) => _addTag(),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                      hintText: 'e.g. Travel, Coffee, Medical, Pets…',
+                      hintStyle: AppTypography.sans(size: 13, color: c.mu),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                PrimaryButton(label: 'Save tag', onTap: _addTag),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        if (snapshot.tags.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            alignment: Alignment.center,
+            child: Text('No tags yet. Tap "+ Add" to create one.', style: AppTypography.sans(size: 13, color: c.mu)),
+          )
+        else
+          AppCard(
+            child: Column(
+              children: [
+                for (var i = 0; i < snapshot.tags.length; i++)
+                  _buildTagRow(snapshot.tags[i], i, snapshot, context),
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _EditTagSheet extends ConsumerStatefulWidget {
+  const _EditTagSheet({required this.tag});
+
+  final String tag;
+
+  @override
+  ConsumerState<_EditTagSheet> createState() => _EditTagSheetState();
+}
+
+class _EditTagSheetState extends ConsumerState<_EditTagSheet> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.tag);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final next = _controller.text.trim().replaceAll('#', '');
+    if (next.isNotEmpty && next != widget.tag) {
+      await ref.read(transactionRepositoryProvider).renameTag(widget.tag, next);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _delete() async {
+    await ref.read(transactionRepositoryProvider).deleteTag(widget.tag);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetTitle('Edit #${widget.tag}'),
+        const SizedBox(height: 12),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            color: c.c2,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          alignment: Alignment.center,
+          child: TextField(
+            controller: _controller,
+            textAlignVertical: TextAlignVertical.center,
+            style: AppTypography.sans(size: 14, color: c.tx),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              hintText: 'Tag name',
+              hintStyle: AppTypography.sans(size: 13, color: c.mu),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        PrimaryButton(label: 'Save', onTap: _save),
+        const SizedBox(height: 8),
+        AppButton(
+          label: 'Delete tag',
+          color: c.co,
+          centered: true,
+          margin: EdgeInsets.zero,
+          onTap: _delete,
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }

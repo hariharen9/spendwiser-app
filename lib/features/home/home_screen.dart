@@ -344,8 +344,9 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
           const SizedBox(width: 8),
           _RoundIconButton(icon: 'scan', onTap: () => _showScan(context)),
           const SizedBox(width: 8),
-          GestureDetector(
+          Pressable(
             onTap: _submit,
+            scale: 0.92,
             child: Container(
               width: 38,
               height: 38,

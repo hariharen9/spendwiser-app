@@ -70,4 +70,24 @@ void main() {
     expect(afterKeys[0], second);
     expect(afterKeys[1], first);
   });
+
+  test('ITransactionRepository allows adding, renaming and deleting tags', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final repo = container.read(transactionRepositoryProvider);
+    final financeRepo = container.read(financeRepositoryProvider);
+
+    expect(financeRepo.current.tags.contains('Vacation'), false);
+
+    await repo.addTag('Vacation');
+    expect(financeRepo.current.tags.contains('Vacation'), true);
+
+    await repo.renameTag('Vacation', 'Holiday');
+    expect(financeRepo.current.tags.contains('Vacation'), false);
+    expect(financeRepo.current.tags.contains('Holiday'), true);
+
+    await repo.deleteTag('Holiday');
+    expect(financeRepo.current.tags.contains('Holiday'), false);
+  });
 }

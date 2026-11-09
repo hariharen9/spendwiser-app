@@ -15,7 +15,6 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../data/models/finance_snapshot.dart';
-import '../../data/services/finance_calculator.dart';
 import '../../core/widgets/app_card.dart';
 
 Future<void> showMonthlyReportSheet(BuildContext context, DateTime month) {
@@ -159,96 +158,6 @@ class _MonthlyReportSheet extends ConsumerWidget {
           onTap: () {
             Navigator.of(context).pop();
             ref.read(toastProvider.notifier).show('Preparing PDF…');
-          },
-        ),
-      ],
-    );
-  }
-}
-
-Future<void> showTaxHelperSheet(BuildContext context) {
-  return showAppSheet<void>(context, (_) => const _TaxHelperSheet());
-}
-
-class _TaxHelperSheet extends ConsumerWidget {
-  const _TaxHelperSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.spend;
-    final snapshot = ref.watch(financeSnapshotProvider);
-    const limits = {'80C': 150000.0, '80D': 25000.0};
-    final now = DateTime.now();
-    final fy = now.month >= 4 ? now.year : now.year - 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Tax helper', style: AppTypography.serif(size: 30, color: c.tx)),
-        Text(
-          'FY $fy–${'${fy + 1}'.substring(2)} · based on your tags',
-          style: AppTypography.sans(size: 12, color: c.mu),
-        ),
-        const SizedBox(height: 12),
-        AppCard(
-          child: Column(
-            children: [
-              for (final entry in limits.entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '#${entry.key}',
-                            style: AppTypography.sans(
-                              size: 14,
-                              color:
-                                  AppColors.category(entry.key) == AppColors.mu
-                                  ? c.tx
-                                  : const Color(0xFFFF9F43),
-                            ),
-                          ),
-                          const Spacer(),
-                          MoneyText(
-                            '${rupee(FinanceCalculator.taxTotal(snapshot, entry.key))} / ${rupee(entry.value)}',
-                            style: AppTypography.sans(size: 13, color: c.tx),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: LinearProgressIndicator(
-                          value:
-                              (FinanceCalculator.taxTotal(snapshot, entry.key) /
-                                      entry.value)
-                                  .clamp(0, 1),
-                          minHeight: 6,
-                          backgroundColor: c.c2,
-                          valueColor: AlwaysStoppedAnimation(
-                            const Color(0xFFFF9F43),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              Text(
-                'Tag transactions from the ledger. This is a guide, not tax advice.',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-            ],
-          ),
-        ),
-        AppButton(
-          label: 'Export tax report',
-          primary: true,
-          centered: true,
-          onTap: () {
-            Navigator.of(context).pop();
-            ref.read(toastProvider.notifier).show('Preparing tax report…');
           },
         ),
       ],

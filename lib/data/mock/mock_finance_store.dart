@@ -66,12 +66,11 @@ class MockFinanceStore
   final List<SplitGroup> _groups = [];
   final List<Investment> _investments = [];
   final List<String> _tags = [
-    '80C',
-    '80D',
-    'HRA',
-    'Business',
-    'Reimbursable',
+    'Personal',
+    'Work',
+    'Shared',
     'Disputed',
+    'Trip',
   ];
 
   @override
@@ -136,7 +135,7 @@ class MockFinanceStore
         at(2),
         now,
         accountId: 'hdfc',
-        tags: const ['HRA'],
+        tags: const ['Personal'],
       );
       if (k % 2 == 0) {
         _addSeedTx(
@@ -146,7 +145,7 @@ class MockFinanceStore
           at(6),
           now,
           accountId: 'hdfc',
-          tags: const ['80C'],
+          tags: const ['Personal'],
         );
       }
       if (k == 2) {
@@ -157,7 +156,6 @@ class MockFinanceStore
           at(11),
           now,
           accountId: 'hdfc',
-          tags: const ['80D'],
         );
       }
 
@@ -795,6 +793,45 @@ class MockFinanceStore
     if (index < 0) return;
     final tx = _transactions.removeAt(index);
     _applyAccountDelta(tx, -1);
+    _commit();
+  }
+
+  @override
+  Future<void> addTag(String tag) async {
+    final clean = tag.trim().replaceAll('#', '');
+    if (clean.isEmpty || _tags.contains(clean)) return;
+    _tags.add(clean);
+    _commit();
+  }
+
+  @override
+  Future<void> deleteTag(String tag) async {
+    final clean = tag.trim().replaceAll('#', '');
+    _tags.remove(clean);
+    for (var i = 0; i < _transactions.length; i++) {
+      if (_transactions[i].tags.contains(clean)) {
+        final updatedTags = List<String>.of(_transactions[i].tags)..remove(clean);
+        _transactions[i] = _transactions[i].copyWith(tags: updatedTags);
+      }
+    }
+    _commit();
+  }
+
+  @override
+  Future<void> renameTag(String oldTag, String newTag) async {
+    final cleanOld = oldTag.trim().replaceAll('#', '');
+    final cleanNew = newTag.trim().replaceAll('#', '');
+    if (cleanNew.isEmpty || cleanOld == cleanNew) return;
+    final index = _tags.indexOf(cleanOld);
+    if (index != -1) {
+      _tags[index] = cleanNew;
+    }
+    for (var i = 0; i < _transactions.length; i++) {
+      if (_transactions[i].tags.contains(cleanOld)) {
+        final updatedTags = _transactions[i].tags.map((t) => t == cleanOld ? cleanNew : t).toList();
+        _transactions[i] = _transactions[i].copyWith(tags: updatedTags);
+      }
+    }
     _commit();
   }
 

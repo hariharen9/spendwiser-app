@@ -82,10 +82,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               label: 'Year in review',
               onTap: () => showYearInReview(context, snapshot),
             ),
-            AppPill(
-              label: 'Tax helper',
-              onTap: () => showTaxHelperSheet(context),
-            ),
           ],
         ),
         const SizedBox(height: 10),

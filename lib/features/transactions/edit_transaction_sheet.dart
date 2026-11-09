@@ -7,13 +7,10 @@ import '../../core/theme/app_typography.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
-import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/segmented_control.dart';
 import '../../data/models/transaction.dart';
 
 Future<void> showEditTransactionSheet(
@@ -147,8 +144,9 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SheetTitle('Edit transaction'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _Field(controller: _merchant, hint: 'Merchant'),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -156,18 +154,19 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: SegmentedControl<bool>(
-                margin: EdgeInsets.zero,
+              child: AppSelect<bool>(
+                value: _income,
                 options: const [
-                  SegmentedOption(false, 'Expense'),
-                  SegmentedOption(true, 'Income'),
+                  AppSelectOption(false, 'Expense'),
+                  AppSelectOption(true, 'Income'),
                 ],
-                selected: _income,
-                onChanged: (value) => setState(() => _income = value),
+                onChanged: (value) =>
+                    setState(() => _income = value ?? _income),
               ),
             ),
           ],
         ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -198,6 +197,7 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
         GestureDetector(
           onTap: () async {
             final picked = await showDatePicker(
@@ -217,12 +217,12 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
           },
           child: Container(
             height: 48,
-            margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 13),
             decoration: BoxDecoration(
               color: c.c2,
               borderRadius: BorderRadius.circular(14),
             ),
+            alignment: Alignment.centerLeft,
             child: Row(
               children: [
                 Expanded(
@@ -236,9 +236,11 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
             ),
           ),
         ),
+        const SizedBox(height: 10),
         _Field(controller: _note, hint: 'Note'),
+        const SizedBox(height: 14),
         Text('Tags', style: AppTypography.sans(size: 12, color: c.mu)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -259,36 +261,16 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
               ),
           ],
         ),
-        const SizedBox(height: 10),
-        AppCard(
-          margin: EdgeInsets.zero,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Tag for tax',
-                  style: AppTypography.sans(size: 14, color: c.tx),
-                ),
-              ),
-              AppToggle(
-                value: _tags.isNotEmpty,
-                onChanged: (value) {
-                  setState(() {
-                    if (value) {
-                      if (_tags.isEmpty) {
-                        _tags.add(snapshot.tags.first);
-                      }
-                    } else {
-                      _tags.clear();
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 18),
         PrimaryButton(label: 'Save changes', onTap: _save),
-        AppButton(label: 'Delete', color: c.co, centered: true, onTap: _delete),
+        const SizedBox(height: 8),
+        AppButton(
+          label: 'Delete',
+          color: c.co,
+          centered: true,
+          margin: EdgeInsets.zero,
+          onTap: _delete,
+        ),
       ],
     );
   }
@@ -310,7 +292,6 @@ class _Field extends StatelessWidget {
     final c = context.spend;
     return Container(
       height: 48,
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 13),
       decoration: BoxDecoration(
         color: c.c2,

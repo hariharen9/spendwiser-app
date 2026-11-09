@@ -764,17 +764,6 @@ abstract final class FinanceCalculator {
         .toList();
   }
 
-  static double taxTotal(FinanceSnapshot snapshot, String tag) {
-    final now = DateTime.now();
-    final fyStart = DateTime(now.month >= 4 ? now.year : now.year - 1, 4, 1);
-    var total = 0.0;
-    for (final t in snapshot.transactions) {
-      if (t.date.isBefore(fyStart) || t.amount >= 0) continue;
-      if (t.tags.contains(tag)) total -= t.amount;
-    }
-    return total;
-  }
-
   static String resultLabel(int months, {DateTime? now}) {
     final n = now ?? DateTime.now();
     final d = DateTime(n.year, n.month + months, 1);
