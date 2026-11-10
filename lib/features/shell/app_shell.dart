@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/providers.dart';
+import '../../core/state/sms_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_icons.dart';
@@ -91,6 +92,7 @@ class _AppShellState extends ConsumerState<AppShell>
     } else if (state == AppLifecycleState.resumed) {
       final pausedTime = _pausedAt;
       _pausedAt = null;
+      ref.read(smsReviewProvider.notifier).refresh();
 
       // Do not re-lock if biometrics are in progress or completed just now
       if (sec.isAuthenticatingBiometrics ||

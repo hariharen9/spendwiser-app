@@ -26,6 +26,7 @@ import '../../data/persistence/pin_vault.dart';
 import '../../data/services/notifications_service.dart';
 import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
+import '../sms/sms_settings_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
@@ -736,42 +737,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showSms(BuildContext context) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) {
-        final c = sheetContext.spend;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SheetTitle(
-              'SMS listener',
-              subtitle: 'Bank SMS become pending transactions you can review.',
-            ),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pair on the web app',
-                    style: AppTypography.sans(
-                      size: 15,
-                      color: c.tx,
-                      weight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Open Settings → SMS in the Spendwiser web app to generate your listener key. '
-                    'Incoming SMS are staged in the same account and appear here automatically.',
-                    style: AppTypography.sans(size: 12, color: c.mu),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+    showSmsSettingsSheet(context);
   }
 
   void _showPinVault(BuildContext context) {

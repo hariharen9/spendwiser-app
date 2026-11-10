@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/providers.dart';
+import '../../core/state/sms_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -15,6 +16,7 @@ import '../../data/models/finance_snapshot.dart';
 import '../../data/services/finance_calculator.dart';
 import '../insights/ask_spendwiser_sheet.dart';
 import '../shell/app_module.dart';
+import '../sms/sms_review_sheet.dart';
 import '../transactions/add_transaction_sheet.dart';
 
 class OrbLauncher extends ConsumerStatefulWidget {
@@ -103,6 +105,7 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
     final c = context.spend;
     final settings = ref.watch(settingsProvider);
     final snapshot = ref.watch(financeSnapshotProvider);
+    final smsCount = ref.watch(smsReviewProvider).length;
     final modules = AppModule.values
         .where(
           (m) =>
@@ -230,6 +233,15 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                                       widget.onNavigate(AppModule.split),
                                 ),
                                 const SizedBox(width: 8),
+                                if (smsCount > 0) ...[
+                                  AppPill(
+                                    label: 'Review SMS · $smsCount',
+                                    onTap: () => _quick(
+                                      () => showSmsReviewSheet(context),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 AppPill(
                                   label: 'Ask Spendwiser',
                                   onTap: () => _quick(

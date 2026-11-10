@@ -27,6 +27,7 @@ import '../../data/models/goal.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/finance_calculator.dart';
 import '../shell/app_module.dart';
+import '../sms/sms_review_sheet.dart';
 import '../transactions/add_transaction_sheet.dart';
 import 'customize_home_sheet.dart';
 import 'services/capture_parser.dart';
@@ -75,6 +76,7 @@ class HomeScreen extends ConsumerWidget {
           settings: settings,
           onAvatar: () => onNavigate(AppModule.settings),
         ),
+        const SmsReviewBanner(),
         for (var i = 0; i < widgets.length; i++)
           Reveal(index: i + 1, child: builders[widgets[i]]!),
         Reveal(
