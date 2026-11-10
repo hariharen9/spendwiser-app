@@ -172,6 +172,48 @@ void main() {
     });
   });
 
+  group('split mapping', () {
+    test('maps members, splits, and settlements with stable history', () {
+      final mapped = splitGroupFromDocs(
+        id: 'g1',
+        data: {
+          'name': 'Goa Trip',
+          'participantIds': ['p1', '1'],
+        },
+        participantNames: const {'1': 'You', 'p1': 'Rohan'},
+        expenseDocs: [
+          MapEntry('e1', {
+            'description': 'Beach dinner',
+            'amount': 3200.0,
+            'paidBy': '1',
+            'splitType': 'equal',
+            'splits': [
+              {'participantId': '1', 'amount': 1600.0},
+              {'participantId': 'p1', 'amount': 1600.0},
+            ],
+            'date': '2026-10-16',
+          }),
+        ],
+        settledDocs: [
+          MapEntry('s1', {
+            'from': 'p1',
+            'to': '1',
+            'amount': 1600.0,
+            'createdAt': '2026-10-17',
+          }),
+        ],
+      );
+
+      expect(mapped.group.members, ['You', 'Rohan']);
+      expect(mapped.group.expenses.length, 2);
+      expect(mapped.group.expenses.first.shares['Rohan'], 1600);
+      expect(mapped.group.expenses.last.isSettlement, true);
+      expect(mapped.history.map((entry) => entry.id).toList(), ['e1', 's1']);
+      expect(mapped.group.netBalances()['You'], 0);
+      expect(mapped.group.netBalances()['Rohan'], 0);
+    });
+  });
+
   group('date helpers', () {
     test('round-trips YYYY-MM-DD at local noon', () {
       final date = DateTime(2026, 11, 9);

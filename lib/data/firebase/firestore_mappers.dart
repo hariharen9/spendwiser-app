@@ -7,6 +7,7 @@ import '../models/budget.dart';
 import '../models/credit_card.dart';
 import '../models/goal.dart';
 import '../models/loan.dart';
+import '../models/split_group.dart';
 import '../models/subscription.dart';
 import '../models/transaction.dart';
 import '../services/finance_calculator.dart';
@@ -334,6 +335,154 @@ Subscription? subscriptionFromRecurring(
     note: recurring.note,
     category: recurring.category,
     recurringId: recurring.id,
+  );
+}
+
+SplitType splitTypeFromRemote(String raw) => switch (raw) {
+  'unequal' => SplitType.exact,
+  'percentage' => SplitType.percent,
+  _ => SplitType.equal,
+};
+
+String remoteSplitType(SplitType type) => switch (type) {
+  SplitType.exact => 'unequal',
+  SplitType.percent => 'percentage',
+  SplitType.equal => 'equal',
+};
+
+String splitParticipantName(
+  String id,
+  Map<String, String> participantNames,
+) {
+  if (id.isEmpty) return 'Member';
+  return participantNames[id] ?? (id == '1' ? 'You' : id);
+}
+
+SplitExpense splitExpenseFromDoc(
+  Map<String, dynamic> data, {
+  required Map<String, String> participantNames,
+}) {
+  final shares = <String, double>{};
+  final rawSplits = (data['splits'] as List?) ?? const <dynamic>[];
+  for (final raw in rawSplits) {
+    final split = asMap(raw);
+    final name = splitParticipantName(
+      asString(split['participantId']),
+      participantNames,
+    );
+    shares[name] = asDouble(split['amount']);
+  }
+  return SplitExpense(
+    description: asString(data['description'], 'Expense'),
+    amount: asDouble(data['amount']),
+    paidBy: splitParticipantName(
+      asString(data['paidBy']),
+      participantNames,
+    ),
+    shares: shares,
+    type: splitTypeFromRemote(asString(data['splitType'], 'equal')),
+    date: parseFirestoreDate(data['date']) ??
+        parseFirestoreDate(data['createdAt']) ??
+        DateTime.now(),
+  );
+}
+
+class SplitHistoryEntry {
+  const SplitHistoryEntry({required this.id, required this.settlement});
+
+  final String id;
+  final bool settlement;
+}
+
+class MappedSplitGroup {
+  const MappedSplitGroup({required this.group, required this.history});
+
+  final SplitGroup group;
+  final List<SplitHistoryEntry> history;
+}
+
+MappedSplitGroup splitGroupFromDocs({
+  required String id,
+  required Map<String, dynamic> data,
+  required Map<String, String> participantNames,
+  required List<MapEntry<String, Map<String, dynamic>>> expenseDocs,
+  required List<MapEntry<String, Map<String, dynamic>>> settledDocs,
+}) {
+  final members = <String>['You'];
+  for (final participantId in asStringList(data['participantIds'])) {
+    if (participantId == '1') continue;
+    final name = splitParticipantName(participantId, participantNames);
+    if (!members.contains(name)) members.add(name);
+  }
+
+  DateTime expenseDate(Map<String, dynamic> doc) =>
+      parseFirestoreDate(doc['date']) ??
+      parseFirestoreDate(doc['createdAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  final orderedExpenses = List<MapEntry<String, Map<String, dynamic>>>.from(
+    expenseDocs,
+  )..sort((a, b) {
+    final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
+    return byDate != 0 ? byDate : a.key.compareTo(b.key);
+  });
+  final orderedSettlements = List<MapEntry<String, Map<String, dynamic>>>.from(
+    settledDocs,
+  )..sort((a, b) {
+    final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
+    return byDate != 0 ? byDate : a.key.compareTo(b.key);
+  });
+
+  final expenses = <SplitExpense>[];
+  final history = <SplitHistoryEntry>[];
+
+  for (final entry in orderedExpenses) {
+    final expense = splitExpenseFromDoc(
+      entry.value,
+      participantNames: participantNames,
+    );
+    expenses.add(expense);
+    history.add(SplitHistoryEntry(id: entry.key, settlement: false));
+    for (final name in [expense.paidBy, ...expense.shares.keys]) {
+      if (!members.contains(name)) members.add(name);
+    }
+  }
+
+  for (final entry in orderedSettlements) {
+    final doc = entry.value;
+    final amount = asDouble(doc['amount']);
+    if (amount <= 0) continue;
+    final from = splitParticipantName(
+      asString(doc['from']),
+      participantNames,
+    );
+    final to = splitParticipantName(asString(doc['to']), participantNames);
+    expenses.add(
+      SplitExpense(
+        description: 'Settlement',
+        amount: amount,
+        paidBy: from,
+        shares: const {},
+        type: SplitType.exact,
+        date: parseFirestoreDate(doc['createdAt']) ??
+            parseFirestoreDate(doc['date']) ??
+            DateTime.now(),
+        settledTo: to,
+      ),
+    );
+    history.add(SplitHistoryEntry(id: entry.key, settlement: true));
+    if (!members.contains(from)) members.add(from);
+    if (!members.contains(to)) members.add(to);
+  }
+
+  return MappedSplitGroup(
+    group: SplitGroup(
+      id: id,
+      name: asString(data['name'], 'Group'),
+      members: members,
+      expenses: expenses,
+    ),
+    history: history,
   );
 }
 

@@ -71,6 +71,15 @@ class FirestoreFinanceStore
   final Map<String, Map<String, dynamic>> _recurringDocs = {};
   final Map<String, Map<String, dynamic>> _deletedTransactionDocs = {};
 
+  final Map<String, Map<String, dynamic>> _participantDocs = {};
+  final Map<String, Map<String, dynamic>> _groupDocs = {};
+  final Map<String, Map<String, Map<String, dynamic>>> _expensesByGroup = {};
+  final Map<String, Map<String, Map<String, dynamic>>> _settledByGroup = {};
+  final Map<String, List<StreamSubscription<dynamic>>> _groupSubscriptions = {};
+  final Map<String, List<SplitHistoryEntry>> _groupHistory = {};
+  Map<String, String> _participantNames = const {'1': 'You'};
+  Map<String, String> _participantIdByName = const {'You': '1'};
+
   final Set<String> _loaded = {};
   static const _sources = {
     'transactions',
@@ -80,6 +89,8 @@ class FirestoreFinanceStore
     'goals',
     'loans',
     'recurring',
+    'splitsParticipants',
+    'splitsGroups',
     'user',
   };
 
@@ -186,11 +197,87 @@ class FirestoreFinanceStore
       ),
     );
     _subscriptions.add(
+      refs.participants.snapshots().listen(
+        (snapshot) {
+          _participantDocs
+            ..clear()
+            ..addEntries(
+              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+            );
+          final names = <String, String>{'1': 'You'};
+          final ids = <String, String>{'You': '1'};
+          for (final entry in _participantDocs.entries) {
+            final name = asString(entry.value['name']).trim();
+            if (name.isEmpty) continue;
+            names[entry.key] = name;
+            ids[name] = entry.key;
+          }
+          _participantNames = names;
+          _participantIdByName = ids;
+          _mark('splitsParticipants');
+        },
+        onError: (Object error) => _fail('splitsParticipants', error),
+      ),
+    );
+    _subscriptions.add(
+      refs.splitGroups.snapshots().listen(
+        (snapshot) {
+          _groupDocs
+            ..clear()
+            ..addEntries(
+              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+            );
+          _syncGroupListeners(snapshot.docs.map((doc) => doc.id).toSet());
+          _mark('splitsGroups');
+        },
+        onError: (Object error) => _fail('splitsGroups', error),
+      ),
+    );
+    _subscriptions.add(
       refs.user.snapshots().listen(
         (_) => _mark('user'),
         onError: (Object error) => _fail('user', error),
       ),
     );
+  }
+
+  void _syncGroupListeners(Set<String> groupIds) {
+    for (final groupId in _groupSubscriptions.keys.toList()) {
+      if (groupIds.contains(groupId)) continue;
+      for (final subscription in _groupSubscriptions.remove(groupId) ?? const []) {
+        subscription.cancel();
+      }
+      _expensesByGroup.remove(groupId);
+      _settledByGroup.remove(groupId);
+      _groupHistory.remove(groupId);
+    }
+
+    for (final groupId in groupIds) {
+      if (_groupSubscriptions.containsKey(groupId)) continue;
+      final subscriptions = <StreamSubscription<dynamic>>[
+        refs.expenses(groupId).snapshots().listen(
+          (snapshot) {
+            _expensesByGroup[groupId] = {
+              for (final doc in snapshot.docs) doc.id: doc.data(),
+            };
+            _emit();
+          },
+          onError: (Object error) =>
+              _error('Could not load split expenses: $error'),
+        ),
+        refs.settledPayments(groupId).snapshots().listen(
+          (snapshot) {
+            _settledByGroup[groupId] = {
+              for (final doc in snapshot.docs) doc.id: doc.data(),
+            };
+            _emit();
+          },
+          onError: (Object error) =>
+              _error('Could not load settlements: $error'),
+        ),
+      ];
+      _groupSubscriptions[groupId] = subscriptions;
+    }
   }
 
   void _mark(String source) {
@@ -313,6 +400,33 @@ class FirestoreFinanceStore
         .whereType<Subscription>()
         .toList();
 
+    final groups = <SplitGroup>[];
+    final historyByGroup = <String, List<SplitHistoryEntry>>{};
+    for (final entry in _groupDocs.entries) {
+      final expenseDocs =
+          (_expensesByGroup[entry.key] ??
+                  const <String, Map<String, dynamic>>{})
+              .entries
+              .toList();
+      final settledDocs =
+          (_settledByGroup[entry.key] ??
+                  const <String, Map<String, dynamic>>{})
+              .entries
+              .toList();
+      final mapped = splitGroupFromDocs(
+        id: entry.key,
+        data: entry.value,
+        participantNames: _participantNames,
+        expenseDocs: expenseDocs,
+        settledDocs: settledDocs,
+      );
+      groups.add(mapped.group);
+      historyByGroup[entry.key] = mapped.history;
+    }
+    _groupHistory
+      ..clear()
+      ..addAll(historyByGroup);
+
     final loansOriginal = loans.fold<double>(
       0,
       (total, loan) => total + loan.original,
@@ -332,7 +446,7 @@ class FirestoreFinanceStore
       goals: List.unmodifiable(goals),
       subscriptions: List.unmodifiable(subscriptions),
       recurring: List.unmodifiable(recurring),
-      groups: const [],
+      groups: List.unmodifiable(groups),
       investments: const [],
       tags: List.unmodifiable(profile.tags.map((tag) => tag.name)),
       revision: _revision,
@@ -1111,25 +1225,105 @@ class FirestoreFinanceStore
 
   // ------------------------------------------------------------------ splits ---
 
-  void _splitsNotReady() =>
-      _error('Bill splitting sync is not enabled yet. Use the web app for now.');
+  Future<String> _ensureParticipant(String rawName) async {
+    final name = rawName.trim();
+    if (name.isEmpty || name == 'You') return '1';
+    final existing = _participantIdByName[name];
+    if (existing != null) return existing;
+    final ref = await refs.participants.add({
+      'name': name,
+      'createdAt': Timestamp.now(),
+    });
+    _participantNames = {..._participantNames, ref.id: name};
+    _participantIdByName = {..._participantIdByName, name: ref.id};
+    return ref.id;
+  }
 
-  @override
-  Future<void> addGroup({required String name, required List<String> members}) {
-    _splitsNotReady();
-    return Future.value();
+  Future<String> _requireParticipantId(String name) async {
+    final id = _participantIdByName[name] ?? (name == 'You' ? '1' : null);
+    return id ?? _ensureParticipant(name);
   }
 
   @override
-  Future<void> renameGroup(String groupId, String name) {
-    _splitsNotReady();
-    return Future.value();
+  Future<void> addGroup({
+    required String name,
+    required List<String> members,
+  }) async {
+    try {
+      final ids = <String>['1'];
+      for (final member in members) {
+        final id = await _ensureParticipant(member);
+        if (!ids.contains(id)) ids.add(id);
+      }
+      await refs.splitGroups.add({
+        'name': name,
+        'participantIds': ids,
+        'currency': '₹',
+        'createdAt': Timestamp.now(),
+      });
+    } catch (error) {
+      _error('Could not create group: $error');
+    }
   }
 
   @override
-  Future<void> removeGroup(String groupId) {
-    _splitsNotReady();
-    return Future.value();
+  Future<void> renameGroup(String groupId, String name) async {
+    try {
+      await refs.splitGroups.doc(groupId).update({'name': name});
+    } catch (error) {
+      _error('Could not rename group: $error');
+    }
+  }
+
+  @override
+  Future<void> removeGroup(String groupId) async {
+    try {
+      await _deleteCollection(refs.expenses(groupId));
+      await _deleteCollection(refs.settledPayments(groupId));
+      await refs.splitGroups.doc(groupId).delete();
+      for (final subscription in _groupSubscriptions.remove(groupId) ??
+          const <StreamSubscription<dynamic>>[]) {
+        subscription.cancel();
+      }
+      _expensesByGroup.remove(groupId);
+      _settledByGroup.remove(groupId);
+      _groupHistory.remove(groupId);
+      _emit();
+    } catch (error) {
+      _error('Could not remove group: $error');
+    }
+  }
+
+  Future<Map<String, dynamic>> _splitPayload({
+    required String description,
+    required double amount,
+    required String paidBy,
+    required SplitType type,
+    required Map<String, double> shares,
+    required DateTime date,
+    bool includeDate = true,
+  }) async {
+    final paidById = await _requireParticipantId(paidBy);
+    final splits = <Map<String, dynamic>>[];
+    for (final entry in shares.entries) {
+      if (entry.key.trim().isEmpty) continue;
+      final participantId = await _requireParticipantId(entry.key);
+      splits.add({
+        'participantId': participantId,
+        'amount': entry.value,
+        if (type == SplitType.percent)
+          'percentage': amount <= 0 ? 0.0 : entry.value / amount * 100,
+      });
+    }
+    return {
+      'description': description,
+      'amount': amount,
+      'paidBy': paidById,
+      'splitType': remoteSplitType(type),
+      'splits': splits,
+      if (includeDate) 'date': firestoreDate(date),
+      'category': 'Other',
+    };
   }
 
   @override
@@ -1140,9 +1334,27 @@ class FirestoreFinanceStore
     required String paidBy,
     required SplitType type,
     required Map<String, double> shares,
-  }) {
-    _splitsNotReady();
-    return Future.value();
+  }) async {
+    try {
+      final payload = await _splitPayload(
+        description: description,
+        amount: amount,
+        paidBy: paidBy,
+        type: type,
+        shares: shares,
+        date: DateTime.now(),
+      );
+      payload['createdAt'] = Timestamp.now();
+      await refs.expenses(groupId).add(payload);
+    } catch (error) {
+      _error('Could not add split expense: $error');
+    }
+  }
+
+  SplitHistoryEntry? _historyEntry(String groupId, int index) {
+    final history = _groupHistory[groupId];
+    if (history == null || index < 0 || index >= history.length) return null;
+    return history[index];
   }
 
   @override
@@ -1154,15 +1366,43 @@ class FirestoreFinanceStore
     required String paidBy,
     required SplitType type,
     required Map<String, double> shares,
-  }) {
-    _splitsNotReady();
-    return Future.value();
+  }) async {
+    final entry = _historyEntry(groupId, index);
+    if (entry == null) return;
+    if (entry.settlement) {
+      _error('Settlements cannot be edited. Remove and re-add it instead.');
+      return;
+    }
+    try {
+      final payload = await _splitPayload(
+        description: description,
+        amount: amount,
+        paidBy: paidBy,
+        type: type,
+        shares: shares,
+        date: DateTime.now(),
+        includeDate: false,
+      );
+      payload['updatedAt'] = Timestamp.now();
+      await refs.expenses(groupId).doc(entry.id).update(payload);
+    } catch (error) {
+      _error('Could not edit split expense: $error');
+    }
   }
 
   @override
-  Future<void> deleteSplitExpense(String groupId, int index) {
-    _splitsNotReady();
-    return Future.value();
+  Future<void> deleteSplitExpense(String groupId, int index) async {
+    final entry = _historyEntry(groupId, index);
+    if (entry == null) return;
+    try {
+      if (entry.settlement) {
+        await refs.settledPayments(groupId).doc(entry.id).delete();
+      } else {
+        await refs.expenses(groupId).doc(entry.id).delete();
+      }
+    } catch (error) {
+      _error('Could not delete split expense: $error');
+    }
   }
 
   @override
@@ -1172,9 +1412,21 @@ class FirestoreFinanceStore
     required String to,
     required double amount,
     required DateTime date,
-  }) {
-    _splitsNotReady();
-    return Future.value();
+  }) async {
+    try {
+      final fromId = await _requireParticipantId(from);
+      final toId = await _requireParticipantId(to);
+      await refs.settledPayments(groupId).add({
+        'from': fromId,
+        'to': toId,
+        'amount': amount,
+        'groupId': groupId,
+        'date': firestoreDate(date),
+        'createdAt': Timestamp.fromDate(date),
+      });
+    } catch (error) {
+      _error('Could not settle split: $error');
+    }
   }
 
   // ------------------------------------------------------------------- life ---
