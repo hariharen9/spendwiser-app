@@ -11,10 +11,13 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
+import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_caption.dart';
+import '../../data/models/credit_card.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/finance_calculator.dart';
 
@@ -383,8 +386,8 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
   final _name = TextEditingController();
   final _limit = TextEditingController();
   final _last4 = TextEditingController();
-  final _statementDay = TextEditingController();
-  final _dueDay = TextEditingController();
+  final _statementDay = TextEditingController(text: '20');
+  final _dueDay = TextEditingController(text: '10');
 
   @override
   void dispose() {
@@ -396,15 +399,36 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
     super.dispose();
   }
 
+  int get _statement => int.tryParse(_statementDay.text) ?? 0;
+  int get _due => int.tryParse(_dueDay.text) ?? 0;
+  double get _limitValue => double.tryParse(_limit.text) ?? 0;
+  String get _digits => _last4.text.trim();
+
   Future<void> _add() async {
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the card');
+      return;
+    }
+    if (_limitValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter a credit limit');
+      return;
+    }
+    if (_digits.length != 4 || int.tryParse(_digits) == null) {
+      ref.read(toastProvider.notifier).show('Enter the last 4 digits');
+      return;
+    }
+    if (_statement < 1 || _statement > 28 || _due < 1 || _due > 28) {
+      ref.read(toastProvider.notifier).show('Billing days must be 1–28');
+      return;
+    }
     await ref
         .read(cardRepositoryProvider)
         .addCard(
-          name: _name.text.trim().isEmpty ? 'New card' : _name.text.trim(),
-          limit: double.tryParse(_limit.text) ?? 50000,
-          last4: _last4.text.trim().isEmpty ? '0000' : _last4.text.trim(),
-          statementDay: int.tryParse(_statementDay.text) ?? 20,
-          dueDay: int.tryParse(_dueDay.text) ?? 10,
+          name: _name.text.trim(),
+          limit: _limitValue,
+          last4: _digits,
+          statementDay: _statement,
+          dueDay: _due,
         );
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -413,53 +437,290 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final name = _name.text.trim();
+    final last4 = _digits.isEmpty ? '••••' : _digits;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SheetTitle('New card'),
+        const PremiumSheetHeader(
+          icon: 'cards',
+          title: 'Add card',
+          subtitle: 'Track dues, statements and available credit.',
+        ),
+        const SizedBox(height: 18),
+        _CardPreview(
+          name: name.isEmpty ? 'NEW CARD' : name,
+          last4: last4,
+          limit: _limitValue,
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Card name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. HDFC Millennia',
+          icon: 'cards',
+          capitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final preset in const [
+              'HDFC Millennia',
+              'ICICI Amazon Pay',
+              'Axis Neo',
+            ])
+              AppPill(
+                label: preset,
+                onTap: () => setState(() {
+                  _name.text = preset;
+                  _name.selection = TextSelection.collapsed(
+                    offset: preset.length,
+                  );
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Credit limit', requiredField: true),
+        PremiumField(
+          controller: _limit,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Last 4 digits', requiredField: true),
+                  PremiumField(
+                    controller: _last4,
+                    hint: '0000',
+                    number: true,
+                    maxLength: 4,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Statement day'),
+                  PremiumField(
+                    controller: _statementDay,
+                    hint: '20',
+                    number: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Due day'),
+                  PremiumField(
+                    controller: _dueDay,
+                    hint: '10',
+                    number: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
-        _SheetField(controller: _name, hint: 'Card name'),
-        Row(
-          children: [
-            Expanded(
-              child: _SheetField(
-                controller: _limit,
-                hint: 'Credit limit',
-                number: true,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _SheetField(
-                controller: _last4,
-                hint: 'Last 4 digits',
-                number: true,
-                maxLength: 4,
-              ),
-            ),
-          ],
+        PremiumNotice(
+          icon: 'calendar',
+          text:
+              'Statement on the ${_ordinal(_statement)} · payment due on the ${_ordinal(_due)}.',
         ),
-        Row(
-          children: [
-            Expanded(
-              child: _SheetField(
-                controller: _statementDay,
-                hint: 'Statement day',
-                number: true,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _SheetField(
-                controller: _dueDay,
-                hint: 'Due day',
-                number: true,
-              ),
-            ),
-          ],
-        ),
+        const SizedBox(height: 18),
         PrimaryButton(label: 'Add card', onTap: _add),
       ],
+    );
+  }
+
+  String _ordinal(int day) {
+    if (day <= 0) return '—';
+    if (day >= 11 && day <= 13) return '${day}th';
+    return switch (day % 10) {
+      1 => '${day}st',
+      2 => '${day}nd',
+      3 => '${day}rd',
+      _ => '${day}th',
+    };
+  }
+}
+
+class _CardPreview extends StatelessWidget {
+  const _CardPreview({
+    required this.name,
+    required this.last4,
+    required this.limit,
+  });
+
+  final String name;
+  final String last4;
+  final double limit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 164,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: CreditCard.newCardGradient,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 26,
+            spreadRadius: -8,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -48,
+            top: -68,
+            child: Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 24,
+            top: 22,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.06),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'SPENDWISER',
+                    style: AppTypography.sans(
+                      size: 9,
+                      color: Colors.white.withValues(alpha: 0.52),
+                      letterSpacing: 2.1,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  SpendIcon(
+                    'cards',
+                    size: 20,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '••••  $last4',
+                    style: AppTypography.sans(
+                      size: 14,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      letterSpacing: 2.4,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.serif(
+                      size: 24,
+                      color: Colors.white,
+                      height: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'CREDIT LIMIT',
+                        style: AppTypography.sans(
+                          size: 8,
+                          color: Colors.white.withValues(alpha: 0.45),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      Text(
+                        rupee(limit),
+                        style: AppTypography.sans(
+                          size: 14,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    'CREDIT',
+                    style: AppTypography.sans(
+                      size: 9,
+                      color: Colors.white.withValues(alpha: 0.55),
+                      letterSpacing: 1.4,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -747,13 +1008,11 @@ class _SheetField extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.number = false,
-    this.maxLength,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool number;
-  final int? maxLength;
 
   @override
   Widget build(BuildContext context) {
@@ -771,7 +1030,6 @@ class _SheetField extends StatelessWidget {
         controller: controller,
         textAlignVertical: TextAlignVertical.center,
         keyboardType: number ? TextInputType.number : TextInputType.text,
-        maxLength: maxLength,
         style: AppTypography.sans(size: 13, color: c.tx),
         decoration: InputDecoration(
           isDense: true,

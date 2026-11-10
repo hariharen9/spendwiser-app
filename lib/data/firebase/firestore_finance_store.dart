@@ -118,141 +118,111 @@ class FirestoreFinanceStore
 
   void _listen() {
     _subscriptions.add(
-      refs.transactions.snapshots().listen(
-        (snapshot) {
-          _transactionDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('transactions');
-        },
-        onError: (Object error) => _fail('transactions', error),
-      ),
+      refs.transactions.snapshots().listen((snapshot) {
+        _transactionDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('transactions');
+      }, onError: (Object error) => _fail('transactions', error)),
     );
     _subscriptions.add(
-      refs.accounts.snapshots().listen(
-        (snapshot) {
-          _accountDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('accounts');
-        },
-        onError: (Object error) => _fail('accounts', error),
-      ),
+      refs.accounts.snapshots().listen((snapshot) {
+        _accountDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('accounts');
+      }, onError: (Object error) => _fail('accounts', error)),
     );
     _subscriptions.add(
-      refs.budgets.snapshots().listen(
-        (snapshot) {
-          _budgetDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('budgets');
-        },
-        onError: (Object error) => _fail('budgets', error),
-      ),
+      refs.budgets.snapshots().listen((snapshot) {
+        _budgetDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('budgets');
+      }, onError: (Object error) => _fail('budgets', error)),
     );
     _subscriptions.add(
-      refs.totalBudget.snapshots().listen(
-        (snapshot) {
-          _totalBudgetDoc = snapshot.data();
-          _mark('totalBudget');
-        },
-        onError: (Object error) => _fail('totalBudget', error),
-      ),
+      refs.totalBudget.snapshots().listen((snapshot) {
+        _totalBudgetDoc = snapshot.data();
+        _mark('totalBudget');
+      }, onError: (Object error) => _fail('totalBudget', error)),
     );
     _subscriptions.add(
-      refs.goals.snapshots().listen(
-        (snapshot) {
-          _goalDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('goals');
-        },
-        onError: (Object error) => _fail('goals', error),
-      ),
+      refs.goals.snapshots().listen((snapshot) {
+        _goalDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('goals');
+      }, onError: (Object error) => _fail('goals', error)),
     );
     _subscriptions.add(
-      refs.loans.snapshots().listen(
-        (snapshot) {
-          _loanDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('loans');
-        },
-        onError: (Object error) => _fail('loans', error),
-      ),
+      refs.loans.snapshots().listen((snapshot) {
+        _loanDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('loans');
+      }, onError: (Object error) => _fail('loans', error)),
     );
     _subscriptions.add(
-      refs.recurring.snapshots().listen(
-        (snapshot) {
-          _recurringDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('recurring');
-        },
-        onError: (Object error) => _fail('recurring', error),
-      ),
+      refs.recurring.snapshots().listen((snapshot) {
+        _recurringDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('recurring');
+      }, onError: (Object error) => _fail('recurring', error)),
     );
     _subscriptions.add(
-      refs.shortcuts.snapshots().listen(
-        (snapshot) {
-          _shortcutDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _mark('shortcuts');
-        },
-        onError: (Object error) => _fail('shortcuts', error),
-      ),
+      refs.shortcuts.snapshots().listen((snapshot) {
+        _shortcutDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _mark('shortcuts');
+      }, onError: (Object error) => _fail('shortcuts', error)),
     );
     _subscriptions.add(
-      refs.participants.snapshots().listen(
-        (snapshot) {
-          _participantDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          final names = <String, String>{'1': 'You'};
-          final ids = <String, String>{'You': '1'};
-          for (final entry in _participantDocs.entries) {
-            final name = asString(entry.value['name']).trim();
-            if (name.isEmpty) continue;
-            names[entry.key] = name;
-            ids[name] = entry.key;
-          }
-          _participantNames = names;
-          _participantIdByName = ids;
-          _mark('splitsParticipants');
-        },
-        onError: (Object error) => _fail('splitsParticipants', error),
-      ),
+      refs.participants.snapshots().listen((snapshot) {
+        _participantDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        final names = <String, String>{'1': 'You'};
+        final ids = <String, String>{'You': '1'};
+        for (final entry in _participantDocs.entries) {
+          final name = asString(entry.value['name']).trim();
+          if (name.isEmpty) continue;
+          names[entry.key] = name;
+          ids[name] = entry.key;
+        }
+        _participantNames = names;
+        _participantIdByName = ids;
+        _mark('splitsParticipants');
+      }, onError: (Object error) => _fail('splitsParticipants', error)),
     );
     _subscriptions.add(
-      refs.splitGroups.snapshots().listen(
-        (snapshot) {
-          _groupDocs
-            ..clear()
-            ..addEntries(
-              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
-            );
-          _syncGroupListeners(snapshot.docs.map((doc) => doc.id).toSet());
-          _mark('splitsGroups');
-        },
-        onError: (Object error) => _fail('splitsGroups', error),
-      ),
+      refs.splitGroups.snapshots().listen((snapshot) {
+        _groupDocs
+          ..clear()
+          ..addEntries(
+            snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+          );
+        _syncGroupListeners(snapshot.docs.map((doc) => doc.id).toSet());
+        _mark('splitsGroups');
+      }, onError: (Object error) => _fail('splitsGroups', error)),
     );
     _subscriptions.add(
       refs.user.snapshots().listen(
@@ -265,7 +235,8 @@ class FirestoreFinanceStore
   void _syncGroupListeners(Set<String> groupIds) {
     for (final groupId in _groupSubscriptions.keys.toList()) {
       if (groupIds.contains(groupId)) continue;
-      for (final subscription in _groupSubscriptions.remove(groupId) ?? const []) {
+      for (final subscription
+          in _groupSubscriptions.remove(groupId) ?? const []) {
         subscription.cancel();
       }
       _expensesByGroup.remove(groupId);
@@ -329,17 +300,18 @@ class FirestoreFinanceStore
         .map((entry) => entry.key)
         .toSet();
 
-    final transactions = _transactionDocs.entries
-        .map(
-          (entry) => transactionFromDoc(
-            entry.key,
-            entry.value,
-            cardIds: cardIds,
-            tagIdToName: profile.tagIdToName,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final transactions =
+        _transactionDocs.entries
+            .map(
+              (entry) => transactionFromDoc(
+                entry.key,
+                entry.value,
+                cardIds: cardIds,
+                tagIdToName: profile.tagIdToName,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
 
     final accountDeltas = <String, double>{};
     for (final doc in _transactionDocs.values) {
@@ -433,8 +405,7 @@ class FirestoreFinanceStore
               .entries
               .toList();
       final settledDocs =
-          (_settledByGroup[entry.key] ??
-                  const <String, Map<String, dynamic>>{})
+          (_settledByGroup[entry.key] ?? const <String, Map<String, dynamic>>{})
               .entries
               .toList();
       final mapped = splitGroupFromDocs(
@@ -561,9 +532,9 @@ class FirestoreFinanceStore
   Future<void> updateTransaction(Transaction transaction) async {
     try {
       final tagMap = await _tagIds(transaction.tags);
-      await refs.transactions.doc(transaction.id).update(
-        transactionUpdatePayload(transaction, tagNameToId: tagMap),
-      );
+      await refs.transactions
+          .doc(transaction.id)
+          .update(transactionUpdatePayload(transaction, tagNameToId: tagMap));
     } catch (error) {
       _error('Could not update transaction: $error');
     }
@@ -722,8 +693,7 @@ class FirestoreFinanceStore
         'balance': opening,
         if (account.last4 != null) 'last4Digits': account.last4,
       });
-      final existing =
-          _accountDocs[account.id] ?? const <String, dynamic>{};
+      final existing = _accountDocs[account.id] ?? const <String, dynamic>{};
       _accountDocs[account.id] = {
         ...existing,
         'name': account.name,
@@ -766,7 +736,10 @@ class FirestoreFinanceStore
   }) async {
     if (amount <= 0 || fromAccountId == toAccountId) return;
     try {
-      final fromName = asString(_accountDocs[fromAccountId]?['name'], 'Account');
+      final fromName = asString(
+        _accountDocs[fromAccountId]?['name'],
+        'Account',
+      );
       final toName = asString(_accountDocs[toAccountId]?['name'], 'Account');
       final batch = refs.db.batch();
       final date = firestoreDate(DateTime.now());
@@ -892,16 +865,24 @@ class FirestoreFinanceStore
   Future<void> addBudget({
     required String category,
     required double limit,
+    bool rollover = false,
+    int alertAt = 80,
   }) async {
     try {
       final existing = _budgetDocFor(category);
       if (existing != null) {
-        await refs.budgets.doc(existing).update({'limit': limit});
+        await refs.budgets.doc(existing).update({
+          'limit': limit,
+          'rollover': rollover,
+          'alertAt': alertAt,
+        });
         return;
       }
       await refs.budgets.add({
         'category': category,
         'limit': limit,
+        'rollover': rollover,
+        'alertAt': alertAt,
         'spent': 0,
         'isMock': false,
       });
@@ -1029,9 +1010,7 @@ class FirestoreFinanceStore
       final source = accountId ?? _defaultAccountId;
 
       final batch = refs.db.batch();
-      batch.update(refs.goals.doc(goalId), {
-        'currentAmount': current + amount,
-      });
+      batch.update(refs.goals.doc(goalId), {'currentAmount': current + amount});
       final payload = <String, dynamic>{
         'name': 'Contribution to $name',
         'amount': -amount,
@@ -1071,7 +1050,11 @@ class FirestoreFinanceStore
     required int emiDay,
   }) async {
     final months = years * 12;
-    final emi = FinanceCalculator.emiFor(principal, rate, months).roundToDouble();
+    final emi = FinanceCalculator.emiFor(
+      principal,
+      rate,
+      months,
+    ).roundToDouble();
     final start = DateTime.now();
     await refs.loans.add({
       'name': name,
@@ -1160,15 +1143,16 @@ class FirestoreFinanceStore
   @override
   Future<void> deleteLoanPayment(String loanId, int paymentIndex) async {
     try {
-      final entries = _transactionDocs.entries
-          .where((entry) => asString(entry.value['loanId']) == loanId)
-          .toList()
-        ..sort(
-          (a, b) => (parseFirestoreDate(a.value['date']) ?? DateTime(2000))
-              .compareTo(
-                parseFirestoreDate(b.value['date']) ?? DateTime(2000),
-              ),
-        );
+      final entries =
+          _transactionDocs.entries
+              .where((entry) => asString(entry.value['loanId']) == loanId)
+              .toList()
+            ..sort(
+              (a, b) => (parseFirestoreDate(a.value['date']) ?? DateTime(2000))
+                  .compareTo(
+                    parseFirestoreDate(b.value['date']) ?? DateTime(2000),
+                  ),
+            );
       if (paymentIndex < 0 || paymentIndex >= entries.length) return;
       await refs.transactions.doc(entries[paymentIndex].key).delete();
     } catch (error) {
@@ -1220,7 +1204,9 @@ class FirestoreFinanceStore
         category: 'Other',
         isIncome: false,
         frequency: RecurringFrequency.monthly,
-        startDate: DateTime.now().add(Duration(days: math.max(0, renewsInDays))),
+        startDate: DateTime.now().add(
+          Duration(days: math.max(0, renewsInDays)),
+        ),
       );
     } catch (error) {
       _error('Could not add subscription: $error');
@@ -1422,8 +1408,9 @@ class FirestoreFinanceStore
       await _deleteCollection(refs.expenses(groupId));
       await _deleteCollection(refs.settledPayments(groupId));
       await refs.splitGroups.doc(groupId).delete();
-      for (final subscription in _groupSubscriptions.remove(groupId) ??
-          const <StreamSubscription<dynamic>>[]) {
+      for (final subscription
+          in _groupSubscriptions.remove(groupId) ??
+              const <StreamSubscription<dynamic>>[]) {
         subscription.cancel();
       }
       _expensesByGroup.remove(groupId);
@@ -1631,9 +1618,7 @@ class FirestoreFinanceStore
         refs.loans,
         refs.recurring,
       ]) {
-        await _deleteWhere(
-          collection.where('isMock', isEqualTo: true),
-        );
+        await _deleteWhere(collection.where('isMock', isEqualTo: true));
       }
       if (asBool(_totalBudgetDoc?['isMock'])) {
         await refs.totalBudget.delete();

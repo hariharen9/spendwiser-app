@@ -62,7 +62,6 @@ class MockFinanceStore
     }
   }
 
-
   DateTime? _now;
   double? _totalBudgetLimit;
   final _controller = StreamController<FinanceSnapshot>.broadcast();
@@ -83,13 +82,7 @@ class MockFinanceStore
   final List<SplitGroup> _groups = [];
   final List<Investment> _investments = [];
   final List<Shortcut> _shortcuts = [];
-  final List<String> _tags = [
-    'Personal',
-    'Work',
-    'Shared',
-    'Disputed',
-    'Trip',
-  ];
+  final List<String> _tags = ['Personal', 'Work', 'Shared', 'Disputed', 'Trip'];
 
   @override
   FinanceSnapshot get current => _snapshot;
@@ -827,7 +820,9 @@ class MockFinanceStore
       ..clear()
       ..addAll(
         ((j['recurring'] as List?) ?? []).map(
-          (e) => RecurringTransaction.fromJson(Map<String, dynamic>.from(e as Map)),
+          (e) => RecurringTransaction.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
         ),
       );
     _groups
@@ -958,7 +953,8 @@ class MockFinanceStore
     _tags.remove(clean);
     for (var i = 0; i < _transactions.length; i++) {
       if (_transactions[i].tags.contains(clean)) {
-        final updatedTags = List<String>.of(_transactions[i].tags)..remove(clean);
+        final updatedTags = List<String>.of(_transactions[i].tags)
+          ..remove(clean);
         _transactions[i] = _transactions[i].copyWith(tags: updatedTags);
       }
     }
@@ -976,7 +972,9 @@ class MockFinanceStore
     }
     for (var i = 0; i < _transactions.length; i++) {
       if (_transactions[i].tags.contains(cleanOld)) {
-        final updatedTags = _transactions[i].tags.map((t) => t == cleanOld ? cleanNew : t).toList();
+        final updatedTags = _transactions[i].tags
+            .map((t) => t == cleanOld ? cleanNew : t)
+            .toList();
         _transactions[i] = _transactions[i].copyWith(tags: updatedTags);
       }
     }
@@ -1272,8 +1270,17 @@ class MockFinanceStore
   Future<void> addBudget({
     required String category,
     required double limit,
+    bool rollover = false,
+    int alertAt = 80,
   }) async {
-    _budgets.add(Budget(category: category, limit: limit));
+    _budgets.add(
+      Budget(
+        category: category,
+        limit: limit,
+        rollover: rollover,
+        alertAt: alertAt,
+      ),
+    );
     _commit();
   }
 

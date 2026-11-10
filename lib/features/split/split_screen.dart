@@ -9,9 +9,11 @@ import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/split_group.dart';
@@ -92,8 +94,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
               const SizedBox(height: 4),
               AnimatedAmount(
                 value: yourBalance,
-                formatter: (value) =>
-                    '${value < 0 ? '−' : ''}${rupee(value)}',
+                formatter: (value) => '${value < 0 ? '−' : ''}${rupee(value)}',
                 style: AppTypography.serif(
                   size: 36,
                   color: yourBalance < 0 ? c.co : c.tx,
@@ -231,46 +232,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
   }
 
   void _newGroup(BuildContext context) {
-    final name = TextEditingController();
-    final members = TextEditingController();
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('New group'),
-          const SizedBox(height: 12),
-          _Field(controller: name, hint: 'Group name (e.g. Weekend trip)'),
-          _Field(controller: members, hint: 'People, comma separated'),
-          Text(
-            'You’re added automatically.',
-            style: AppTypography.sans(size: 12, color: sheetContext.spend.mu),
-          ),
-          PrimaryButton(
-            label: 'Create group',
-            onTap: () async {
-              if (name.text.trim().isEmpty) {
-                ref.read(toastProvider.notifier).show('Name the group');
-                return;
-              }
-              await ref
-                  .read(splitRepositoryProvider)
-                  .addGroup(
-                    name: name.text.trim(),
-                    members: members.text
-                        .split(',')
-                        .map((s) => s.trim())
-                        .where((s) => s.isNotEmpty)
-                        .toList(),
-                  );
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              ref.read(toastProvider.notifier).show('Group created');
-            },
-          ),
-        ],
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _NewGroupSheet());
   }
 
   void _manageGroup(BuildContext context, SplitGroup group) {
@@ -357,6 +319,186 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
     showAppSheet<void>(
       context,
       (_) => _ExpenseSheet(groupId: group.id, index: index),
+    );
+  }
+}
+
+class _NewGroupSheet extends ConsumerStatefulWidget {
+  const _NewGroupSheet();
+
+  @override
+  ConsumerState<_NewGroupSheet> createState() => _NewGroupSheetState();
+}
+
+class _NewGroupSheetState extends ConsumerState<_NewGroupSheet> {
+  final _name = TextEditingController();
+  final _member = TextEditingController();
+  final _members = <String>[];
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _member.dispose();
+    super.dispose();
+  }
+
+  void _addMember() {
+    final value = _member.text.trim();
+    if (value.isEmpty) return;
+    if (value.toLowerCase() == 'you' ||
+        _members.any((m) => m.toLowerCase() == value.toLowerCase())) {
+      _member.clear();
+      return;
+    }
+    setState(() {
+      _members.add(value);
+      _member.clear();
+    });
+  }
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the group');
+      return;
+    }
+    await ref
+        .read(splitRepositoryProvider)
+        .addGroup(name: _name.text.trim(), members: _members);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Group created');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final name = _name.text.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'split',
+          title: 'New group',
+          subtitle: 'Create a shared space for trips, flats and dinners.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Group name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. Weekend trip',
+          icon: 'split',
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Add people'),
+        Row(
+          children: [
+            Expanded(
+              child: PremiumField(
+                controller: _member,
+                hint: 'Name',
+                capitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _addMember,
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: c.c2,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: c.ln),
+                ),
+                alignment: Alignment.center,
+                child: SpendIcon('plus', size: 19, color: c.tx),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _GroupMemberChip(label: 'You', locked: true),
+            for (final member in _members)
+              _GroupMemberChip(
+                label: member,
+                onRemove: () => setState(() => _members.remove(member)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'split',
+          eyebrow: 'Group',
+          value: '${_members.length + 1} people',
+          caption: name.isEmpty
+              ? 'Name this group'
+              : '$name · You${_members.isEmpty ? '' : ' · ${_members.join(' · ')}'}',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 12),
+        const PremiumNotice(
+          text: 'You are added automatically. Add anyone you split with.',
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Create group', onTap: _save),
+      ],
+    );
+  }
+}
+
+class _GroupMemberChip extends StatelessWidget {
+  const _GroupMemberChip({
+    required this.label,
+    this.locked = false,
+    this.onRemove,
+  });
+
+  final String label;
+  final bool locked;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Container(
+      padding: const EdgeInsets.only(left: 11, right: 8, top: 7, bottom: 7),
+      decoration: BoxDecoration(
+        color: c.c2,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: c.ln),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(color: c.c1, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text(
+              label.substring(0, 1).toUpperCase(),
+              style: AppTypography.sans(size: 9, color: c.mu),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: AppTypography.sans(size: 12, color: c.tx)),
+          if (!locked && onRemove != null) ...[
+            const SizedBox(width: 5),
+            GestureDetector(
+              onTap: onRemove,
+              child: SpendIcon('closeSmall', size: 12, color: c.mu),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -563,21 +705,46 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
         .firstWhere((g) => g.id == widget.groupId);
     final amount = double.tryParse(_amount.text) ?? 0;
     final shares = _shares(amount);
+    final allocated = _included.fold<double>(
+      0,
+      (sum, member) =>
+          sum + (double.tryParse(_values[member]?.text ?? '') ?? 0),
+    );
+    final remaining = _type == SplitType.percent
+        ? 100 - allocated
+        : amount - allocated;
+    final balanced = remaining.abs() < 0.01;
+    final perPerson = _included.isEmpty ? 0.0 : amount / _included.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SheetTitle('${widget.index == null ? 'New' : 'Edit'} expense'),
-        const SizedBox(height: 12),
-        _Field(controller: _description, hint: 'What was it for?'),
-        _Field(
-          controller: _amount,
-          hint: 'Amount',
-          number: true,
+        PremiumSheetHeader(
+          icon: 'split',
+          title: widget.index == null ? 'Split an expense' : 'Edit split',
+          subtitle: 'Who paid, who shares it, and how much each.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('What was it for?', requiredField: true),
+        PremiumField(
+          controller: _description,
+          hint: 'e.g. Dinner, cab, groceries',
+          icon: 'receipt',
+          capitalization: TextCapitalization.words,
           onChanged: (_) => setState(() {}),
         ),
-        Text('Paid by', style: AppTypography.sans(size: 12, color: c.mu)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 16),
+        const PremiumLabel('Amount', requiredField: true),
+        PremiumField(
+          controller: _amount,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Paid by'),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -590,7 +757,10 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
               ),
           ],
         ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Split method'),
         SegmentedControl<SplitType>(
+          margin: EdgeInsets.zero,
           options: const [
             SegmentedOption(SplitType.equal, 'Equally'),
             SegmentedOption(SplitType.exact, 'Exact ₹'),
@@ -599,8 +769,8 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
           selected: _type,
           onChanged: (value) => setState(() => _type = value),
         ),
-        Text('Split between', style: AppTypography.sans(size: 12, color: c.mu)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 16),
+        const PremiumLabel('Split between'),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -620,12 +790,27 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
           ],
         ),
         if (_type != SplitType.equal) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           for (final member in _included)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: c.c2,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.ln),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      member.substring(0, 1).toUpperCase(),
+                      style: AppTypography.sans(size: 10, color: c.mu),
+                    ),
+                  ),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Text(
                       member,
@@ -633,32 +818,49 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
                     ),
                   ),
                   SizedBox(
-                    width: 130,
-                    child: _Field(
+                    width: 128,
+                    child: PremiumField(
                       controller: _values[member]!,
-                      hint: _type == SplitType.percent ? '%' : '₹',
+                      hint: _type == SplitType.percent ? '0' : '0',
                       number: true,
+                      prefix: _type == SplitType.percent ? '' : '₹ ',
+                      suffix: _type == SplitType.percent ? '%' : null,
                       onChanged: (_) => setState(() {}),
-                      margin: false,
                     ),
                   ),
                 ],
               ),
             ),
         ],
-        Text(
-          _type == SplitType.equal
-              ? (amount == 0
-                    ? ''
-                    : '${rupee(amount / _included.length)} each · ${_included.length} people')
-              : (shares == null ? 'The split doesn’t add up yet' : 'Adds up'),
-          style: AppTypography.sans(
-            size: 12,
-            color: shares == null && _type != SplitType.equal ? c.co : c.mu,
-          ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'split',
+          eyebrow: _type == SplitType.equal
+              ? 'Per person'
+              : (_type == SplitType.percent ? 'Allocation' : 'Remaining'),
+          value: _type == SplitType.equal
+              ? rupee(perPerson)
+              : balanced
+              ? 'Balanced'
+              : _type == SplitType.percent
+              ? '${remaining.abs().toStringAsFixed(0)}% ${remaining > 0 ? 'left' : 'over'}'
+              : '${rupee(remaining.abs())} ${remaining > 0 ? 'left' : 'over'}',
+          caption:
+              '${_type.label} · ${_included.length} people · paid by $_paidBy',
+          accent: balanced || _type == SplitType.equal ? c.ac : c.co,
         ),
+        if (shares == null && _type != SplitType.equal) ...[
+          const SizedBox(height: 12),
+          PremiumNotice(
+            icon: 'split',
+            text: _type == SplitType.percent
+                ? 'Percentages must add up to 100%.'
+                : 'The exact amounts must add up to ${rupee(amount)}.',
+          ),
+        ],
+        const SizedBox(height: 18),
         PrimaryButton(
-          label: 'Save expense',
+          label: widget.index == null ? 'Save split' : 'Save changes',
           onTap: () async {
             if (amount <= 0) {
               ref.read(toastProvider.notifier).show('Enter an amount');
@@ -721,26 +923,17 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({
-    required this.controller,
-    required this.hint,
-    this.number = false,
-    this.onChanged,
-    this.margin = true,
-  });
+  const _Field({required this.controller, required this.hint});
 
   final TextEditingController controller;
   final String hint;
-  final bool number;
-  final ValueChanged<String>? onChanged;
-  final bool margin;
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
     return Container(
       height: 48,
-      margin: margin ? const EdgeInsets.only(bottom: 8) : EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 13),
       decoration: BoxDecoration(
         color: c.c2,
@@ -750,8 +943,6 @@ class _Field extends StatelessWidget {
       child: TextField(
         controller: controller,
         textAlignVertical: TextAlignVertical.center,
-        keyboardType: number ? TextInputType.number : TextInputType.text,
-        onChanged: onChanged,
         style: AppTypography.sans(size: 13, color: c.tx),
         decoration: InputDecoration(
           isDense: true,

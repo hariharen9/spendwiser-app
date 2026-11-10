@@ -18,6 +18,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/charts.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/month_navigator.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/transaction_row.dart';
 import '../../data/models/budget.dart';
@@ -43,10 +44,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     final snapshot = ref.watch(financeSnapshotProvider);
     final month = _month;
     final budgets = snapshot.budgets;
-    final categoryLimit = budgets.fold<double>(
-      0,
-      (sum, b) => sum + b.limit,
-    );
+    final categoryLimit = budgets.fold<double>(0, (sum, b) => sum + b.limit);
     final limit = snapshot.totalBudgetLimit;
     final spent = snapshot.hasTotalBudget
         ? snapshot.expensesIn(month)
@@ -447,85 +445,192 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   }
 
   void _showTotalBudget(BuildContext context, FinanceSnapshot snapshot) {
-    final controller = TextEditingController(
-      text: (snapshot.totalBudgetOverride ?? snapshot.totalBudgetLimit)
-          .round()
-          .toString(),
-    );
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle(
-            'Monthly total budget',
-            subtitle: 'Compared with every expense in the month.',
-          ),
-          const SizedBox(height: 12),
-          _Field(controller: controller, hint: 'Monthly limit', number: true),
-          PrimaryButton(
-            label: 'Save total budget',
-            onTap: () async {
-              final value = double.tryParse(controller.text) ?? 0;
-              if (value <= 0) {
-                ref.read(toastProvider.notifier).show('Enter a limit');
-                return;
-              }
-              await ref.read(budgetRepositoryProvider).setTotalBudget(value);
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              ref.read(toastProvider.notifier).show('Total budget saved');
-            },
-          ),
-          if (snapshot.hasTotalBudget)
-            AppButton(
-              label: 'Use envelope total instead',
-              centered: true,
-              onTap: () async {
-                await ref.read(budgetRepositoryProvider).removeTotalBudget();
-                if (!sheetContext.mounted) return;
-                Navigator.of(sheetContext).pop();
-                ref.read(toastProvider.notifier).show('Total budget cleared');
-              },
-            ),
-        ],
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _TotalBudgetSheet());
   }
 
   void _showNewBudget(BuildContext context) {
-    final controller = TextEditingController();
-    final limit = TextEditingController();
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('New envelope'),
-          const SizedBox(height: 12),
-          _Field(controller: controller, hint: 'Name (Food, Travel…)'),
-          _Field(controller: limit, hint: 'Monthly limit', number: true),
-          PrimaryButton(
-            label: 'Create',
-            onTap: () async {
-              final name = controller.text.trim();
-              if (name.isEmpty) {
-                ref.read(toastProvider.notifier).show('Name the envelope');
-                return;
-              }
-              await ref
-                  .read(budgetRepositoryProvider)
-                  .addBudget(
-                    category: name,
-                    limit: double.tryParse(limit.text) ?? 5000,
-                  );
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              ref.read(toastProvider.notifier).show('Envelope created');
-            },
+    showAppSheet<void>(context, (_) => const _NewBudgetSheet());
+  }
+}
+
+class _NewBudgetSheet extends ConsumerStatefulWidget {
+  const _NewBudgetSheet();
+
+  @override
+  ConsumerState<_NewBudgetSheet> createState() => _NewBudgetSheetState();
+}
+
+class _NewBudgetSheetState extends ConsumerState<_NewBudgetSheet> {
+  final _category = TextEditingController();
+  final _limit = TextEditingController();
+  bool _rollover = false;
+  int _alertAt = 75;
+
+  @override
+  void dispose() {
+    _category.dispose();
+    _limit.dispose();
+    super.dispose();
+  }
+
+  double get _limitValue => double.tryParse(_limit.text) ?? 0;
+
+  Future<void> _save(FinanceSnapshot snapshot) async {
+    final raw = _category.text.trim();
+    if (raw.isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the envelope');
+      return;
+    }
+    if (_limitValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter a monthly limit');
+      return;
+    }
+    final matches = snapshot.budgets
+        .where((b) => b.category.toLowerCase() == raw.toLowerCase())
+        .toList();
+    final existing = matches.isEmpty ? null : matches.first;
+    if (existing == null) {
+      await ref
+          .read(budgetRepositoryProvider)
+          .addBudget(
+            category: raw,
+            limit: _limitValue,
+            rollover: _rollover,
+            alertAt: _alertAt,
+          );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ref.read(toastProvider.notifier).show('Envelope created');
+    } else {
+      await ref
+          .read(budgetRepositoryProvider)
+          .updateBudget(
+            category: existing.category,
+            limit: _limitValue,
+            rollover: _rollover,
+            alertAt: _alertAt,
+          );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ref.read(toastProvider.notifier).show('Envelope updated');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final settings = ref.watch(settingsProvider);
+    final raw = _category.text.trim();
+    final matches = snapshot.budgets
+        .where((b) => b.category.toLowerCase() == raw.toLowerCase())
+        .toList();
+    final existing = matches.isEmpty ? null : matches.first;
+    final categories = settings.categories.keys
+        .where((category) => category != 'Income' && category != 'Transfer')
+        .take(10)
+        .toList();
+    final spent = raw.isEmpty ? 0.0 : snapshot.spentIn(raw, DateTime.now());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'budgets',
+          title: 'New envelope',
+          subtitle: 'Give a category its own monthly spending limit.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Envelope name', requiredField: true),
+        PremiumField(
+          controller: _category,
+          hint: 'e.g. Food, Travel',
+          icon: 'budgets',
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        if (categories.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in categories)
+                AppPill(
+                  label: category,
+                  active: raw.toLowerCase() == category.toLowerCase(),
+                  onTap: () {
+                    setState(() {
+                      _category.text = category;
+                      final match = snapshot.budgets
+                          .where((b) => b.category == category)
+                          .toList();
+                      if (match.isNotEmpty && _limit.text.isEmpty) {
+                        _limit.text = match.first.limit.round().toString();
+                        _rollover = match.first.rollover;
+                        _alertAt = match.first.alertAt;
+                      }
+                    });
+                  },
+                ),
+            ],
           ),
         ],
-      ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Monthly limit', requiredField: true),
+        PremiumField(
+          controller: _limit,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 14),
+        const PremiumLabel('Alert me at'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final threshold in const [75, 85, 95, 100])
+              AppPill(
+                label: '$threshold% used',
+                active: _alertAt == threshold,
+                onTap: () => setState(() => _alertAt = threshold),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        PremiumToggleRow(
+          title: 'Roll unused over',
+          subtitle: 'Carry leftover into next month',
+          value: _rollover,
+          onChanged: (value) => setState(() => _rollover = value),
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'budgets',
+          eyebrow: existing == null ? 'New envelope' : 'Update envelope',
+          value: rupee(_limitValue),
+          caption: raw.isEmpty
+              ? 'Pick a category'
+              : '$raw · alert at $_alertAt%',
+          accent: c.ac,
+        ),
+        if (existing != null || spent > 0) ...[
+          const SizedBox(height: 12),
+          PremiumNotice(
+            icon: 'insights',
+            text: existing != null
+                ? 'This envelope already exists. Saving will update its limit and rules. ${spent > 0 ? '${rupee(spent)} spent this month.' : ''}'
+                : '${rupee(spent)} has already been spent in $raw this month.',
+          ),
+        ],
+        const SizedBox(height: 18),
+        PrimaryButton(
+          label: existing == null ? 'Create envelope' : 'Update envelope',
+          onTap: () => _save(snapshot),
+        ),
+      ],
     );
   }
 }
@@ -600,42 +705,102 @@ class _BudgetCard extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.controller,
-    required this.hint,
-    this.number = false,
-  });
+class _TotalBudgetSheet extends ConsumerStatefulWidget {
+  const _TotalBudgetSheet();
 
-  final TextEditingController controller;
-  final String hint;
-  final bool number;
+  @override
+  ConsumerState<_TotalBudgetSheet> createState() => _TotalBudgetSheetState();
+}
+
+class _TotalBudgetSheetState extends ConsumerState<_TotalBudgetSheet> {
+  late final TextEditingController _limit;
+
+  @override
+  void initState() {
+    super.initState();
+    final snapshot = ref.read(financeSnapshotProvider);
+    final value = snapshot.totalBudgetOverride ?? snapshot.totalBudgetLimit;
+    _limit = TextEditingController(
+      text: value <= 0 ? '' : value.round().toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _limit.dispose();
+    super.dispose();
+  }
+
+  double get _value => double.tryParse(_limit.text) ?? 0;
+
+  Future<void> _save() async {
+    if (_value <= 0) {
+      ref.read(toastProvider.notifier).show('Enter a monthly limit');
+      return;
+    }
+    await ref.read(budgetRepositoryProvider).setTotalBudget(_value);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Total budget saved');
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 13),
-      decoration: BoxDecoration(
-        color: c.c2,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      alignment: Alignment.centerLeft,
-      child: TextField(
-        controller: controller,
-        textAlignVertical: TextAlignVertical.center,
-        keyboardType: number ? TextInputType.number : TextInputType.text,
-        style: AppTypography.sans(size: 13, color: c.tx),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: AppTypography.sans(size: 13, color: c.mu),
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final envelopeTotal = snapshot.budgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.limit,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'budgets',
+          title: 'Monthly total',
+          subtitle: 'One limit across every expense this month.',
         ),
-      ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Total monthly limit', requiredField: true),
+        PremiumField(
+          controller: _limit,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          icon: 'budgets',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'budgets',
+          eyebrow: 'Total budget',
+          value: rupee(_value),
+          caption: snapshot.hasTotalBudget
+              ? 'Custom limit · replaces envelope total'
+              : 'Envelope total is ${rupee(envelopeTotal)}',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 12),
+        PremiumNotice(
+          icon: 'insights',
+          text: 'The total is compared with every outgoing transaction, while envelopes stay useful for category-level pacing.',
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Save total budget', onTap: _save),
+        if (snapshot.hasTotalBudget)
+          AppButton(
+            label: 'Use envelope total instead',
+            centered: true,
+            onTap: () async {
+              final navigator = Navigator.of(context);
+              await ref.read(budgetRepositoryProvider).removeTotalBudget();
+              if (!mounted) return;
+              navigator.pop();
+              ref.read(toastProvider.notifier).show('Total budget cleared');
+            },
+          ),
+      ],
     );
   }
 }

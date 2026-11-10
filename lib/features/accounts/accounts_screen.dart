@@ -9,9 +9,11 @@ import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
+import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/transaction_row.dart';
 import '../../data/models/account.dart';
@@ -297,52 +299,7 @@ class AccountsScreen extends ConsumerWidget {
   }
 
   void _showAddAccount(BuildContext context, WidgetRef ref) {
-    final name = TextEditingController();
-    final balance = TextEditingController();
-    var type = AccountType.savings;
-    showAppSheet<void>(
-      context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SheetTitle('New account'),
-              const SizedBox(height: 12),
-              _Field(controller: name, hint: 'Name'),
-              _Field(
-                controller: balance,
-                hint: 'Opening balance',
-                number: true,
-              ),
-              AppSelect<AccountType>(
-                value: type,
-                options: _accountTypeOptions,
-                onChanged: (value) =>
-                    setSheetState(() => type = value ?? AccountType.savings),
-              ),
-              PrimaryButton(
-                label: 'Add',
-                onTap: () async {
-                  await ref
-                      .read(accountRepositoryProvider)
-                      .addAccount(
-                        name: name.text.trim().isEmpty
-                            ? 'Account'
-                            : name.text.trim(),
-                        type: type,
-                        openingBalance: double.tryParse(balance.text) ?? 0,
-                      );
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref.read(toastProvider.notifier).show('Account added');
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _AddAccountSheet());
   }
 
   void _showTransfer(
@@ -357,73 +314,7 @@ class AccountsScreen extends ConsumerWidget {
       ref.read(toastProvider.notifier).show('Add two accounts first');
       return;
     }
-    var from = transferable.first.id;
-    var to = transferable[1].id;
-    final amount = TextEditingController();
-    showAppSheet<void>(
-      context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SheetTitle('Transfer'),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppSelect<String>(
-                      value: from,
-                      options: [
-                        for (final account in transferable)
-                          AppSelectOption(account.id, account.name),
-                      ],
-                      onChanged: (value) =>
-                          setSheetState(() => from = value ?? from),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: AppSelect<String>(
-                      value: to,
-                      options: [
-                        for (final account in transferable)
-                          AppSelectOption(account.id, account.name),
-                      ],
-                      onChanged: (value) =>
-                          setSheetState(() => to = value ?? to),
-                    ),
-                  ),
-                ],
-              ),
-              _Field(controller: amount, hint: 'Amount', number: true),
-              PrimaryButton(
-                label: 'Transfer',
-                onTap: () async {
-                  final value = double.tryParse(amount.text) ?? 0;
-                  if (value <= 0 || from == to) {
-                    ref.read(toastProvider.notifier).show('Pick two accounts');
-                    return;
-                  }
-                  await ref
-                      .read(accountRepositoryProvider)
-                      .transferBetweenAccounts(
-                        fromAccountId: from,
-                        toAccountId: to,
-                        amount: value,
-                      );
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref
-                      .read(toastProvider.notifier)
-                      .show('Moved ${rupee(value)}');
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _TransferMoneySheet());
   }
 }
 
@@ -556,6 +447,388 @@ class _AccountRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AddAccountSheet extends ConsumerStatefulWidget {
+  const _AddAccountSheet();
+
+  @override
+  ConsumerState<_AddAccountSheet> createState() => _AddAccountSheetState();
+}
+
+class _AddAccountSheetState extends ConsumerState<_AddAccountSheet> {
+  final _name = TextEditingController();
+  final _balance = TextEditingController();
+  AccountType _type = AccountType.savings;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _balance.dispose();
+    super.dispose();
+  }
+
+  double get _opening => double.tryParse(_balance.text) ?? 0;
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the account');
+      return;
+    }
+    if (_opening < 0) {
+      ref
+          .read(toastProvider.notifier)
+          .show('Opening balance cannot be negative');
+      return;
+    }
+    await ref
+        .read(accountRepositoryProvider)
+        .addAccount(name: name, type: _type, openingBalance: _opening);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('$name added');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final name = _name.text.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'accounts',
+          title: 'Add account',
+          subtitle: 'Track a bank balance or cash in hand.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Account name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. HDFC Savings',
+          icon: 'accounts',
+          capitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final preset in const [
+              ('HDFC Savings', AccountType.savings),
+              ('SBI Salary', AccountType.savings),
+              ('Cash wallet', AccountType.cash),
+            ])
+              AppPill(
+                label: preset.$1,
+                onTap: () => setState(() {
+                  _name.text = preset.$1;
+                  _type = preset.$2;
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Account type'),
+        Row(
+          children: [
+            Expanded(
+              child: _AccountTypeChoice(
+                icon: 'accounts',
+                title: 'Bank account',
+                subtitle: 'Savings or salary',
+                selected: _type == AccountType.savings,
+                onTap: () => setState(() => _type = AccountType.savings),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _AccountTypeChoice(
+                icon: 'cash',
+                title: 'Cash in hand',
+                subtitle: 'Wallet or cash',
+                selected: _type == AccountType.cash,
+                onTap: () => setState(() => _type = AccountType.cash),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Opening balance'),
+        PremiumField(
+          controller: _balance,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: _type == AccountType.cash ? 'cash' : 'accounts',
+          eyebrow: 'Ready to add',
+          value: rupee(_opening),
+          caption: name.isEmpty
+              ? 'Name this account'
+              : '$name · ${_type.label}',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Create account', onTap: _save),
+      ],
+    );
+  }
+}
+
+class _AccountTypeChoice extends StatelessWidget {
+  const _AccountTypeChoice({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 66,
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        decoration: BoxDecoration(
+          color: selected ? c.ac.withValues(alpha: c.dark ? 0.1 : 0.07) : c.c2,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(
+            color: selected ? c.ac.withValues(alpha: 0.45) : c.ln,
+            width: selected ? 1.2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            IconTile(
+              icon: icon,
+              color: selected ? c.ac : c.mu,
+              size: 32,
+              backgroundOpacity: selected ? 0.12 : 0.06,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: c.tx,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.sans(size: 9, color: c.mu),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TransferMoneySheet extends ConsumerStatefulWidget {
+  const _TransferMoneySheet();
+
+  @override
+  ConsumerState<_TransferMoneySheet> createState() =>
+      _TransferMoneySheetState();
+}
+
+class _TransferMoneySheetState extends ConsumerState<_TransferMoneySheet> {
+  final _amount = TextEditingController();
+  String? _from;
+  String? _to;
+
+  @override
+  void initState() {
+    super.initState();
+    final accounts = ref
+        .read(financeSnapshotProvider)
+        .accounts
+        .where((account) => account.type != AccountType.investments)
+        .toList();
+    if (accounts.isNotEmpty) _from = accounts.first.id;
+    if (accounts.length > 1) _to = accounts[1].id;
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save(List<Account> accounts) async {
+    final fromId = _from != null && accounts.any((a) => a.id == _from)
+        ? _from!
+        : accounts.first.id;
+    final toOptions = accounts.where((a) => a.id != fromId).toList();
+    final toId = _to != null && toOptions.any((a) => a.id == _to)
+        ? _to!
+        : toOptions.first.id;
+    final value = double.tryParse(_amount.text) ?? 0;
+    final from = accounts.firstWhere((a) => a.id == fromId);
+    if (value <= 0) {
+      ref.read(toastProvider.notifier).show('Enter an amount');
+      return;
+    }
+    if (value > from.balance) {
+      ref.read(toastProvider.notifier).show('Not enough in ${from.name}');
+      return;
+    }
+    await ref
+        .read(accountRepositoryProvider)
+        .transferBetweenAccounts(
+          fromAccountId: fromId,
+          toAccountId: toId,
+          amount: value,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Moved ${rupee(value)}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final accounts = ref
+        .watch(financeSnapshotProvider)
+        .accounts
+        .where((account) => account.type != AccountType.investments)
+        .toList();
+    if (accounts.length < 2) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PremiumSheetHeader(
+            icon: 'transfer',
+            title: 'Transfer money',
+            subtitle: 'Move cash between two accounts.',
+          ),
+          const SizedBox(height: 18),
+          const PremiumNotice(
+            icon: 'accounts',
+            text: 'Add at least two bank or cash accounts to transfer money.',
+          ),
+        ],
+      );
+    }
+    final fromId = accounts.any((a) => a.id == _from)
+        ? _from
+        : accounts.first.id;
+    final toOptions = accounts.where((a) => a.id != fromId).toList();
+    final toId = toOptions.any((a) => a.id == _to) ? _to : toOptions.first.id;
+    final from = accounts.firstWhere((a) => a.id == fromId);
+    final to = accounts.firstWhere((a) => a.id == toId);
+    final amount = double.tryParse(_amount.text) ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'transfer',
+          title: 'Transfer money',
+          subtitle: 'Move cash between your accounts.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('From'),
+        AppSelect<String>(
+          value: fromId,
+          options: [
+            for (final account in accounts)
+              AppSelectOption(
+                account.id,
+                '${account.name} · ${rupee(account.balance)}',
+              ),
+          ],
+          onChanged: (value) => setState(() => _from = value ?? fromId),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                final previousFrom = fromId;
+                _from = toId;
+                _to = previousFrom;
+              });
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: c.c2, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: SpendIcon('transfer', size: 16, color: c.tx),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const PremiumLabel('To'),
+        AppSelect<String>(
+          value: toId,
+          options: [
+            for (final account in toOptions)
+              AppSelectOption(
+                account.id,
+                '${account.name} · ${rupee(account.balance)}',
+              ),
+          ],
+          onChanged: (value) => setState(() => _to = value ?? toId),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Amount'),
+        PremiumField(
+          controller: _amount,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'transfer',
+          eyebrow: 'Move',
+          value: rupee(amount),
+          caption: '${from.name} → ${to.name}',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 12),
+        const PremiumNotice(
+          text: 'The transfer updates both balances immediately.',
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Transfer', onTap: () => _save(accounts)),
+      ],
     );
   }
 }

@@ -13,6 +13,7 @@ import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/health_score_gauge.dart';
 import '../../core/widgets/money_text.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../data/models/goal.dart';
 import '../../data/services/finance_calculator.dart';
@@ -246,47 +247,151 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   }
 
   void _addGoal(BuildContext context) {
-    final name = TextEditingController();
-    final target = TextEditingController();
-    final monthly = TextEditingController();
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('New goal'),
-          const SizedBox(height: 12),
-          _Field(controller: name, hint: 'What are you saving for?'),
-          _Field(controller: target, hint: 'Target amount', number: true),
-          _Field(
-            controller: monthly,
-            hint: 'Monthly contribution',
-            number: true,
-          ),
-          PrimaryButton(
-            label: 'Create goal',
-            onTap: () async {
-              if (name.text.trim().isEmpty) {
-                ref.read(toastProvider.notifier).show('Name the goal');
-                return;
-              }
-              await ref
-                  .read(goalRepositoryProvider)
-                  .addGoal(
-                    name: name.text.trim(),
-                    target: double.tryParse(target.text) ?? 50000,
-                    monthlyContribution: double.tryParse(monthly.text) ?? 5000,
-                    color:
-                        AppColors.accents[DateTime.now().microsecond %
-                            AppColors.accents.length],
-                  );
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              ref.read(toastProvider.notifier).show('Goal created');
-            },
-          ),
-        ],
-      ),
+    showAppSheet<void>(context, (_) => const _AddGoalSheet());
+  }
+}
+
+class _AddGoalSheet extends ConsumerStatefulWidget {
+  const _AddGoalSheet();
+
+  @override
+  ConsumerState<_AddGoalSheet> createState() => _AddGoalSheetState();
+}
+
+class _AddGoalSheetState extends ConsumerState<_AddGoalSheet> {
+  final _name = TextEditingController();
+  final _target = TextEditingController();
+  final _monthly = TextEditingController();
+  Color _color = AppColors.accents.first;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _target.dispose();
+    _monthly.dispose();
+    super.dispose();
+  }
+
+  double get _targetValue => double.tryParse(_target.text) ?? 0;
+  double get _monthlyValue => double.tryParse(_monthly.text) ?? 0;
+  int get _months =>
+      _monthlyValue <= 0 ? 0 : (_targetValue / _monthlyValue).ceil();
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the goal');
+      return;
+    }
+    if (_targetValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter a target amount');
+      return;
+    }
+    await ref
+        .read(goalRepositoryProvider)
+        .addGoal(
+          name: _name.text.trim(),
+          target: _targetValue,
+          monthlyContribution: _monthlyValue,
+          color: _color,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Goal created');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'goals',
+          title: 'New goal',
+          subtitle: 'Turn a target into a monthly plan.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('What are you saving for?', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. Japan trip',
+          icon: 'goals',
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Target amount', requiredField: true),
+        PremiumField(
+          controller: _target,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        const PremiumLabel('Monthly contribution'),
+        PremiumField(
+          controller: _monthly,
+          hint: '0',
+          number: true,
+          prefix: '₹ ',
+          suffix: '/mo',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Goal colour'),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final color in AppColors.accents)
+              GestureDetector(
+                onTap: () => setState(() => _color = color),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _color == color ? c.tx : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: _color == color
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: _color == color
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: Colors.black87,
+                        )
+                      : null,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        PremiumSummaryCard(
+          icon: 'goals',
+          eyebrow: 'Savings plan',
+          value: rupee(_targetValue),
+          caption: _monthlyValue <= 0
+              ? 'Add a monthly contribution to see the timeline'
+              : '${rupee(_monthlyValue)}/mo · reached in $_months months',
+          accent: _color,
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Create goal', onTap: _save),
+      ],
     );
   }
 }

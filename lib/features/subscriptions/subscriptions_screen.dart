@@ -9,10 +9,12 @@ import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
+import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/subscription.dart';
@@ -188,61 +190,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   }
 
   void _addSubscription(BuildContext context) {
-    final name = TextEditingController();
-    final price = TextEditingController();
-    final days = TextEditingController(text: '30');
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle(
-            'Add subscription',
-            subtitle: 'Netflix, Spotify, iCloud and more.',
-          ),
-          const SizedBox(height: 12),
-          _Field(controller: name, hint: 'Name'),
-          Row(
-            children: [
-              Expanded(
-                child: _Field(
-                  controller: price,
-                  hint: 'Monthly price',
-                  number: true,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _Field(
-                  controller: days,
-                  hint: 'Renews in (days)',
-                  number: true,
-                ),
-              ),
-            ],
-          ),
-          PrimaryButton(
-            label: 'Add subscription',
-            onTap: () async {
-              if (name.text.trim().isEmpty) {
-                ref.read(toastProvider.notifier).show('Name the subscription');
-                return;
-              }
-              await ref
-                  .read(subscriptionRepositoryProvider)
-                  .addSubscription(
-                    name: name.text.trim(),
-                    price: double.tryParse(price.text) ?? 0,
-                    renewsInDays: int.tryParse(days.text) ?? 30,
-                  );
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              ref.read(toastProvider.notifier).show('Subscription added');
-            },
-          ),
-        ],
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _AddSubscriptionSheet());
   }
 
   void _editSubscription(BuildContext context, Subscription subscription) {
@@ -330,72 +278,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   }
 
   void _addRecurring(BuildContext context) {
-    final name = TextEditingController();
-    final amount = TextEditingController();
-    var frequency = RecurringFrequency.monthly;
-    var income = false;
-    showAppSheet<void>(
-      context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SheetTitle('New recurring'),
-              const SizedBox(height: 12),
-              _Field(controller: name, hint: 'Name'),
-              _Field(controller: amount, hint: 'Amount', number: true),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppSelect<RecurringFrequency>(
-                      value: frequency,
-                      options: [
-                        for (final f in RecurringFrequency.values)
-                          AppSelectOption(f, f.label),
-                      ],
-                      onChanged: (value) => setSheetState(
-                        () => frequency = value ?? RecurringFrequency.monthly,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: AppSelect<bool>(
-                      value: income,
-                      options: const [
-                        AppSelectOption(false, 'Expense'),
-                        AppSelectOption(true, 'Income'),
-                      ],
-                      onChanged: (value) =>
-                          setSheetState(() => income = value ?? false),
-                    ),
-                  ),
-                ],
-              ),
-              PrimaryButton(
-                label: 'Add',
-                onTap: () async {
-                  await ref
-                      .read(subscriptionRepositoryProvider)
-                      .addRecurring(
-                        name: name.text.trim().isEmpty
-                            ? 'Recurring'
-                            : name.text.trim(),
-                        amount: double.tryParse(amount.text) ?? 0,
-                        frequency: frequency,
-                        isIncome: income,
-                      );
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref.read(toastProvider.notifier).show('Recurring added');
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    showAppSheet<void>(context, (_) => const _AddRecurringSheet());
   }
 
   void _editRecurring(BuildContext context, RecurringTransaction recurring) {
@@ -613,6 +496,277 @@ class _RecurringRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AddSubscriptionSheet extends ConsumerStatefulWidget {
+  const _AddSubscriptionSheet();
+
+  @override
+  ConsumerState<_AddSubscriptionSheet> createState() =>
+      _AddSubscriptionSheetState();
+}
+
+class _AddSubscriptionSheetState extends ConsumerState<_AddSubscriptionSheet> {
+  final _name = TextEditingController();
+  final _price = TextEditingController();
+  final _days = TextEditingController(text: '30');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _price.dispose();
+    _days.dispose();
+    super.dispose();
+  }
+
+  double get _priceValue => double.tryParse(_price.text) ?? 0;
+  int get _daysValue => int.tryParse(_days.text) ?? 0;
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the subscription');
+      return;
+    }
+    if (_priceValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter the monthly price');
+      return;
+    }
+    if (_daysValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter renewal days');
+      return;
+    }
+    await ref
+        .read(subscriptionRepositoryProvider)
+        .addSubscription(
+          name: _name.text.trim(),
+          price: _priceValue,
+          renewsInDays: _daysValue,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Subscription added');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final name = _name.text.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'subscriptions',
+          title: 'Add subscription',
+          subtitle: 'Keep recurring charges visible before they renew.',
+        ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final brand in const [
+              'Netflix',
+              'Spotify',
+              'YouTube Premium',
+              'iCloud',
+              'Notion',
+              'Amazon Prime',
+            ])
+              AppPill(
+                label: brand,
+                active: name == brand,
+                onTap: () => setState(() {
+                  _name.text = brand;
+                  _name.selection = TextSelection.collapsed(
+                    offset: brand.length,
+                  );
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Subscription name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. Netflix',
+          icon: 'subscriptions',
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Monthly price', requiredField: true),
+        PremiumField(
+          controller: _price,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Renews in'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final days in const [7, 15, 30, 365])
+              AppPill(
+                label: days == 365 ? '1 year' : '$days days',
+                active: _daysValue == days,
+                onTap: () => setState(() => _days.text = '$days'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        PremiumField(
+          controller: _days,
+          hint: '30',
+          number: true,
+          icon: 'calendar',
+          suffix: 'days',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'subscriptions',
+          eyebrow: 'Recurring charge',
+          value: '${rupee(_priceValue)} /mo',
+          caption: name.isEmpty
+              ? 'Name this subscription'
+              : '$name · renews in $_daysValue days',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 12),
+        const PremiumNotice(
+          icon: 'insights',
+          text: 'Subscriptions are forecasts only until you mark a payment. You can pause or cancel any time.',
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Add subscription', onTap: _save),
+      ],
+    );
+  }
+}
+
+class _AddRecurringSheet extends ConsumerStatefulWidget {
+  const _AddRecurringSheet();
+
+  @override
+  ConsumerState<_AddRecurringSheet> createState() => _AddRecurringSheetState();
+}
+
+class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
+  final _name = TextEditingController();
+  final _amount = TextEditingController();
+  RecurringFrequency _frequency = RecurringFrequency.monthly;
+  bool _income = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  double get _amountValue => double.tryParse(_amount.text) ?? 0;
+  double get _monthly => _amountValue * _frequency.monthlyFactor;
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the recurring item');
+      return;
+    }
+    if (_amountValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter an amount');
+      return;
+    }
+    await ref
+        .read(subscriptionRepositoryProvider)
+        .addRecurring(
+          name: _name.text.trim(),
+          amount: _amountValue,
+          frequency: _frequency,
+          isIncome: _income,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('Recurring item added');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PremiumSheetHeader(
+          icon: 'refresh',
+          title: 'New recurring',
+          subtitle: 'Track predictable money in or out.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. Rent, Salary',
+          icon: 'refresh',
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Amount', requiredField: true),
+        PremiumField(
+          controller: _amount,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Type'),
+        SegmentedControl<bool>(
+          margin: EdgeInsets.zero,
+          options: const [
+            SegmentedOption(false, 'Expense'),
+            SegmentedOption(true, 'Income'),
+          ],
+          selected: _income,
+          onChanged: (value) => setState(() => _income = value),
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Frequency'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final frequency in RecurringFrequency.values)
+              AppPill(
+                label: frequency.label,
+                active: _frequency == frequency,
+                onTap: () => setState(() => _frequency = frequency),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'refresh',
+          eyebrow: _income ? 'Monthly income' : 'Monthly cost',
+          value: rupee(_monthly),
+          caption:
+              '${_frequency.label} · ${rupee(_amountValue)} per occurrence',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 12),
+        const PremiumNotice(
+          icon: 'calendar',
+          text: 'Recurring items appear on the calendar and are used in cash-flow forecasts.',
+        ),
+        const SizedBox(height: 18),
+        PrimaryButton(label: 'Add recurring', onTap: _save),
+      ],
     );
   }
 }

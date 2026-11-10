@@ -8,8 +8,10 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/loan.dart';
 import '../../data/services/finance_calculator.dart';
@@ -208,18 +210,10 @@ class _AddLoanSheetState extends ConsumerState<_AddLoanSheet> {
   final _name = TextEditingController();
   final _lender = TextEditingController();
   final _principal = TextEditingController();
-  final _rate = TextEditingController();
-  final _years = TextEditingController();
-  final _emiDay = TextEditingController();
+  final _rate = TextEditingController(text: '9');
+  final _years = TextEditingController(text: '5');
+  final _emiDay = TextEditingController(text: '5');
   LoanType _type = LoanType.home;
-
-  @override
-  void initState() {
-    super.initState();
-    for (final controller in [_principal, _rate, _years]) {
-      controller.addListener(() => setState(() {}));
-    }
-  }
 
   @override
   void dispose() {
@@ -232,30 +226,50 @@ class _AddLoanSheetState extends ConsumerState<_AddLoanSheet> {
     super.dispose();
   }
 
+  double get _principalValue => double.tryParse(_principal.text) ?? 0;
+  double get _rateValue => double.tryParse(_rate.text) ?? 0;
+  int get _yearsValue => int.tryParse(_years.text) ?? 0;
+  int get _emiDayValue => int.tryParse(_emiDay.text) ?? 0;
+
   double get _previewEmi {
-    final p = double.tryParse(_principal.text) ?? 0;
-    final r = double.tryParse(_rate.text) ?? 0;
-    final y = int.tryParse(_years.text) ?? 0;
-    return FinanceCalculator.emiFor(p, r, y * 12);
+    final months = _yearsValue * 12;
+    if (_principalValue <= 0 || months <= 0) return 0;
+    return FinanceCalculator.emiFor(_principalValue, _rateValue, months);
+  }
+
+  double get _totalInterest {
+    final months = _yearsValue * 12;
+    if (months <= 0) return 0;
+    return (_previewEmi * months - _principalValue).clamp(0, double.infinity);
   }
 
   Future<void> _add() async {
-    final principal = double.tryParse(_principal.text) ?? 0;
-    final years = int.tryParse(_years.text) ?? 0;
-    if (principal <= 0 || years <= 0) {
-      ref.read(toastProvider.notifier).show('Fill amount and years');
+    if (_name.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Name the loan');
+      return;
+    }
+    if (_principalValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter the principal');
+      return;
+    }
+    if (_yearsValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter the tenure');
+      return;
+    }
+    if (_emiDayValue < 1 || _emiDayValue > 28) {
+      ref.read(toastProvider.notifier).show('EMI day must be 1–28');
       return;
     }
     await ref
         .read(loanRepositoryProvider)
         .addLoan(
-          name: _name.text.trim().isEmpty ? 'Loan' : _name.text.trim(),
+          name: _name.text.trim(),
           lender: _lender.text.trim(),
           type: _type,
-          principal: principal,
-          rate: double.tryParse(_rate.text) ?? 0,
-          years: years,
-          emiDay: int.tryParse(_emiDay.text) ?? 5,
+          principal: _principalValue,
+          rate: _rateValue,
+          years: _yearsValue,
+          emiDay: _emiDayValue,
         );
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -265,61 +279,137 @@ class _AddLoanSheetState extends ConsumerState<_AddLoanSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final months = _yearsValue * 12;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SheetTitle('New loan'),
+        const PremiumSheetHeader(
+          icon: 'debt',
+          title: 'Add loan',
+          subtitle: 'Set the principal, rate and payoff plan.',
+        ),
+        const SizedBox(height: 20),
+        const PremiumLabel('Loan name', requiredField: true),
+        PremiumField(
+          controller: _name,
+          hint: 'e.g. Home loan',
+          icon: 'debt',
+          capitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
         const SizedBox(height: 12),
-        _LoanField(controller: _name, hint: 'Name (e.g. Home loan)'),
         Row(
           children: [
             Expanded(
-              child: _LoanField(controller: _lender, hint: 'Lender'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppSelect<LoanType>(
-                value: _type,
-                options: [
-                  for (final type in LoanType.values)
-                    AppSelectOption(type, type.label),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Lender'),
+                  PremiumField(
+                    controller: _lender,
+                    hint: 'HDFC Bank',
+                    capitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                  ),
                 ],
-                onChanged: (value) =>
-                    setState(() => _type = value ?? LoanType.other),
-              ),
-            ),
-          ],
-        ),
-        _LoanField(
-          controller: _principal,
-          hint: 'Outstanding principal',
-          number: true,
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: _LoanField(
-                controller: _rate,
-                hint: 'Rate % p.a.',
-                number: true,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _LoanField(
-                controller: _years,
-                hint: 'Years left',
-                number: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('EMI day'),
+                  PremiumField(
+                    controller: _emiDay,
+                    hint: '5',
+                    number: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        _LoanField(controller: _emiDay, hint: 'EMI day of month', number: true),
-        Text(
-          'EMI ${rupee(_previewEmi)} /mo',
-          style: AppTypography.serif(size: 34, color: c.tx),
+        const SizedBox(height: 14),
+        const PremiumLabel('Loan type'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final type in LoanType.values)
+              AppPill(
+                label: type.label,
+                active: _type == type,
+                onTap: () => setState(() => _type = type),
+              ),
+          ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+        const PremiumLabel('Outstanding principal', requiredField: true),
+        PremiumField(
+          controller: _principal,
+          hint: '0',
+          number: true,
+          large: true,
+          prefix: '₹ ',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Rate % p.a.'),
+                  PremiumField(
+                    controller: _rate,
+                    hint: '9.0',
+                    number: true,
+                    suffix: '%',
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const PremiumLabel('Years left', requiredField: true),
+                  PremiumField(
+                    controller: _years,
+                    hint: '5',
+                    number: true,
+                    suffix: 'yr',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        PremiumSummaryCard(
+          icon: 'debt',
+          eyebrow: 'Estimated EMI',
+          value: '${rupee(_previewEmi)} /mo',
+          caption: months <= 0
+              ? 'Enter a tenure'
+              : '$_yearsValue years · ${rupee(_totalInterest)} total interest',
+          accent: c.ac,
+        ),
+        const SizedBox(height: 14),
+        const PremiumNotice(
+          icon: 'insights',
+          text: 'The payoff plan uses the rate and tenure to estimate your monthly EMI and total interest.',
+        ),
+        const SizedBox(height: 18),
         PrimaryButton(label: 'Add loan', onTap: _add),
       ],
     );
