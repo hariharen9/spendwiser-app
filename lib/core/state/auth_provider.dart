@@ -86,6 +86,37 @@ class AuthService {
     final credential = GoogleAuthProvider.credential(idToken: idToken);
     await _auth.signInWithCredential(credential);
   }
+
+  Future<void> reauthenticate({String? password}) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Not signed in');
+    final isGoogle = user.providerData.any(
+      (provider) => provider.providerId == 'google.com',
+    );
+    if (isGoogle) {
+      await _ensureGoogleInitialized();
+      final account = await GoogleSignIn.instance.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw StateError('Google did not return an ID token.');
+      }
+      await user.reauthenticateWithCredential(
+        GoogleAuthProvider.credential(idToken: idToken),
+      );
+      return;
+    }
+    final email = user.email;
+    if (email == null || password == null || password.isEmpty) {
+      throw StateError('Enter your password to continue.');
+    }
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: password),
+    );
+  }
+
+  Future<void> deleteUser() async {
+    await _auth.currentUser?.delete();
+  }
 }
 
 final authServiceProvider = Provider<AuthService>(
@@ -106,6 +137,8 @@ String authErrorMessage(Object error) {
         'Email sign-in is not enabled for this Firebase project.',
       'network-request-failed' => 'Network error. Check your connection.',
       'too-many-requests' => 'Too many attempts. Try again in a moment.',
+      'requires-recent-login' =>
+        'Please sign in again before deleting your account.',
       _ => error.message ?? 'Authentication failed.',
     };
   }

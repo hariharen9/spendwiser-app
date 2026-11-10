@@ -9,6 +9,7 @@ import '../models/account.dart';
 import '../models/credit_card.dart';
 import '../models/finance_snapshot.dart';
 import '../models/loan.dart';
+import '../models/shortcut.dart';
 import '../models/split_group.dart';
 import '../models/subscription.dart';
 import '../models/transaction.dart';
@@ -18,6 +19,7 @@ import '../repositories/i_card_repository.dart';
 import '../repositories/i_finance_repository.dart';
 import '../repositories/i_goal_repository.dart';
 import '../repositories/i_loan_repository.dart';
+import '../repositories/i_shortcut_repository.dart';
 import '../repositories/i_split_repository.dart';
 import '../repositories/i_subscription_repository.dart';
 import '../repositories/i_transaction_repository.dart';
@@ -43,7 +45,8 @@ class FirestoreFinanceStore
         IBudgetRepository,
         IGoalRepository,
         ISubscriptionRepository,
-        ISplitRepository {
+        ISplitRepository,
+        IShortcutRepository {
   FirestoreFinanceStore({
     required this.refs,
     required this.profile,
@@ -70,6 +73,7 @@ class FirestoreFinanceStore
   final Map<String, Map<String, dynamic>> _goalDocs = {};
   final Map<String, Map<String, dynamic>> _loanDocs = {};
   final Map<String, Map<String, dynamic>> _recurringDocs = {};
+  final Map<String, Map<String, dynamic>> _shortcutDocs = {};
   final Map<String, Map<String, dynamic>> _deletedTransactionDocs = {};
 
   final Map<String, Map<String, dynamic>> _participantDocs = {};
@@ -91,6 +95,7 @@ class FirestoreFinanceStore
     'goals',
     'loans',
     'recurring',
+    'shortcuts',
     'splitsParticipants',
     'splitsGroups',
     'user',
@@ -197,6 +202,19 @@ class FirestoreFinanceStore
           _mark('recurring');
         },
         onError: (Object error) => _fail('recurring', error),
+      ),
+    );
+    _subscriptions.add(
+      refs.shortcuts.snapshots().listen(
+        (snapshot) {
+          _shortcutDocs
+            ..clear()
+            ..addEntries(
+              snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+            );
+          _mark('shortcuts');
+        },
+        onError: (Object error) => _fail('shortcuts', error),
       ),
     );
     _subscriptions.add(
@@ -402,6 +420,9 @@ class FirestoreFinanceStore
         .map((rule) => subscriptionFromRecurring(rule, now: now))
         .whereType<Subscription>()
         .toList();
+    final shortcuts = _shortcutDocs.entries
+        .map((entry) => shortcutFromDoc(entry.key, entry.value))
+        .toList();
 
     final groups = <SplitGroup>[];
     final historyByGroup = <String, List<SplitHistoryEntry>>{};
@@ -472,6 +493,7 @@ class FirestoreFinanceStore
       netWorthOverride: accountsTotal - loansOriginal,
       totalBudgetOverride: totalBudgetOverride,
       hasMockData: hasMockData,
+      shortcuts: List.unmodifiable(shortcuts),
     );
     _controller.add(_snapshot);
   }
@@ -1268,6 +1290,58 @@ class FirestoreFinanceStore
     }
   }
 
+  // --------------------------------------------------------------- shortcuts ---
+
+  @override
+  Future<void> addShortcut({
+    required String keyword,
+    required String name,
+    required double amount,
+    required String category,
+    required bool isIncome,
+    String? accountId,
+  }) async {
+    try {
+      await refs.shortcuts.add({
+        'keyword': keyword.trim(),
+        'name': name.trim(),
+        'amount': isIncome ? amount.abs() : -amount.abs(),
+        'category': category,
+        'type': isIncome ? 'income' : 'expense',
+        if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
+      });
+    } catch (error) {
+      _error('Could not save shortcut: $error');
+    }
+  }
+
+  @override
+  Future<void> updateShortcut(Shortcut shortcut) async {
+    try {
+      await refs.shortcuts.doc(shortcut.id).update({
+        'keyword': shortcut.keyword.trim(),
+        'name': shortcut.name.trim(),
+        'amount': shortcut.isIncome
+            ? shortcut.amount.abs()
+            : -shortcut.amount.abs(),
+        'category': shortcut.category,
+        'type': shortcut.isIncome ? 'income' : 'expense',
+        'accountId': shortcut.accountId ?? FieldValue.delete(),
+      });
+    } catch (error) {
+      _error('Could not update shortcut: $error');
+    }
+  }
+
+  @override
+  Future<void> removeShortcut(String shortcutId) async {
+    try {
+      await refs.shortcuts.doc(shortcutId).delete();
+    } catch (error) {
+      _error('Could not remove shortcut: $error');
+    }
+  }
+
   // ------------------------------------------------------------------ splits ---
 
   Future<String> _ensureParticipant(String rawName) async {
@@ -1478,6 +1552,41 @@ class FirestoreFinanceStore
 
   @override
   Future<void> resetDemo() async {}
+
+  @override
+  Future<void> deleteAccountData() async {
+    final groups = await refs.splitGroups.get();
+    for (final group in groups.docs) {
+      await _deleteCollection(refs.expenses(group.id));
+      await _deleteCollection(refs.settledPayments(group.id));
+    }
+    await _deleteCollection(refs.transactions);
+    await _deleteCollection(refs.accounts);
+    await _deleteCollection(refs.budgets);
+    await _deleteCollection(refs.goals);
+    await _deleteCollection(refs.loans);
+    await _deleteCollection(refs.recurring);
+    await _deleteCollection(refs.participants);
+    await _deleteCollection(refs.splitGroups);
+    await _deleteCollection(refs.user.collection('pending_transactions'));
+    await _deleteCollection(refs.user.collection('shortcuts'));
+    await refs.totalBudget.delete();
+    await refs.user.delete();
+
+    _transactionDocs.clear();
+    _accountDocs.clear();
+    _budgetDocs.clear();
+    _goalDocs.clear();
+    _loanDocs.clear();
+    _recurringDocs.clear();
+    _shortcutDocs.clear();
+    _participantDocs.clear();
+    _groupDocs.clear();
+    _expensesByGroup.clear();
+    _settledByGroup.clear();
+    _groupHistory.clear();
+    _emit();
+  }
 
   @override
   Future<void> loadDemoData() async {

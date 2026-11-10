@@ -26,6 +26,7 @@ import '../../data/models/finance_snapshot.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/finance_calculator.dart';
+import '../../data/services/shortcut_parser.dart';
 import '../shell/app_module.dart';
 import '../sms/sms_review_sheet.dart';
 import '../transactions/add_transaction_sheet.dart';
@@ -288,6 +289,36 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
   Future<void> _submit() async {
     final input = _controller.text.trim();
     if (input.isEmpty) return;
+
+    final snapshot = ref.read(financeSnapshotProvider);
+    final shortcutMatch = matchShortcut(input, snapshot.shortcuts);
+    if (shortcutMatch != null) {
+      final shortcut = shortcutMatch.shortcut;
+      final amount = shortcutMatch.amount;
+      final isCard = shortcut.accountId != null &&
+          snapshot.cards.any((card) => card.id == shortcut.accountId);
+      final category = resolveCategoryName(
+        shortcut.category,
+        ref.read(settingsProvider).categories.keys,
+      );
+      final defaultAccountId =
+          ref.read(userProfileRepositoryProvider)?.defaultAccountId;
+      await ref.read(transactionRepositoryProvider).addTransaction(
+        TransactionDraft(
+          merchant: shortcut.name,
+          category: category,
+          amount: shortcut.isIncome ? amount : -amount,
+          date: DateTime.now(),
+          accountId: isCard ? null : (shortcut.accountId ?? defaultAccountId),
+          cardId: isCard ? shortcut.accountId : null,
+        ),
+      );
+      _controller.clear();
+      ref
+          .read(toastProvider.notifier)
+          .show('Logged ${shortcut.name} ${rupee(amount)}');
+      return;
+    }
 
     final parsed = CaptureParser.parse(input);
     if (parsed == null) {

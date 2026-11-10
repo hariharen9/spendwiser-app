@@ -7,6 +7,7 @@ import '../models/budget.dart';
 import '../models/credit_card.dart';
 import '../models/goal.dart';
 import '../models/loan.dart';
+import '../models/shortcut.dart';
 import '../models/split_group.dart';
 import '../models/subscription.dart';
 import '../models/transaction.dart';
@@ -485,6 +486,18 @@ MappedSplitGroup splitGroupFromDocs({
     history: history,
   );
 }
+
+Shortcut shortcutFromDoc(String id, Map<String, dynamic> data) => Shortcut(
+  id: id,
+  keyword: asString(data['keyword']),
+  name: asString(data['name'], 'Shortcut'),
+  amount: asDouble(data['amount']),
+  category: asString(data['category'], 'Other'),
+  isIncome: asString(data['type'], 'expense') == 'income',
+  accountId: asString(data['accountId']).isEmpty
+      ? null
+      : asString(data['accountId']),
+);
 
 Color categoryColorFor(String name, int index, Map<String, Color>? overrides) {
   final custom = overrides?[name];

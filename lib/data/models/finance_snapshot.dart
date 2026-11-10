@@ -7,6 +7,7 @@ import 'credit_card.dart';
 import 'goal.dart';
 import 'investment.dart';
 import 'loan.dart';
+import 'shortcut.dart';
 import 'split_group.dart';
 import 'subscription.dart';
 import 'transaction.dart';
@@ -32,6 +33,7 @@ class FinanceSnapshot {
     this.netWorthOverride,
     this.totalBudgetOverride,
     this.hasMockData = false,
+    this.shortcuts = const [],
   });
 
   final List<Transaction> transactions;
@@ -57,6 +59,8 @@ class FinanceSnapshot {
 
   /// True when any core document in the account is tagged `isMock`.
   final bool hasMockData;
+
+  final List<Shortcut> shortcuts;
 
   static const double propertyValue = 2800000;
 

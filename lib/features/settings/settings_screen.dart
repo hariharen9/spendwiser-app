@@ -24,9 +24,12 @@ import '../../data/models/app_settings.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../../data/persistence/pin_vault.dart';
 import '../../data/services/notifications_service.dart';
+import '../../data/sms/sms_inbox.dart';
 import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
 import '../sms/sms_settings_sheet.dart';
+import 'delete_account_sheet.dart';
+import 'shortcuts_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
@@ -284,6 +287,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           label: 'Tags · ${ref.watch(financeSnapshotProvider).tags.length}',
           onTap: () => _showTags(context),
         ),
+        AppButton(
+          label:
+              'Shortcuts · ${ref.watch(financeSnapshotProvider).shortcuts.length}',
+          onTap: () => showShortcutsSheet(context),
+        ),
         SectionCaption(
           'Automation',
           margin: const EdgeInsets.only(top: 22, bottom: 8),
@@ -471,7 +479,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         AppButton(
           label: 'Sign out',
-          onTap: () => ref.read(authServiceProvider).signOut(),
+          onTap: () async {
+            await SmsInbox.clear();
+            await ref.read(authServiceProvider).signOut();
+          },
+        ),
+        AppButton(
+          label: 'Delete account',
+          color: c.co,
+          centered: true,
+          onTap: () => showDeleteAccountSheet(context),
         ),
         const SizedBox(height: 14),
         Text(

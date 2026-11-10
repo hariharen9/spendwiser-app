@@ -27,8 +27,7 @@ abstract final class BackupService {
     return file;
   }
 
-  /// Build the full backup payload (delegates to the provider helper so the
-  /// Hive boxes remain the single source of truth) and share it as a file.
+  /// Build the web-compatible backup payload and share it as a JSON file.
   static Future<void> exportFullBackup() async {
     final payload = await exportBackup();
     final file = await _writeFile(
@@ -190,16 +189,26 @@ abstract final class BackupService {
     return '"$escaped"';
   }
 
-  /// Validate a backup payload before restoring it.
+  /// Validate a backup payload before restoring it. Accepts the web Restore
+  /// shape (top-level collections), the migration `entities` shape and the
+  /// older app `finance` shape.
   static void validateBackup(Map<String, dynamic> payload) {
-    if (payload['app'] != 'spendwiser') {
+    final hasLegacy = payload['finance'] is Map;
+    final hasEntities = payload['entities'] is Map;
+    final hasTopLevel = payload['transactions'] is List ||
+        payload['accounts'] is List ||
+        payload['budgets'] is List ||
+        payload['goals'] is List ||
+        payload['loans'] is List;
+    if (!hasLegacy && !hasEntities && !hasTopLevel) {
       throw const FormatException('Not a Spendwiser backup file');
     }
-    if (payload['version'] != 1) {
+    final version = payload['version'];
+    if (version != null &&
+        version != 1 &&
+        version != '1' &&
+        version != '1.0.0') {
       throw const FormatException('Unsupported backup version');
-    }
-    if (payload['finance'] is! Map && payload['finance'] != null) {
-      throw const FormatException('Backup is missing finance data');
     }
   }
 

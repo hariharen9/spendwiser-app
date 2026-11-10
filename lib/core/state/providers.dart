@@ -13,6 +13,7 @@ import '../../data/firebase/firestore_refs.dart';
 import '../../data/firebase/user_profile_repository.dart';
 import '../../data/mock/mock_finance_store.dart';
 import '../../data/mock/mock_settings_repository.dart';
+import '../../data/services/backup_codec.dart';
 import 'auth_provider.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/finance_snapshot.dart';
@@ -23,6 +24,7 @@ import '../../data/repositories/i_finance_repository.dart';
 import '../../data/repositories/i_goal_repository.dart';
 import '../../data/repositories/i_loan_repository.dart';
 import '../../data/repositories/i_settings_repository.dart';
+import '../../data/repositories/i_shortcut_repository.dart';
 import '../../data/repositories/i_split_repository.dart';
 import '../../data/repositories/i_transaction_repository.dart';
 import '../../data/repositories/i_subscription_repository.dart';
@@ -44,126 +46,340 @@ AppSettings loadPersistedSettings() {
   return HiveSettingsRepository(box).loadSync();
 }
 
-/// Exported backup payload pulled from the signed-in account's Firestore tree.
+/// Builds a backup that the web's Restore UI accepts (top-level collections)
+/// and also includes the `entities` wrapper used by the migration export.
 Future<Map<String, dynamic>> exportBackup() async {
   final user = FirebaseAuth.instance.currentUser;
+  final exportedAt = DateTime.now().toUtc().toIso8601String();
   if (user == null) {
+    const settings = AppSettings();
+    final webSettings = <String, dynamic>{
+      'darkMode': settings.isDark,
+      'currency': '₹',
+      'defaultAccountId': null,
+      'fontPreference': 'Montserrat',
+      'userDoc': const <String, dynamic>{},
+    };
+    final emptySplits = <String, dynamic>{
+      'participants': const [],
+      'groups': const [],
+      'expenses': const [],
+      'settledPayments': const [],
+    };
     return {
       'app': 'spendwiser',
       'version': 1,
-      'exportedAt': DateTime.now().toIso8601String(),
-      'settings': const AppSettings().toJson(),
-      'finance': const <String, dynamic>{},
+      'exportedAt': exportedAt,
+      'currency': '₹',
+      'themePreference': 'dark',
+      'baseCurrencyCode': 'INR',
+      'transactions': const [],
+      'accounts': const [],
+      'budgets': const [],
+      'goals': const [],
+      'loans': const [],
+      'recurringTransactions': const [],
+      'shortcuts': const [],
+      'pendingTransactions': const [],
+      'billSplitting': emptySplits,
+      'totalBudget': null,
+      'userCategories': settings.categories.keys.toList(),
+      'settings': webSettings,
+      'mobileSettings': settings.toJson(),
+      'metadata': {
+        'backupDate': exportedAt,
+        'version': '1.0.0',
+        'exportedBy': '',
+        'uid': '',
+      },
+      'entities': {
+        'transactions': const [],
+        'accounts': const [],
+        'budgets': const [],
+        'goals': const [],
+        'loans': const [],
+        'recurringTransactions': const [],
+        'shortcuts': const [],
+        'pendingTransactions': const [],
+        'billSplitting': emptySplits,
+        'totalBudget': const [],
+      },
     };
   }
+
   final firestore = FirebaseFirestore.instance;
   final refs = FirestoreRefs(firestore, user.uid);
   final profile = FirestoreUserProfileRepository(refs);
   await profile.loadOnce();
+  final userSnap = await refs.user.get();
+  final userData = userSnap.data() ?? const <String, dynamic>{};
+  final currency = (userData['currency'] as String?) ?? '₹';
+  final fontPreference =
+      (userData['fontPreference'] as String?) ?? 'Montserrat';
 
   Future<List<Map<String, dynamic>>> rows(
     CollectionReference<Map<String, dynamic>> collection,
   ) async {
     final snapshot = await collection.get();
-    return snapshot.docs
-        .map((doc) => {'id': doc.id, ...doc.data()})
-        .toList();
+    return snapshot.docs.map((doc) {
+      final data = <String, dynamic>{'id': doc.id, ...doc.data()};
+      return Map<String, dynamic>.from(jsonSafe(data) as Map);
+    }).toList();
   }
 
-  final groupSnapshot = await refs.splitGroups.get();
-  final groups = <Map<String, dynamic>>[];
-  for (final group in groupSnapshot.docs) {
-    groups.add({
-      'id': group.id,
-      ...group.data(),
-      'expenses': await rows(refs.expenses(group.id)),
-      'settledPayments': await rows(refs.settledPayments(group.id)),
-    });
+  final transactions = await rows(refs.transactions);
+  final accounts = await rows(refs.accounts);
+  final budgets = await rows(refs.budgets);
+  final goals = await rows(refs.goals);
+  final loans = await rows(refs.loans);
+  final recurring = await rows(refs.recurring);
+  final shortcuts = await rows(refs.shortcuts);
+  final pending = await rows(refs.user.collection('pending_transactions'));
+  final participants = await rows(refs.participants);
+  final groups = await rows(refs.splitGroups);
+
+  final groupExpenses = <Map<String, dynamic>>[];
+  final groupSettlements = <Map<String, dynamic>>[];
+  for (final group in groups) {
+    final groupId = '${group['id']}';
+    final expenseSnapshot = await refs.expenses(groupId).get();
+    for (final doc in expenseSnapshot.docs) {
+      groupExpenses.add({
+        'groupId': groupId,
+        'docId': doc.id,
+        'data': jsonSafe(doc.data()),
+      });
+    }
+    final settlementSnapshot = await refs.settledPayments(groupId).get();
+    for (final doc in settlementSnapshot.docs) {
+      groupSettlements.add({
+        'groupId': groupId,
+        'docId': doc.id,
+        'data': jsonSafe(doc.data()),
+      });
+    }
   }
 
-  final payload = {
+  final totalBudgetSnap = await refs.totalBudget.get();
+  final totalBudgetData = totalBudgetSnap.exists
+      ? jsonSafe(totalBudgetSnap.data())
+      : null;
+  final totalBudgetMap = totalBudgetData is Map
+      ? {
+          'id': 'current',
+          ...Map<String, dynamic>.from(totalBudgetData),
+        }
+      : null;
+  final totalBudgetList = totalBudgetData is Map
+      ? [
+          {
+            'id': 'current',
+            ...Map<String, dynamic>.from(totalBudgetData),
+          },
+        ]
+      : const <Map<String, dynamic>>[];
+
+  final userDoc = Map<String, dynamic>.from(jsonSafe(userData) as Map);
+  final webSettings = <String, dynamic>{
+    'darkMode': profile.current.isDark,
+    'currency': currency,
+    'defaultAccountId': profile.defaultAccountId,
+    'fontPreference': fontPreference,
+    'userDoc': userDoc,
+  };
+  final userCategories = profile.current.categories.keys.toList();
+  final mobileSettings = profile.current.toJson();
+  final themePreference = profile.current.isDark ? 'dark' : 'light';
+  final billSplitting = <String, dynamic>{
+    'participants': participants,
+    'groups': groups,
+    'expenses': groupExpenses,
+    'settledPayments': groupSettlements,
+  };
+  final metadata = <String, dynamic>{
+    'backupDate': exportedAt,
+    'version': '1.0.0',
+    'exportedBy': user.email ?? user.uid,
+    'uid': user.uid,
+  };
+  final entities = <String, dynamic>{
+    'transactions': transactions,
+    'accounts': accounts,
+    'budgets': budgets,
+    'goals': goals,
+    'loans': loans,
+    'recurringTransactions': recurring,
+    'shortcuts': shortcuts,
+    'pendingTransactions': pending,
+    'billSplitting': billSplitting,
+    'totalBudget': totalBudgetList,
+  };
+
+  profile.dispose();
+  return {
     'app': 'spendwiser',
     'version': 1,
-    'exportedAt': DateTime.now().toIso8601String(),
-    'settings': profile.current.toJson(),
-    'finance': {
-      'transactions': await rows(refs.transactions),
-      'accounts': await rows(refs.accounts),
-      'budgets': await rows(refs.budgets),
-      'goals': await rows(refs.goals),
-      'loans': await rows(refs.loans),
-      'recurring': await rows(refs.recurring),
-      'participants': await rows(refs.participants),
-      'splitGroups': groups,
-      'totalBudget': (await refs.totalBudget.get()).data(),
-    },
+    'exportedAt': exportedAt,
+    'currency': currency,
+    'themePreference': themePreference,
+    'baseCurrencyCode': _currencyCode(currency),
+    'transactions': transactions,
+    'accounts': accounts,
+    'budgets': budgets,
+    'goals': goals,
+    'loans': loans,
+    'recurringTransactions': recurring,
+    'shortcuts': shortcuts,
+    'pendingTransactions': pending,
+    'billSplitting': billSplitting,
+    'totalBudget': totalBudgetMap,
+    'userCategories': userCategories,
+    'settings': webSettings,
+    'mobileSettings': mobileSettings,
+    'metadata': metadata,
+    'entities': entities,
   };
-  profile.dispose();
-  return payload;
 }
 
+String _currencyCode(String symbol) => switch (symbol) {
+  '₹' => 'INR',
+  '\$' => 'USD',
+  '€' => 'EUR',
+  '£' => 'GBP',
+  'AED' => 'AED',
+  'S\$' => 'SGD',
+  'A\$' => 'AUD',
+  'C\$' => 'CAD',
+  '¥' => 'JPY',
+  _ => symbol.length == 3 ? symbol.toUpperCase() : 'INR',
+};
+
 /// Restore: replace the signed-in account's Firestore documents with the
-/// payload. The caller invalidates the finance/settings providers afterwards.
+/// payload. Accepts the web backup shape, the migration `entities` shape and
+/// the older app `finance` shape.
 Future<void> importBackupPayload(Map<String, dynamic> payload) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) throw StateError('Sign in to restore a backup');
   final firestore = FirebaseFirestore.instance;
   final refs = FirestoreRefs(firestore, user.uid);
-  final finance = payload['finance'];
-  if (finance is Map) {
-    await _replaceCollection(refs.transactions, finance['transactions'], firestore);
-    await _replaceCollection(refs.accounts, finance['accounts'], firestore);
-    await _replaceCollection(refs.budgets, finance['budgets'], firestore);
-    await _replaceCollection(refs.goals, finance['goals'], firestore);
-    await _replaceCollection(refs.loans, finance['loans'], firestore);
-    await _replaceCollection(refs.recurring, finance['recurring'], firestore);
-    await _replaceCollection(refs.participants, finance['participants'], firestore);
+  final backup = normalizeBackupPayload(payload);
 
-    final groups = finance['splitGroups'];
-    if (groups is List) {
-      await _deleteCollectionDocs(refs.splitGroups, firestore);
-      for (final raw in groups) {
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
-        final id = data.remove('id') as String?;
-        final expenses = data.remove('expenses');
-        final settled = data.remove('settledPayments');
-        final doc = id == null ? refs.splitGroups.doc() : refs.splitGroups.doc(id);
-        await doc.set(data);
-        await _replaceCollection(refs.expenses(doc.id), expenses, firestore);
-        await _replaceCollection(refs.settledPayments(doc.id), settled, firestore);
-      }
-    }
+  if (backup.transactions != null) {
+    await _replaceDocs(refs.transactions, backup.transactions!, firestore);
+  }
+  if (backup.accounts != null) {
+    await _replaceDocs(refs.accounts, backup.accounts!, firestore);
+  }
+  if (backup.budgets != null) {
+    await _replaceDocs(refs.budgets, backup.budgets!, firestore);
+  }
+  if (backup.goals != null) {
+    await _replaceDocs(refs.goals, backup.goals!, firestore);
+  }
+  if (backup.loans != null) {
+    await _replaceDocs(refs.loans, backup.loans!, firestore);
+  }
+  if (backup.recurring != null) {
+    await _replaceDocs(refs.recurring, backup.recurring!, firestore);
+  }
+  if (backup.shortcuts != null) {
+    await _replaceDocs(refs.shortcuts, backup.shortcuts!, firestore);
+  }
+  if (backup.pending != null) {
+    await _replaceDocs(
+      refs.user.collection('pending_transactions'),
+      backup.pending!,
+      firestore,
+    );
+  }
 
-    final totalBudget = finance['totalBudget'];
-    if (totalBudget is Map) {
-      await refs.totalBudget.set(Map<String, dynamic>.from(totalBudget));
+  if (backup.hasBillSplitting) {
+    await _replaceDocs(refs.participants, backup.participants, firestore);
+    await _deleteCollectionDocs(refs.splitGroups, firestore);
+    for (final group in backup.groups) {
+      final groupRef = group.id.isEmpty
+          ? refs.splitGroups.doc()
+          : refs.splitGroups.doc(group.id);
+      await groupRef.set(_withTimestamps(group.data, ['createdAt']));
+      final groupExpenses = backup.expenses
+          .where((expense) => expense.groupId == group.id)
+          .toList();
+      await _replaceDocs(
+        refs.expenses(groupRef.id),
+        groupExpenses,
+        firestore,
+        timestampFields: ['createdAt', 'updatedAt'],
+      );
+      final groupSettlements = backup.settlements
+          .where((settlement) => settlement.groupId == group.id)
+          .toList();
+      await _replaceDocs(
+        refs.settledPayments(groupRef.id),
+        groupSettlements,
+        firestore,
+        timestampFields: ['createdAt'],
+      );
     }
   }
-  final settings = payload['settings'];
-  if (settings is Map) {
+
+  if (backup.totalBudgetPresent) {
+    if (backup.totalBudget != null) {
+      await refs.totalBudget.set(backup.totalBudget!.data);
+    } else {
+      await refs.totalBudget.delete();
+    }
+  }
+
+  if (backup.userDoc != null && backup.userDoc!.isNotEmpty) {
+    await refs.user.set(backup.userDoc!, SetOptions(merge: true));
+  }
+  if (backup.webSettings != null) {
+    final settings = backup.webSettings!;
+    final updates = <String, dynamic>{};
+    if (settings['darkMode'] is bool) {
+      updates['themePreference'] = settings['darkMode'] == true
+          ? 'dark'
+          : 'light';
+    }
+    if (settings['currency'] is String) {
+      updates['currency'] = settings['currency'];
+    }
+    if (settings['defaultAccountId'] is String) {
+      updates['defaultAccountId'] = settings['defaultAccountId'];
+    }
+    if (settings['fontPreference'] is String) {
+      updates['fontPreference'] = settings['fontPreference'];
+    }
+    if (updates.isNotEmpty) {
+      await refs.user.set(updates, SetOptions(merge: true));
+    }
+  }
+  if (backup.categories != null) {
+    await refs.user.set(
+      {'categories': backup.categories},
+      SetOptions(merge: true),
+    );
+  }
+  if (backup.appSettings != null) {
     final profile = FirestoreUserProfileRepository(refs);
     await profile.loadOnce();
-    await profile.save(AppSettings.fromJson(Map<String, dynamic>.from(settings)));
+    await profile.save(AppSettings.fromJson(backup.appSettings!));
     profile.dispose();
   }
 }
 
-Future<void> _replaceCollection(
+Future<void> _replaceDocs(
   CollectionReference<Map<String, dynamic>> collection,
-  dynamic raw,
-  FirebaseFirestore firestore,
-) async {
-  if (raw is! List) return;
+  List<BackupDoc> docs,
+  FirebaseFirestore firestore, {
+  List<String> timestampFields = const [],
+}) async {
   await _deleteCollectionDocs(collection, firestore);
   var batch = firestore.batch();
   var pending = 0;
-  for (final item in raw) {
-    if (item is! Map) continue;
-    final data = Map<String, dynamic>.from(item);
-    final id = data.remove('id') as String?;
-    final doc = id == null ? collection.doc() : collection.doc(id);
-    batch.set(doc, data);
+  for (final item in docs) {
+    final doc = item.id.isEmpty ? collection.doc() : collection.doc(item.id);
+    batch.set(doc, _withTimestamps(item.data, timestampFields));
     pending++;
     if (pending >= 450) {
       await batch.commit();
@@ -172,6 +388,26 @@ Future<void> _replaceCollection(
     }
   }
   if (pending > 0) await batch.commit();
+}
+
+Map<String, dynamic> _withTimestamps(
+  Map<String, dynamic> data,
+  List<String> fields,
+) {
+  final copy = Map<String, dynamic>.from(data);
+  for (final field in fields) {
+    final value = copy[field];
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) copy[field] = Timestamp.fromDate(parsed);
+    } else if (value is Map && value['seconds'] is num) {
+      copy[field] = Timestamp(
+        (value['seconds'] as num).toInt(),
+        ((value['nanoseconds'] as num?) ?? 0).toInt(),
+      );
+    }
+  }
+  return copy;
 }
 
 Future<void> _deleteCollectionDocs(
@@ -384,6 +620,11 @@ final subscriptionRepositoryProvider = Provider<ISubscriptionRepository>((ref) {
 });
 
 final splitRepositoryProvider = Provider<ISplitRepository>((ref) {
+  return ref.watch(firestoreFinanceStoreProvider) ??
+      ref.watch(mockFinanceStoreProvider);
+});
+
+final shortcutRepositoryProvider = Provider<IShortcutRepository>((ref) {
   return ref.watch(firestoreFinanceStoreProvider) ??
       ref.watch(mockFinanceStoreProvider);
 });

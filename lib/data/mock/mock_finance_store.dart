@@ -11,6 +11,7 @@ import '../models/finance_snapshot.dart';
 import '../models/goal.dart';
 import '../models/investment.dart';
 import '../models/loan.dart';
+import '../models/shortcut.dart';
 import '../models/split_group.dart';
 import '../models/subscription.dart';
 import '../models/transaction.dart';
@@ -20,6 +21,7 @@ import '../repositories/i_card_repository.dart';
 import '../repositories/i_finance_repository.dart';
 import '../repositories/i_goal_repository.dart';
 import '../repositories/i_loan_repository.dart';
+import '../repositories/i_shortcut_repository.dart';
 import '../repositories/i_split_repository.dart';
 import '../repositories/i_subscription_repository.dart';
 import '../repositories/i_transaction_repository.dart';
@@ -41,7 +43,8 @@ class MockFinanceStore
         IBudgetRepository,
         IGoalRepository,
         ISubscriptionRepository,
-        ISplitRepository {
+        ISplitRepository,
+        IShortcutRepository {
   final void Function(Map<String, dynamic>)? _saveState;
 
   MockFinanceStore.seeded({
@@ -79,6 +82,7 @@ class MockFinanceStore
   final List<RecurringTransaction> _recurring = [];
   final List<SplitGroup> _groups = [];
   final List<Investment> _investments = [];
+  final List<Shortcut> _shortcuts = [];
   final List<String> _tags = [
     'Personal',
     'Work',
@@ -108,6 +112,7 @@ class MockFinanceStore
     _recurring.clear();
     _groups.clear();
     _investments.clear();
+    _shortcuts.clear();
     _totalBudgetLimit = null;
     _txCounter = 0;
     _idCounter = 0;
@@ -726,6 +731,7 @@ class MockFinanceStore
       revision: _revision,
       generatedAt: _now ?? DateTime.now(),
       totalBudgetOverride: _totalBudgetLimit,
+      shortcuts: List.unmodifiable(_shortcuts),
     );
     if (!_controller.isClosed) _controller.add(_snapshot);
     _saveState?.call(_exportState());
@@ -749,6 +755,7 @@ class MockFinanceStore
     'investments': _investments.map((e) => e.toJson()).toList(),
     'tags': _tags,
     'totalBudgetLimit': _totalBudgetLimit,
+    'shortcuts': _shortcuts.map((e) => e.toJson()).toList(),
   };
 
   void _importState(Map<String, dynamic> j) {
@@ -760,6 +767,13 @@ class MockFinanceStore
     _txCounter = (j['txCounter'] as num? ?? 0).toInt();
     _idCounter = (j['idCounter'] as num? ?? 0).toInt();
     _totalBudgetLimit = (j['totalBudgetLimit'] as num?)?.toDouble();
+    _shortcuts
+      ..clear()
+      ..addAll(
+        ((j['shortcuts'] as List?) ?? []).map(
+          (e) => Shortcut.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
     _transactions
       ..clear()
       ..addAll(
@@ -1580,6 +1594,7 @@ class MockFinanceStore
     _recurring.clear();
     _groups.clear();
     _investments.clear();
+    _shortcuts.clear();
     _accounts
       ..clear()
       ..add(
@@ -1624,7 +1639,49 @@ class MockFinanceStore
   }
 
   @override
+  Future<void> addShortcut({
+    required String keyword,
+    required String name,
+    required double amount,
+    required String category,
+    required bool isIncome,
+    String? accountId,
+  }) async {
+    _shortcuts.add(
+      Shortcut(
+        id: 'sc-${_idCounter++}',
+        keyword: keyword.trim(),
+        name: name.trim(),
+        amount: isIncome ? amount.abs() : -amount.abs(),
+        category: category,
+        isIncome: isIncome,
+        accountId: accountId,
+      ),
+    );
+    _commit();
+  }
+
+  @override
+  Future<void> updateShortcut(Shortcut shortcut) async {
+    final index = _shortcuts.indexWhere((s) => s.id == shortcut.id);
+    if (index < 0) return;
+    _shortcuts[index] = shortcut;
+    _commit();
+  }
+
+  @override
+  Future<void> removeShortcut(String shortcutId) async {
+    _shortcuts.removeWhere((s) => s.id == shortcutId);
+    _commit();
+  }
+
+  @override
   Future<void> clearMockData() async {
+    await startFresh();
+  }
+
+  @override
+  Future<void> deleteAccountData() async {
     await startFresh();
   }
 

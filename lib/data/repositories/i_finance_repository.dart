@@ -16,4 +16,6 @@ abstract interface class IFinanceRepository {
   Future<void> clearMockData();
 
   Future<void> loadDemoData();
+
+  Future<void> deleteAccountData();
 }

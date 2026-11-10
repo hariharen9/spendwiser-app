@@ -33,6 +33,9 @@ class FirestoreRefs {
   CollectionReference<Map<String, dynamic>> get recurring =>
       user.collection('recurring_transactions');
 
+  CollectionReference<Map<String, dynamic>> get shortcuts =>
+      user.collection('shortcuts');
+
   CollectionReference<Map<String, dynamic>> get participants =>
       user.collection('billSplittingParticipants');
 

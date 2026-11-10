@@ -214,6 +214,26 @@ void main() {
     });
   });
 
+  group('shortcut mapping', () {
+    test('maps the web shortcut shape', () {
+      final shortcut = shortcutFromDoc('s1', {
+        'keyword': 'coffee',
+        'name': 'Blue Tokai',
+        'amount': -250,
+        'category': 'Food & Dining',
+        'type': 'expense',
+        'accountId': 'acc1',
+      });
+
+      expect(shortcut.keyword, 'coffee');
+      expect(shortcut.name, 'Blue Tokai');
+      expect(shortcut.amount, -250);
+      expect(shortcut.isIncome, false);
+      expect(shortcut.category, 'Food & Dining');
+      expect(shortcut.accountId, 'acc1');
+    });
+  });
+
   group('date helpers', () {
     test('round-trips YYYY-MM-DD at local noon', () {
       final date = DateTime(2026, 11, 9);
