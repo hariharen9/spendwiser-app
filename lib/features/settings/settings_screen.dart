@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +9,7 @@ import 'package:hive/hive.dart';
 
 import '../../core/state/auth_provider.dart';
 import '../../core/state/providers.dart';
+import '../../core/state/sms_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
@@ -48,14 +50,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _scroll = ScrollController();
-  final _appearanceKey = GlobalKey();
-  final _moneyKey = GlobalKey();
-  final _automationKey = GlobalKey();
-  final _vaultKey = GlobalKey();
-  final _appKey = GlobalKey();
   String _range = 'm';
-  String _backup = 'w';
   List<List<String>> _history = [];
 
   @override
@@ -99,42 +94,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _jump(GlobalKey key) {
-    final context = key.currentContext;
-    if (context == null) return;
-    Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeOutCubic,
-      alignment: 0.05,
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     final c = context.spend;
     final settings = ref.watch(settingsProvider);
+    final security = ref.watch(securityProvider);
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final email = ref.watch(authStateProvider).value?.email ?? 'Signed in';
+    final pendingSms = ref.watch(smsReviewProvider).length;
+    final categoryCount = settings.categories.keys
+        .where((category) => category != 'Transfer')
+        .length;
+    final notificationsOn = [
+      settings.billReminders,
+      settings.budgetAlerts,
+      settings.dailyReminder,
+      settings.weeklyDigest,
+    ].where((enabled) => enabled).length;
+    final lastBackup = _history.isEmpty || _history.first[0] == 'No backups yet'
+        ? null
+        : _history.first;
+    final backupCount = _history
+        .where((entry) => entry[0] != 'No backups yet')
+        .length;
 
     return ScreenScroll(
-      controller: _scroll,
       children: [
-        const PageHeader(title: 'Settings', subtitle: 'Make it yours'),
-        BleedRow(
-          height: 34,
-          children: [
-            AppPill(label: 'Appearance', onTap: () => _jump(_appearanceKey)),
-            AppPill(label: 'Money', onTap: () => _jump(_moneyKey)),
-            AppPill(label: 'Automation', onTap: () => _jump(_automationKey)),
-            AppPill(label: 'Vault', onTap: () => _jump(_vaultKey)),
-            AppPill(label: 'App', onTap: () => _jump(_appKey)),
-          ],
+        const PageHeader(
+          title: 'Settings',
+          subtitle: 'Your account, money and privacy',
         ),
-        const SizedBox(height: 14),
         AppCard(
           onTap: () => _editProfile(context, settings),
           child: Row(
@@ -163,6 +151,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     Text(
                       settings.userName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.sans(
                         size: 15,
                         color: c.tx,
@@ -170,350 +160,352 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     Text(
-                      'Edit profile',
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.sans(size: 12, color: c.mu),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Text('Edit', style: AppTypography.sans(size: 12, color: c.ac)),
+              const SizedBox(width: 4),
               SpendIcon('chevronRight', size: 16, color: c.mu),
             ],
           ),
         ),
-        SectionCaption(
-          'Appearance',
-          margin: const EdgeInsets.only(top: 22, bottom: 8),
-          key: _appearanceKey,
+        _SettingsSectionHeader(
+          icon: 'eye',
+          title: 'Appearance',
+          subtitle: 'Theme, accent and typeface',
         ),
-        SegmentedControl<AppThemeMode>(
-          options: const [
-            SegmentedOption(AppThemeMode.dark, 'Dark'),
-            SegmentedOption(AppThemeMode.light, 'Light'),
-          ],
-          selected: settings.theme,
-          onChanged: (value) =>
-              ref.read(settingsProvider.notifier).patch(theme: value),
-        ),
-        Row(
+        _SettingsCard(
           children: [
-            for (final accent in AppColors.accents)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  onTap: () {
-                    Haptics.light();
-                    ref.read(settingsProvider.notifier).patch(accent: accent);
-                  },
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      shape: BoxShape.circle,
-                      border: settings.accent == accent
-                          ? Border.all(color: c.tx, width: 2)
-                          : Border.all(color: c.ln),
-                      boxShadow: settings.accent == accent
-                          ? [
-                              BoxShadow(
-                                color: c.tx.withValues(alpha: 0.25),
-                                blurRadius: 0,
-                                spreadRadius: 3,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
+            _SettingBlock(
+              title: 'Theme',
+              child: SegmentedControl<AppThemeMode>(
+                margin: EdgeInsets.zero,
+                options: const [
+                  SegmentedOption(AppThemeMode.dark, 'Dark'),
+                  SegmentedOption(AppThemeMode.light, 'Light'),
+                ],
+                selected: settings.theme,
+                onChanged: (value) =>
+                    ref.read(settingsProvider.notifier).patch(theme: value),
               ),
+            ),
+            const _SettingsDivider(),
+            _SettingBlock(
+              title: 'Accent colour',
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final accent in AppColors.accents)
+                    _AccentDot(
+                      color: accent,
+                      selected: settings.accent == accent,
+                      onTap: () {
+                        Haptics.light();
+                        ref
+                            .read(settingsProvider.notifier)
+                            .patch(accent: accent);
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const _SettingsDivider(),
+            _SettingBlock(
+              title: 'Typeface',
+              child: SegmentedControl<AppFontMode>(
+                margin: EdgeInsets.zero,
+                options: const [
+                  SegmentedOption(AppFontMode.dmSans, 'DM Sans'),
+                  SegmentedOption(AppFontMode.serif, 'Serif'),
+                  SegmentedOption(AppFontMode.mono, 'Mono'),
+                ],
+                selected: settings.font,
+                onChanged: (value) =>
+                    ref.read(settingsProvider.notifier).patch(font: value),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
-        SegmentedControl<AppFontMode>(
-          options: const [
-            SegmentedOption(AppFontMode.dmSans, 'DM Sans'),
-            SegmentedOption(AppFontMode.serif, 'Serif'),
-            SegmentedOption(AppFontMode.mono, 'Mono'),
-          ],
-          selected: settings.font,
-          onChanged: (value) =>
-              ref.read(settingsProvider.notifier).patch(font: value),
+        _SettingsSectionHeader(
+          icon: 'settings',
+          title: 'Preferences',
+          subtitle: 'How the app behaves',
         ),
-        AppCard(
-          child: Column(
-            children: [
-              _ToggleRow(
-                label: 'Hide balances',
-                detail: 'Blur amounts in public',
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'eyeOff',
+              title: 'Hide balances',
+              subtitle: 'Blur amounts across the app',
+              trailing: AppToggle(
                 value: settings.hideBalances,
                 onChanged: (value) => ref
                     .read(settingsProvider.notifier)
                     .patch(hideBalances: value),
               ),
-              _ToggleRow(
-                label: 'Haptics',
-                detail: 'Vibrate on tap and on the FAB',
+            ),
+            _SettingsRow(
+              icon: 'sparkle',
+              title: 'Haptics',
+              subtitle: 'Vibrate on taps and actions',
+              trailing: AppToggle(
                 value: settings.haptics,
                 onChanged: (value) =>
                     ref.read(settingsProvider.notifier).patch(haptics: value),
               ),
-              _ToggleRow(
-                label: 'Budget alerts',
-                detail: 'Warn when an envelope nears its limit',
-                value: settings.budgetAlerts,
-                onChanged: (value) => ref
-                    .read(settingsProvider.notifier)
-                    .patch(budgetAlerts: value),
-                last: true,
-              ),
-            ],
-          ),
-        ),
-        AppButton(
-          label: 'Customize Home',
-          onTap: () => showCustomizeHomeSheet(context),
-        ),
-        SectionCaption(
-          'Money',
-          margin: const EdgeInsets.only(top: 22, bottom: 8),
-          key: _moneyKey,
-        ),
-        AppButton(
-          label:
-              'Categories · ${settings.categories.keys.where((c) => c != 'Transfer').length}',
-          onTap: () => _showCategories(context),
-        ),
-        AppButton(
-          label: 'Tags · ${ref.watch(financeSnapshotProvider).tags.length}',
-          onTap: () => _showTags(context),
-        ),
-        AppButton(
-          label:
-              'Shortcuts · ${ref.watch(financeSnapshotProvider).shortcuts.length}',
-          onTap: () => showShortcutsSheet(context),
-        ),
-        SectionCaption(
-          'Automation',
-          margin: const EdgeInsets.only(top: 22, bottom: 8),
-          key: _automationKey,
-        ),
-        AppButton(
-          label: 'Notifications',
-          onTap: () => _showNotifications(context),
-        ),
-        AppButton(label: 'AI categorisation', onTap: () => _showAi(context)),
-        AppButton(label: 'SMS listener', onTap: () => _showSms(context)),
-        SectionCaption(
-          'Vault · your data',
-          margin: const EdgeInsets.only(top: 30, bottom: 8),
-          key: _vaultKey,
-        ),
-        AppCard(
-          child: Row(
-            children: [
-              IconTile(icon: 'vault', color: c.ac, size: 38),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Synced to your Spendwiser account',
-                      style: AppTypography.sans(size: 14, color: c.tx),
-                    ),
-                    Text(
-                      'Firestore · private to your uid',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (ref.watch(financeSnapshotProvider).hasMockData)
-          AppButton(
-            label: 'Clear mock data',
-            color: c.co,
-            centered: true,
-            onTap: () => _clearMockData(context),
-          )
-        else
-          AppButton(
-            label: 'Load demo data',
-            centered: true,
-            onTap: () => _loadDemoData(context),
-          ),
-        AppButton(
-          label: ref.watch(securityProvider).hasPin
-              ? 'PIN & biometrics'
-              : 'Set PIN',
-          onTap: () => _showPinVault(context),
-        ),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Sync',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Cloud-backed · Firestore',
-                style: AppTypography.sans(size: 13, color: c.tx),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _history.isEmpty || _history.first[0] == 'No backups yet'
-                    ? 'No backups yet'
-                    : 'Last backup: ${_history.first[0]}',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-            ],
-          ),
-        ),
-        const SectionCaption(
-          'Export range',
-          margin: EdgeInsets.only(top: 12, bottom: 8),
-        ),
-        SegmentedControl<String>(
-          options: const [
-            SegmentedOption('m', 'This month'),
-            SegmentedOption('f', 'FY 26–27'),
-            SegmentedOption('a', 'All time'),
+            ),
+            _SettingsRow(
+              icon: 'home',
+              title: 'Customize Home',
+              subtitle: 'Reorder or hide Home widgets',
+              onTap: () => showCustomizeHomeSheet(context),
+              last: true,
+            ),
           ],
-          selected: _range,
-          onChanged: (value) => setState(() => _range = value),
         ),
-        for (final label in const [
-          'Ledger · CSV',
-          'Annual summary · PDF',
-          'Statements · XLSX',
-          'Full backup · JSON',
-        ])
-          AppButton(label: label, onTap: () => _export(label)),
-        const SectionCaption(
-          'Import & backup',
-          margin: EdgeInsets.only(top: 12, bottom: 8),
+        _SettingsSectionHeader(
+          icon: 'calendar',
+          title: 'Notifications',
+          subtitle: 'Reminders and weekly summaries',
         ),
-        AppButton(
-          label: 'Restore from backup file',
-          onTap: () => _importBackup(),
-        ),
-        AppButton(
-          label: 'Backup & restore',
-          onTap: () => _showBackup(context),
-        ),
-        const SectionCaption(
-          'Auto-backup',
-          margin: EdgeInsets.only(top: 12, bottom: 8),
-        ),
-        SegmentedControl<String>(
-          options: const [
-            SegmentedOption('o', 'Off'),
-            SegmentedOption('d', 'Daily'),
-            SegmentedOption('w', 'Weekly'),
-          ],
-          selected: _backup,
-          onChanged: (value) => setState(() => _backup = value),
-        ),
-        const SectionCaption(
-          'History',
-          margin: EdgeInsets.only(top: 12, bottom: 8),
-        ),
-        AppCard(
-          child: Column(
-            children: [
-              for (var i = 0; i < _history.length; i++)
-                KeyValueRow(
-                  label: _history[i][0],
-                  value: Text(
-                    _history[i][1],
-                    style: AppTypography.sans(size: 12, color: c.mu),
-                  ),
-                  border: i < _history.length - 1,
-                ),
-            ],
-          ),
-        ),
-        AppButton(
-          label: 'Erase all data…',
-          color: c.co,
-          centered: true,
-          onTap: () => _erase(context),
-        ),
-        SectionCaption(
-          'App',
-          margin: const EdgeInsets.only(top: 22, bottom: 8),
-          key: _appKey,
-        ),
-        AppButton(label: 'Lock app', onTap: widget.onLock),
-        AppButton(label: 'Replay welcome', onTap: widget.onReplayWelcome),
-        SectionCaption(
-          'Account',
-          margin: const EdgeInsets.only(top: 22, bottom: 8),
-        ),
-        AppCard(
-          child: Row(
-            children: [
-              IconTile(icon: 'vault', color: c.ac, size: 38),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ref.watch(authStateProvider).value?.email ?? 'Signed in',
-                      style: AppTypography.sans(size: 14, color: c.tx),
-                    ),
-                    Text(
-                      'Email & password · Google',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                  ],
-                ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'calendar',
+              title: 'Reminder schedule',
+              subtitle: notificationsOn == 0
+                  ? 'All reminders are off'
+                  : '$notificationsOn of 4 on${settings.dailyReminder ? ' · daily at ${settings.reminderLabel}' : ''}',
+              trailing: AppPill(
+                label: notificationsOn == 0 ? 'Off' : 'On',
+                active: notificationsOn > 0,
               ),
-            ],
-          ),
+              onTap: () => _showNotifications(context),
+              last: true,
+            ),
+          ],
         ),
-        AppButton(
-          label: 'Sign out',
-          onTap: () async {
-            await SmsInbox.clear();
-            await ref.read(authServiceProvider).signOut();
-          },
+        _SettingsSectionHeader(
+          icon: 'budget',
+          title: 'Money',
+          subtitle: 'Categories, tags and shortcuts',
         ),
-        AppButton(
-          label: 'Delete account',
-          color: c.co,
-          centered: true,
-          onTap: () => showDeleteAccountSheet(context),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'budget',
+              title: 'Categories',
+              subtitle:
+                  '$categoryCount categories · reorder, rename and recolour',
+              onTap: () => _showCategories(context),
+            ),
+            _SettingsRow(
+              icon: 'receipt',
+              title: 'Tags',
+              subtitle: snapshot.tags.isEmpty
+                  ? 'No tags yet'
+                  : '${snapshot.tags.length} tags',
+              onTap: () => _showTags(context),
+            ),
+            _SettingsRow(
+              icon: 'tools',
+              title: 'Shortcuts',
+              subtitle: '${snapshot.shortcuts.length} quick actions',
+              onTap: () => showShortcutsSheet(context),
+              last: true,
+            ),
+          ],
         ),
-        const SizedBox(height: 14),
-        Text(
-          'Spendwiser · v1.0.0',
-          textAlign: TextAlign.center,
-          style: AppTypography.sans(size: 12, color: c.mu),
+        _SettingsSectionHeader(
+          icon: 'sparkle',
+          title: 'Automation',
+          subtitle: 'Bank SMS capture',
         ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'receipt',
+              title: 'Bank SMS capture',
+              subtitle: pendingSms == 0
+                  ? 'Parse bank messages on this phone'
+                  : '$pendingSms message${pendingSms == 1 ? '' : 's'} waiting for review',
+              trailing: pendingSms == 0
+                  ? null
+                  : AppPill(label: '$pendingSms', active: true),
+              onTap: () => _showSms(context),
+              last: true,
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
+          icon: 'lock',
+          title: 'Security',
+          subtitle: 'App lock and biometrics',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'lock',
+              title: 'App lock',
+              subtitle: security.hasPin
+                  ? (security.biometricsEnabled
+                        ? 'PIN + biometrics enabled'
+                        : 'PIN enabled')
+                  : 'Off',
+              trailing: AppPill(
+                label: security.isLockEnabled ? 'On' : 'Off',
+                active: security.isLockEnabled,
+              ),
+              onTap: () => _showPinVault(context),
+            ),
+            _SettingsRow(
+              icon: 'faceId',
+              title: 'Lock now',
+              subtitle: security.isLockEnabled
+                  ? 'Require authentication immediately'
+                  : 'Set up an app PIN first',
+              onTap: () {
+                if (!security.isLockEnabled) {
+                  _showPinVault(context);
+                  return;
+                }
+                ref.read(securityProvider.notifier).lock();
+                widget.onLock();
+              },
+              last: true,
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
+          icon: 'vault',
+          title: 'Data & backup',
+          subtitle: 'Cloud sync, exports and recovery',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'vault',
+              title: 'Cloud sync',
+              subtitle: email,
+              trailing: const AppPill(label: 'Cloud', active: true),
+            ),
+            _SettingsRow(
+              icon: 'download',
+              title: 'Export data',
+              subtitle: 'CSV, PDF, XLSX or full JSON',
+              onTap: () => _showExport(context),
+            ),
+            _SettingsRow(
+              icon: 'upload',
+              title: 'Backup & restore',
+              subtitle: lastBackup == null
+                  ? 'Create a full JSON backup'
+                  : 'Last backup ${lastBackup[1]}',
+              onTap: () => _showBackup(context),
+            ),
+            _SettingsRow(
+              icon: 'receipt',
+              title: 'Backup history',
+              subtitle: backupCount == 0
+                  ? 'No backups yet'
+                  : '$backupCount saved backup${backupCount == 1 ? '' : 's'}',
+              onTap: () => _showHistory(context),
+            ),
+            _SettingsRow(
+              icon: 'sparkle',
+              title: snapshot.hasMockData
+                  ? 'Clear demo data'
+                  : 'Load demo data',
+              subtitle: snapshot.hasMockData
+                  ? 'Remove only documents tagged isMock'
+                  : 'Explore with sample accounts and transactions',
+              danger: snapshot.hasMockData,
+              onTap: () => snapshot.hasMockData
+                  ? _clearMockData(context)
+                  : _loadDemoData(context),
+            ),
+            _SettingsRow(
+              icon: 'trash',
+              title: 'Erase all data',
+              subtitle: 'Remove everything from your account',
+              danger: true,
+              onTap: () => _erase(context),
+              last: true,
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
+          icon: 'accounts',
+          title: 'Account',
+          subtitle: 'Your Spendwiser identity',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'arrowRight',
+              title: 'Sign out',
+              subtitle: 'Clear local SMS queue and sign out',
+              onTap: () => _showSignOut(context),
+            ),
+            _SettingsRow(
+              icon: 'trash',
+              title: 'Delete account',
+              subtitle: 'Remove your account and cloud data',
+              danger: true,
+              onTap: () => showDeleteAccountSheet(context),
+              last: true,
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
+          icon: 'settings',
+          title: 'About',
+          subtitle: 'App information',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'sparkle',
+              title: 'Spendwiser',
+              subtitle: 'Version 1.0.0',
+            ),
+            _SettingsRow(
+              icon: 'refresh',
+              title: 'Replay welcome',
+              subtitle: 'See the intro again',
+              onTap: widget.onReplayWelcome,
+              last: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Future<void> _export(String label) async {
+  Future<void> _export(String label, {String? range}) async {
+    final selectedRange = range ?? _range;
+    _range = selectedRange;
     ref.read(toastProvider.notifier).show('Preparing $label…');
     try {
       final snapshot = ref.read(financeSnapshotProvider);
       if (label.contains('CSV')) {
-        await BackupService.exportLedgerCsv(snapshot, _range);
+        await BackupService.exportLedgerCsv(snapshot, selectedRange);
       } else if (label.contains('PDF')) {
         await BackupService.exportAnnualSummaryPdf(snapshot);
       } else if (label.contains('XLSX')) {
-        await BackupService.exportStatementsXlsx(snapshot, _range);
+        await BackupService.exportStatementsXlsx(snapshot, selectedRange);
       } else if (label.contains('backup')) {
         await BackupService.exportFullBackup();
       } else {
-        await BackupService.exportLedgerCsv(snapshot, _range);
+        await BackupService.exportLedgerCsv(snapshot, selectedRange);
       }
       _logHistory(label);
     } catch (e) {
@@ -594,17 +586,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showCategories(BuildContext context) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) => const _CategoriesSheet(),
-    );
+    showAppSheet<void>(context, (sheetContext) => const _CategoriesSheet());
   }
 
   void _showTags(BuildContext context) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) => const _TagsSheet(),
-    );
+    showAppSheet<void>(context, (sheetContext) => const _TagsSheet());
   }
 
   void _showNotifications(BuildContext context) {
@@ -666,9 +652,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     context: sheetContext,
                     initialTime: TimeOfDay(hour: hour, minute: minute),
                     builder: (context, child) => MediaQuery(
-                      data: MediaQuery.of(
-                        context,
-                      ).copyWith(alwaysUse24HourFormat: true),
+                      data: MediaQuery.of(context)
+                          .copyWith(alwaysUse24HourFormat: true),
                       child: child ?? const SizedBox.shrink(),
                     ),
                   );
@@ -745,73 +730,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showAi(BuildContext context) {
-    var provider = 'Gemini';
-    var enabled = false;
-    showAppSheet<void>(
-      context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final c = context.spend;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SheetTitle(
-                'AI categorisation',
-                subtitle: 'Bring your own key. It stays on this device.',
-              ),
-              SegmentedControl<String>(
-                options: const [
-                  SegmentedOption('Gemini', 'Gemini'),
-                  SegmentedOption('OpenAI', 'OpenAI'),
-                  SegmentedOption('Off', 'Off'),
-                ],
-                selected: provider,
-                onChanged: (value) => setSheetState(() => provider = value),
-              ),
-              Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 13),
-                decoration: BoxDecoration(
-                  color: c.c2,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: TextField(
-                  obscureText: true,
-                  textAlignVertical: TextAlignVertical.center,
-                  style: AppTypography.sans(size: 14, color: c.tx),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                    border: InputBorder.none,
-                    hintText: 'API key',
-                    hintStyle: AppTypography.sans(size: 13, color: c.mu),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _ToggleRow(
-                label: 'Auto-categorise new transactions',
-                detail: 'Falls back to your shortcuts when offline',
-                value: enabled,
-                onChanged: (value) => setSheetState(() => enabled = value),
-                last: true,
-              ),
-              PrimaryButton(
-                label: 'Save',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  ref.read(toastProvider.notifier).show('AI settings saved');
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
   void _showSms(BuildContext context) {
     showSmsSettingsSheet(context);
   }
@@ -867,8 +785,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       detail: !security.biometricsSupported
                           ? 'Not available on device'
                           : !hasPin
-                              ? 'Set a PIN first'
-                              : 'Fast biometric unlock',
+                          ? 'Set a PIN first'
+                          : 'Fast biometric unlock',
                       value: biometrics,
                       onChanged: (v) async {
                         if (!hasPin) {
@@ -881,8 +799,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           final verified = await ref
                               .read(securityProvider.notifier)
                               .authenticateBiometrics(
-                                reason:
-                                    'Verify fingerprint or face to enable biometric unlock',
+                                reason: 'Verify fingerprint or face to enable biometric unlock',
                                 isSetup: true,
                               );
                           if (verified) {
@@ -949,10 +866,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     BuildContext context, {
     _PinSheetMode mode = _PinSheetMode.setup,
   }) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) => _PinSetupSheet(mode: mode),
-    );
+    showAppSheet<void>(context, (sheetContext) => _PinSetupSheet(mode: mode));
   }
 
   void _showPinVerification(
@@ -975,6 +889,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showExport(BuildContext context) {
+    var range = _range;
+    showAppSheet<void>(
+      context,
+      (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SheetTitle(
+                'Export data',
+                subtitle: 'Choose a range, then a format.',
+              ),
+              const SizedBox(height: 12),
+              SegmentedControl<String>(
+                options: const [
+                  SegmentedOption('m', 'This month'),
+                  SegmentedOption('f', 'FY 26–27'),
+                  SegmentedOption('a', 'All time'),
+                ],
+                selected: range,
+                onChanged: (value) => setSheetState(() => range = value),
+              ),
+              const SizedBox(height: 12),
+              _SettingsCard(
+                children: [
+                  _SettingsRow(
+                    icon: 'ledger',
+                    title: 'Ledger · CSV',
+                    subtitle: 'Transactions in the selected range',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _export('Ledger · CSV', range: range);
+                    },
+                  ),
+                  _SettingsRow(
+                    icon: 'receipt',
+                    title: 'Annual summary · PDF',
+                    subtitle: 'Income, spend and category totals',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _export('Annual summary · PDF', range: range);
+                    },
+                  ),
+                  _SettingsRow(
+                    icon: 'cards',
+                    title: 'Statements · XLSX',
+                    subtitle: 'Card statements in the selected range',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _export('Statements · XLSX', range: range);
+                    },
+                  ),
+                  _SettingsRow(
+                    icon: 'vault',
+                    title: 'Full backup · JSON',
+                    subtitle: 'Everything, compatible with the web app',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _export('Full backup · JSON', range: range);
+                    },
+                    last: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Exports open your device share sheet. Backup files can be restored below.',
+                style: AppTypography.sans(
+                  size: 12,
+                  color: sheetContext.spend.mu,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showBackup(BuildContext context) {
     showAppSheet<void>(
       context,
@@ -982,49 +976,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SheetTitle(
-            'Encrypted backup',
-            subtitle:
-                'AES-256 with your passphrase. We can’t recover it for you.',
+            'Backup & restore',
+            subtitle: 'Full JSON backups, compatible with the web app.',
           ),
           const SizedBox(height: 12),
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            decoration: BoxDecoration(
-              color: sheetContext.spend.c2,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: TextField(
-              obscureText: true,
-              textAlignVertical: TextAlignVertical.center,
-              style: AppTypography.sans(size: 14, color: sheetContext.spend.tx),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                hintText: 'Passphrase',
-                hintStyle: AppTypography.sans(
+          _SettingsCard(
+            children: [
+              _SettingsRow(
+                icon: 'upload',
+                title: 'Create full backup',
+                subtitle: 'Export accounts, transactions, budgets and more',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _export('Full backup · JSON');
+                },
+              ),
+              _SettingsRow(
+                icon: 'download',
+                title: 'Restore from backup',
+                subtitle: 'Pick a JSON backup file',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _importBackup();
+                },
+                last: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'The backup file is plain JSON. Keep it somewhere safe.',
+            style: AppTypography.sans(size: 12, color: sheetContext.spend.mu),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHistory(BuildContext context) {
+    final entries = _history
+        .where((entry) => entry[0] != 'No backups yet')
+        .toList();
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Backup history',
+            subtitle: 'Recent exports and restores on this device.',
+          ),
+          const SizedBox(height: 12),
+          if (entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                'No backups yet. Create one from Backup & restore.',
+                style: AppTypography.sans(
                   size: 13,
                   color: sheetContext.spend.mu,
                 ),
               ),
+            )
+          else
+            _SettingsCard(
+              children: [
+                for (var i = 0; i < entries.length; i++)
+                  _SettingsRow(
+                    icon: 'check',
+                    title: entries[i][0],
+                    subtitle: entries[i][1],
+                    last: i == entries.length - 1,
+                  ),
+              ],
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showSignOut(BuildContext context) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Sign out?',
+            subtitle:
+                'Your cloud data stays safe. The local SMS queue is cleared.',
           ),
+          const SizedBox(height: 8),
           PrimaryButton(
-            label: 'Create backup',
+            label: 'Sign out',
             onTap: () async {
               Navigator.of(sheetContext).pop();
-              await _export('Full backup');
-              ref.read(toastProvider.notifier).show('Backup created');
-            },
-          ),
-          AppButton(
-            label: 'Restore from backup',
-            centered: true,
-            onTap: () async {
-              Navigator.of(sheetContext).pop();
-              await _importBackup();
+              await SmsInbox.clear();
+              await ref.read(authServiceProvider).signOut();
             },
           ),
         ],
@@ -1113,16 +1161,232 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               if (!sheetContext.mounted) return;
               Navigator.of(sheetContext).pop();
               widget.onReset();
-              ref
-                  .read(toastProvider.notifier)
-                  .show('All data erased');
+              ref.read(toastProvider.notifier).show('All data erased');
             },
           ),
         ],
       ),
     );
   }
+}
 
+class _SettingsSectionHeader extends StatelessWidget {
+  const _SettingsSectionHeader({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+  });
+
+  final String icon;
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Padding(
+      padding: const EdgeInsets.only(top: 26, bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: c.ac.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: SpendIcon(icon, size: 16, color: c.ac),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.sans(
+                    size: 13,
+                    color: c.tx,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: AppTypography.sans(size: 11, color: c.mu),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      margin: EdgeInsets.zero,
+      clip: true,
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
+    this.last = false,
+    this.danger = false,
+  });
+
+  final String icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final bool last;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final color = danger ? c.co : c.ac;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          border: last ? null : Border(bottom: BorderSide(color: c.ln)),
+        ),
+        child: Row(
+          children: [
+            IconTile(icon: icon, color: color, size: 36),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.sans(
+                      size: 14,
+                      color: danger ? c.co : c.tx,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 10),
+              trailing!,
+            ] else if (onTap != null) ...[
+              const SizedBox(width: 8),
+              SpendIcon('chevronRight', size: 16, color: c.mu),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingBlock extends StatelessWidget {
+  const _SettingBlock({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: AppTypography.sans(size: 12, color: context.spend.mu),
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  const _SettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: 1, color: context.spend.ln);
+  }
+}
+
+class _AccentDot extends StatelessWidget {
+  const _AccentDot({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? c.tx : c.ln,
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+      ),
+    );
+  }
 }
 
 class _ToggleRow extends StatelessWidget {
@@ -1382,10 +1646,7 @@ class _CategoriesSheetState extends ConsumerState<_CategoriesSheet> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'Color',
-                  style: AppTypography.sans(size: 12, color: c.mu),
-                ),
+                Text('Color', style: AppTypography.sans(size: 12, color: c.mu)),
                 const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -1426,10 +1687,7 @@ class _CategoriesSheetState extends ConsumerState<_CategoriesSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                PrimaryButton(
-                  label: 'Add Category',
-                  onTap: _add,
-                ),
+                PrimaryButton(label: 'Add Category', onTap: _add),
               ],
             ),
           ),
@@ -1481,7 +1739,9 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
     if (newName != widget.name) {
       final existing = ref.read(settingsProvider).categories;
       if (existing.containsKey(newName)) {
-        ref.read(toastProvider.notifier).show('Category "$newName" already exists');
+        ref
+            .read(toastProvider.notifier)
+            .show('Category "$newName" already exists');
         return;
       }
       await ref
@@ -1545,10 +1805,7 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
           ),
         ),
         const SizedBox(height: 14),
-        Text(
-          'Accent Color',
-          style: AppTypography.sans(size: 12, color: c.mu),
-        ),
+        Text('Accent Color', style: AppTypography.sans(size: 12, color: c.mu)),
         const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -1589,17 +1846,10 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
           ),
         ),
         const SizedBox(height: 18),
-        PrimaryButton(
-          label: 'Save Changes',
-          onTap: _save,
-        ),
+        PrimaryButton(label: 'Save Changes', onTap: _save),
         if (!isProtected) ...[
           const SizedBox(height: 8),
-          AppButton(
-            label: 'Delete Category',
-            color: c.co,
-            onTap: _delete,
-          ),
+          AppButton(label: 'Delete Category', color: c.co, onTap: _delete),
         ],
       ],
     );
@@ -1632,15 +1882,19 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
   }
 
   void _editTag(String tag) {
-    showAppSheet<void>(
-      context,
-      (_) => _EditTagSheet(tag: tag),
-    );
+    showAppSheet<void>(context, (_) => _EditTagSheet(tag: tag));
   }
 
-  Widget _buildTagRow(String tag, int i, FinanceSnapshot snapshot, BuildContext context) {
+  Widget _buildTagRow(
+    String tag,
+    int i,
+    FinanceSnapshot snapshot,
+    BuildContext context,
+  ) {
     final c = context.spend;
-    final count = snapshot.transactions.where((t) => t.tags.contains(tag)).length;
+    final count = snapshot.transactions
+        .where((t) => t.tags.contains(tag))
+        .length;
     final tagColor = AppColors.accents[i % AppColors.accents.length];
 
     return Column(
@@ -1652,11 +1906,7 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
             padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
             child: Row(
               children: [
-                AppPill(
-                  label: '#$tag',
-                  color: tagColor,
-                  textColor: tagColor,
-                ),
+                AppPill(label: '#$tag', color: tagColor, textColor: tagColor),
                 const Spacer(),
                 Text(
                   count == 0 ? 'Not used' : '$count tagged',
@@ -1668,8 +1918,7 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
             ),
           ),
         ),
-        if (i < snapshot.tags.length - 1)
-          Divider(color: c.ln, height: 1),
+        if (i < snapshot.tags.length - 1) Divider(color: c.ln, height: 1),
       ],
     );
   }
@@ -1686,19 +1935,29 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SheetTitle('Tags', subtitle: 'Organize your transactions with custom tags'),
+            const SheetTitle(
+              'Tags',
+              subtitle: 'Organize your transactions with custom tags',
+            ),
             if (!_showAdd)
               GestureDetector(
                 onTap: () => setState(() => _showAdd = true),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: c.ac,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '+ Add',
-                    style: AppTypography.sans(size: 12, color: c.aci, weight: FontWeight.w600),
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: c.aci,
+                      weight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -1720,7 +1979,14 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('New tag', style: AppTypography.sans(size: 13, color: c.tx, weight: FontWeight.w600)),
+                    Text(
+                      'New tag',
+                      style: AppTypography.sans(
+                        size: 13,
+                        color: c.tx,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
                     GestureDetector(
                       onTap: () => setState(() => _showAdd = false),
                       child: SpendIcon('close', size: 16, color: c.mu),
@@ -1763,7 +2029,10 @@ class _TagsSheetState extends ConsumerState<_TagsSheet> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 24),
             alignment: Alignment.center,
-            child: Text('No tags yet. Tap "+ Add" to create one.', style: AppTypography.sans(size: 13, color: c.mu)),
+            child: Text(
+              'No tags yet. Tap "+ Add" to create one.',
+              style: AppTypography.sans(size: 13, color: c.mu),
+            ),
           )
         else
           AppCard(
@@ -1901,16 +2170,16 @@ class _PinSetupSheetState extends ConsumerState<_PinSetupSheet>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: -12.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -12.0, end: 12.0), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 12.0, end: -8.0), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8.0, end: 0.0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.easeInOut,
-    ));
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: -12.0), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12.0, end: 12.0), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12.0, end: -8.0), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8.0, end: 0.0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
   }
 
   @override
@@ -2109,7 +2378,7 @@ class _PinSetupSheetState extends ConsumerState<_PinSetupSheet>
         for (final row in [
           ['1', '2', '3'],
           ['4', '5', '6'],
-          ['7', '8', '9']
+          ['7', '8', '9'],
         ]) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2193,11 +2462,7 @@ class _PinSetupSheetState extends ConsumerState<_PinSetupSheet>
                     color: Colors.transparent,
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    Icons.backspace_outlined,
-                    size: 26,
-                    color: c.tx,
-                  ),
+                  child: Icon(Icons.backspace_outlined, size: 26, color: c.tx),
                 ),
               ),
             ),
