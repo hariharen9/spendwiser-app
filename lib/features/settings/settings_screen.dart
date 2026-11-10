@@ -329,6 +329,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             color: c.co,
             centered: true,
             onTap: () => _clearMockData(context),
+          )
+        else
+          AppButton(
+            label: 'Load demo data',
+            centered: true,
+            onTap: () => _loadDemoData(context),
           ),
         AppButton(
           label: ref.watch(securityProvider).hasPin
@@ -956,6 +962,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () async {
               Navigator.of(sheetContext).pop();
               await _importBackup();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadDemoData(BuildContext context) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Load demo data?',
+            subtitle: 'Adds sample data tagged as demo.',
+          ),
+          Text(
+            'Accounts, cards, transactions, budgets, goals and loans are added '
+            'alongside anything you already have. Clear demo data at any time.',
+            style: AppTypography.sans(size: 14, color: sheetContext.spend.mu),
+          ),
+          PrimaryButton(
+            label: 'Load demo data',
+            onTap: () async {
+              await ref.read(financeRepositoryProvider).loadDemoData();
+              if (!sheetContext.mounted) return;
+              Navigator.of(sheetContext).pop();
+              ref.read(toastProvider.notifier).show('Demo data loaded');
             },
           ),
         ],

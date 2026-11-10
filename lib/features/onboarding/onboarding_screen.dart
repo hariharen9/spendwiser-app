@@ -21,6 +21,7 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
 
 class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   int _step = 0;
+  bool _finishing = false;
   late final TextEditingController _name;
   late Color _accent;
   late AppThemeMode _theme;
@@ -48,7 +49,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     widget.onDone();
   }
 
-  void _finish() {
+  Future<void> _finish({required bool loadDemo}) async {
+    if (_finishing) return;
+    setState(() => _finishing = true);
+    if (loadDemo) {
+      ref.read(toastProvider.notifier).show('Loading demo data…');
+      await ref.read(financeRepositoryProvider).loadDemoData();
+    }
+    if (!mounted) return;
     final settings = ref.read(settingsProvider);
     ref
         .read(settingsProvider.notifier)
@@ -262,21 +270,22 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'You’re all set',
+          'How do you want to start?',
           style: AppTypography.serif(size: 34, color: c.tx),
         ),
         Text(
-          'Your ledger, cards and budgets will load from your Spendwiser account.',
+          'Load six months of sample activity, or begin with your own data. '
+          'You can load or clear demo data later in Settings.',
           style: AppTypography.sans(size: 14, color: c.mu),
         ),
         const SizedBox(height: 18),
         AppCard(
-          onTap: _finish,
+          onTap: _finishing ? null : () => _finish(loadDemo: true),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Open Spendwiser',
+                'Explore with demo data',
                 style: AppTypography.sans(
                   size: 15,
                   color: c.tx,
@@ -284,12 +293,41 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                 ),
               ),
               Text(
-                'Changes sync with the web app in real time',
+                'Sample accounts, cards, budgets, goals and six months of transactions',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
             ],
           ),
         ),
+        AppCard(
+          onTap: _finishing ? null : () => _finish(loadDemo: false),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Start with my own data',
+                style: AppTypography.sans(
+                  size: 15,
+                  color: c.tx,
+                  weight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                'Your existing Spendwiser account is left as it is',
+                style: AppTypography.sans(size: 12, color: c.mu),
+              ),
+            ],
+          ),
+        ),
+        if (_finishing)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              'Preparing your account…',
+              textAlign: TextAlign.center,
+              style: AppTypography.sans(size: 12, color: c.mu),
+            ),
+          ),
       ],
     );
   }

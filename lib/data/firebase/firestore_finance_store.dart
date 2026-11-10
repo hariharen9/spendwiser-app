@@ -22,6 +22,7 @@ import '../repositories/i_split_repository.dart';
 import '../repositories/i_subscription_repository.dart';
 import '../repositories/i_transaction_repository.dart';
 import '../services/finance_calculator.dart';
+import 'demo_data_seeder.dart';
 import 'firestore_mappers.dart';
 import 'firestore_refs.dart';
 import 'firestore_utils.dart';
@@ -1477,6 +1478,16 @@ class FirestoreFinanceStore
 
   @override
   Future<void> resetDemo() async {}
+
+  @override
+  Future<void> loadDemoData() async {
+    try {
+      await clearMockData();
+      await DemoDataSeeder(refs).seed();
+    } catch (error) {
+      _error('Could not load demo data: $error');
+    }
+  }
 
   @override
   Future<void> clearMockData() async {

@@ -1628,6 +1628,11 @@ class MockFinanceStore
     await startFresh();
   }
 
+  @override
+  Future<void> loadDemoData() async {
+    await resetDemo();
+  }
+
   Future<void> dispose() async {
     await _controller.close();
   }
