@@ -40,6 +40,7 @@ class AppSettings {
     this.billReminders = true,
     this.dailyReminder = true,
     this.weeklyDigest = false,
+    this.smsCaptureEnabled = true,
     this.reminderHour = 20,
     this.reminderMinute = 0,
     this.categories = AppColors.categories,
@@ -60,6 +61,7 @@ class AppSettings {
   final bool billReminders;
   final bool dailyReminder;
   final bool weeklyDigest;
+  final bool smsCaptureEnabled;
   final int reminderHour;
   final int reminderMinute;
   final Map<String, Color> categories;
@@ -97,6 +99,7 @@ class AppSettings {
     bool? billReminders,
     bool? dailyReminder,
     bool? weeklyDigest,
+    bool? smsCaptureEnabled,
     int? reminderHour,
     int? reminderMinute,
     Map<String, Color>? categories,
@@ -117,6 +120,7 @@ class AppSettings {
       billReminders: billReminders ?? this.billReminders,
       dailyReminder: dailyReminder ?? this.dailyReminder,
       weeklyDigest: weeklyDigest ?? this.weeklyDigest,
+      smsCaptureEnabled: smsCaptureEnabled ?? this.smsCaptureEnabled,
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       categories: categories ?? this.categories,
@@ -139,6 +143,7 @@ class AppSettings {
     'billReminders': billReminders,
     'dailyReminder': dailyReminder,
     'weeklyDigest': weeklyDigest,
+    'smsCaptureEnabled': smsCaptureEnabled,
     'reminderHour': reminderHour,
     'reminderMinute': reminderMinute,
     'categories': categories.map((k, v) => MapEntry(k, v.toARGB32())),
@@ -161,20 +166,36 @@ class AppSettings {
     onboardingSeen: j['onboardingSeen'] as bool? ?? false,
     roundUps: j['roundUps'] as bool? ?? false,
     monthStart: (j['monthStart'] as num? ?? 1).toInt(),
-    homeWidgets: ((j['homeWidgets'] as List?) ?? HomeWidget.values.map((e) => e.name).toList())
-        .map((e) => HomeWidget.values.firstWhere((w) => w.name == e, orElse: () => HomeWidget.netWorth))
-        .toList(),
+    homeWidgets:
+        ((j['homeWidgets'] as List?) ??
+                HomeWidget.values.map((e) => e.name).toList())
+            .map(
+              (e) => HomeWidget.values.firstWhere(
+                (w) => w.name == e,
+                orElse: () => HomeWidget.netWorth,
+              ),
+            )
+            .toList(),
     hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
-        .map((e) => HomeWidget.values.firstWhere((w) => w.name == e, orElse: () => HomeWidget.netWorth))
+        .map(
+          (e) => HomeWidget.values.firstWhere(
+            (w) => w.name == e,
+            orElse: () => HomeWidget.netWorth,
+          ),
+        )
         .toSet(),
     billReminders: j['billReminders'] as bool? ?? true,
     dailyReminder: j['dailyReminder'] as bool? ?? true,
     weeklyDigest: j['weeklyDigest'] as bool? ?? false,
-    reminderHour: ((j['reminderHour'] as num?)?.toInt() ?? 20).clamp(0, 23).toInt(),
+    smsCaptureEnabled: j['smsCaptureEnabled'] as bool? ?? true,
+    reminderHour: ((j['reminderHour'] as num?)?.toInt() ?? 20)
+        .clamp(0, 23)
+        .toInt(),
     reminderMinute: ((j['reminderMinute'] as num?)?.toInt() ?? 0)
         .clamp(0, 59)
         .toInt(),
-    categories: ((j['categories'] as Map?) ?? {})
-        .map((k, v) => MapEntry(k as String, Color((v as num).toInt()))),
+    categories: ((j['categories'] as Map?) ?? {}).map(
+      (k, v) => MapEntry(k as String, Color((v as num).toInt())),
+    ),
   );
 }

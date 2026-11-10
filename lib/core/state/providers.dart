@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:hive/hive.dart';
+
 import '../theme/app_colors.dart';
 import '../../data/firebase/firestore_finance_store.dart';
 import '../../data/firebase/firestore_refs.dart';
@@ -165,17 +166,11 @@ Future<Map<String, dynamic>> exportBackup() async {
       ? jsonSafe(totalBudgetSnap.data())
       : null;
   final totalBudgetMap = totalBudgetData is Map
-      ? {
-          'id': 'current',
-          ...Map<String, dynamic>.from(totalBudgetData),
-        }
+      ? {'id': 'current', ...Map<String, dynamic>.from(totalBudgetData)}
       : null;
   final totalBudgetList = totalBudgetData is Map
       ? [
-          {
-            'id': 'current',
-            ...Map<String, dynamic>.from(totalBudgetData),
-          },
+          {'id': 'current', ...Map<String, dynamic>.from(totalBudgetData)},
         ]
       : const <Map<String, dynamic>>[];
 
@@ -355,10 +350,9 @@ Future<void> importBackupPayload(Map<String, dynamic> payload) async {
     }
   }
   if (backup.categories != null) {
-    await refs.user.set(
-      {'categories': backup.categories},
-      SetOptions(merge: true),
-    );
+    await refs.user.set({
+      'categories': backup.categories,
+    }, SetOptions(merge: true));
   }
   if (backup.appSettings != null) {
     final profile = FirestoreUserProfileRepository(refs);
@@ -476,6 +470,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     bool? billReminders,
     bool? dailyReminder,
     bool? weeklyDigest,
+    bool? smsCaptureEnabled,
     int? reminderHour,
     int? reminderMinute,
     Map<String, Color>? categories,
@@ -497,6 +492,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
         billReminders: billReminders,
         dailyReminder: dailyReminder,
         weeklyDigest: weeklyDigest,
+        smsCaptureEnabled: smsCaptureEnabled,
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         categories: categories,
@@ -553,17 +549,18 @@ final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(
 // ------------------------------------------------------------- finance DI ---
 
 /// Profile/settings/tags for the signed-in Firebase user.
-final userProfileRepositoryProvider =
-    Provider<FirestoreUserProfileRepository?>((ref) {
-      final uid = ref.watch(authUidProvider);
-      if (uid == null) return null;
-      final repository = FirestoreUserProfileRepository(
-        FirestoreRefs(FirebaseFirestore.instance, uid),
-      );
-      ref.keepAlive();
-      ref.onDispose(repository.dispose);
-      return repository;
-    });
+final userProfileRepositoryProvider = Provider<FirestoreUserProfileRepository?>(
+  (ref) {
+    final uid = ref.watch(authUidProvider);
+    if (uid == null) return null;
+    final repository = FirestoreUserProfileRepository(
+      FirestoreRefs(FirebaseFirestore.instance, uid),
+    );
+    ref.keepAlive();
+    ref.onDispose(repository.dispose);
+    return repository;
+  },
+);
 
 /// In-memory seed used only when signed out and by unit tests.
 final mockFinanceStoreProvider = Provider<MockFinanceStore>((ref) {

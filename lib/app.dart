@@ -8,6 +8,7 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
 import 'data/models/finance_snapshot.dart';
+import 'data/sms/sms_inbox.dart';
 import 'features/auth/auth_gate.dart';
 import 'data/services/notifications_service.dart';
 
@@ -22,7 +23,10 @@ class SpendwiserApp extends ConsumerWidget {
     final snapshot = uid == null
         ? FinanceSnapshot.empty()
         : ref.watch(financeSnapshotProvider);
-    if (uid != null) NotificationsService.reschedule(snapshot, settings);
+    if (uid != null) {
+      SmsInbox.syncEnabled(settings.smsCaptureEnabled);
+      NotificationsService.reschedule(snapshot, settings);
+    }
     AppColors.dynamicCategories = Map.of(settings.categories);
     Haptics.enabled = settings.haptics;
     SystemChrome.setSystemUIOverlayStyle(

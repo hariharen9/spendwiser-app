@@ -9,6 +9,7 @@ import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_pill.dart';
+import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../data/services/notifications_service.dart';
@@ -42,21 +43,38 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
   }
 
   Future<void> _enable() async {
+    await _setEnabled(true);
+  }
+
+  Future<void> _setEnabled(bool enabled) async {
+    if (!enabled) {
+      await SmsInbox.setEnabled(false);
+      ref.read(settingsProvider.notifier).patch(smsCaptureEnabled: false);
+      if (!mounted) return;
+      ref.read(toastProvider.notifier).show('Bank SMS capture off');
+      return;
+    }
     final granted = await SmsInbox.requestPermission();
     if (!mounted) return;
     setState(() => _permission = granted);
-    if (granted) {
-      await ref.read(smsReviewProvider.notifier).refresh();
-    } else {
+    if (!granted) {
       ref
           .read(toastProvider.notifier)
           .show('SMS access was not granted. Enable it in Android settings.');
+      return;
     }
+    await SmsInbox.setEnabled(true);
+    ref.read(settingsProvider.notifier).patch(smsCaptureEnabled: true);
+    await ref.read(smsReviewProvider.notifier).refresh();
+    if (!mounted) return;
+    ref.read(toastProvider.notifier).show('Bank SMS capture on');
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final settings = ref.watch(settingsProvider);
+    final enabled = settings.smsCaptureEnabled;
     final pending = ref.watch(smsReviewProvider).length;
 
     return Column(
@@ -75,11 +93,40 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      'Bank SMS capture',
+                      style: AppTypography.sans(
+                        size: 14,
+                        color: c.tx,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      enabled
+                          ? 'New bank transaction messages are detected automatically.'
+                          : 'Off. New messages are not captured; the existing queue is still available.',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                  ],
+                ),
+              ),
+              AppToggle(value: enabled, onChanged: _setEnabled),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        AppCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       _permission == true
-                          ? 'SMS access enabled'
+                          ? 'SMS permission granted'
                           : _permission == false
-                          ? 'SMS access off'
-                          : 'Checking…',
+                          ? 'SMS permission required'
+                          : 'Checking SMS permission…',
                       style: AppTypography.sans(
                         size: 14,
                         color: c.tx,
@@ -94,7 +141,7 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
                 ),
               ),
               AppPill(
-                label: _permission == true ? 'On' : 'Off',
+                label: _permission == true ? 'Granted' : 'Needed',
                 active: _permission == true,
               ),
             ],
@@ -134,7 +181,10 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _bullet(context, 'The app reads bank transaction SMS on this phone.'),
+              _bullet(
+                context,
+                'The app reads bank transaction SMS on this phone.',
+              ),
               _bullet(
                 context,
                 'Nothing is uploaded. The raw message stays in app-private storage.',
@@ -171,14 +221,10 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: AppTypography.sans(size: 12, color: c.mu),
-            ),
+            child: Text(text, style: AppTypography.sans(size: 12, color: c.mu)),
           ),
         ],
       ),
     );
   }
 }
-

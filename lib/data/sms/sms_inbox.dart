@@ -29,6 +29,7 @@ class SmsMessage {
 abstract final class SmsInbox {
   static const _channel = MethodChannel('spendwiser/sms');
   static const _events = EventChannel('spendwiser/sms_events');
+  static bool? _lastEnabled;
 
   static bool get isSupported =>
       defaultTargetPlatform == TargetPlatform.android;
@@ -37,6 +38,36 @@ abstract final class SmsInbox {
     if (!isSupported) return false;
     try {
       return await _channel.invokeMethod<bool>('hasPermission') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Enables or disables the native receiver and its notifications.
+  static Future<void> setEnabled(bool enabled) async {
+    if (!isSupported) return;
+    _lastEnabled = enabled;
+    try {
+      await _channel.invokeMethod<bool>('setEnabled', {'enabled': enabled});
+    } on PlatformException {
+      // Ignore: the UI still reflects the user's intent.
+    } on MissingPluginException {
+      // Ignore.
+    }
+  }
+
+  /// Applies the persisted setting once, avoiding a platform call per rebuild.
+  static Future<void> syncEnabled(bool enabled) async {
+    if (!isSupported || _lastEnabled == enabled) return;
+    await setEnabled(enabled);
+  }
+
+  static Future<bool> isEnabled() async {
+    if (!isSupported) return false;
+    try {
+      return await _channel.invokeMethod<bool>('isEnabled') ?? false;
     } on PlatformException {
       return false;
     } on MissingPluginException {
@@ -123,14 +154,11 @@ abstract final class SmsInbox {
   }) async {
     if (!isSupported) return null;
     try {
-      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'addRaw',
-        {
-          'sender': sender,
-          'body': body,
-          'receivedAt': (receivedAt ?? DateTime.now()).millisecondsSinceEpoch,
-        },
-      );
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('addRaw', {
+        'sender': sender,
+        'body': body,
+        'receivedAt': (receivedAt ?? DateTime.now()).millisecondsSinceEpoch,
+      });
       return raw == null ? null : SmsMessage.fromMap(raw);
     } on PlatformException {
       return null;

@@ -333,12 +333,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SettingsRow(
               icon: 'receipt',
               title: 'Bank SMS capture',
-              subtitle: pendingSms == 0
-                  ? 'Parse bank messages on this phone'
-                  : '$pendingSms message${pendingSms == 1 ? '' : 's'} waiting for review',
-              trailing: pendingSms == 0
-                  ? null
-                  : AppPill(label: '$pendingSms', active: true),
+              subtitle: settings.smsCaptureEnabled
+                  ? (pendingSms == 0
+                        ? 'On · parse bank messages on this phone'
+                        : 'On · $pendingSms message${pendingSms == 1 ? '' : 's'} waiting for review')
+                  : pendingSms == 0
+                  ? 'Off · no bank messages will be captured'
+                  : 'Off · $pendingSms message${pendingSms == 1 ? '' : 's'} still waiting for review',
+              trailing: AppToggle(
+                value: settings.smsCaptureEnabled,
+                onChanged: _setSmsEnabled,
+              ),
               onTap: () => _showSms(context),
               last: true,
             ),
@@ -728,6 +733,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _setSmsEnabled(bool enabled) async {
+    if (!enabled) {
+      await SmsInbox.setEnabled(false);
+      ref.read(settingsProvider.notifier).patch(smsCaptureEnabled: false);
+      if (!mounted) return;
+      ref.read(toastProvider.notifier).show('Bank SMS capture off');
+      return;
+    }
+    final granted = await SmsInbox.requestPermission();
+    if (!granted) {
+      if (!mounted) return;
+      ref.read(toastProvider.notifier).show('SMS permission was not granted');
+      return;
+    }
+    await SmsInbox.setEnabled(true);
+    ref.read(settingsProvider.notifier).patch(smsCaptureEnabled: true);
+    await ref.read(smsReviewProvider.notifier).refresh();
+    if (!mounted) return;
+    ref.read(toastProvider.notifier).show('Bank SMS capture on');
   }
 
   void _showSms(BuildContext context) {
@@ -1264,51 +1290,61 @@ class _SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.spend;
     final color = danger ? c.co : c.ac;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          border: last ? null : Border(bottom: BorderSide(color: c.ln)),
-        ),
-        child: Row(
-          children: [
-            IconTile(icon: icon, color: color, size: 36),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        border: last ? null : Border(bottom: BorderSide(color: c.ln)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.sans(
-                      size: 14,
-                      color: danger ? c.co : c.tx,
-                      weight: FontWeight.w500,
+                  IconTile(icon: icon, color: color, size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.sans(
+                            size: 14,
+                            color: danger ? c.co : c.tx,
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                        if (subtitle != null)
+                          Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.sans(size: 12, color: c.mu),
+                          ),
+                      ],
                     ),
                   ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
                 ],
               ),
             ),
-            if (trailing != null) ...[
-              const SizedBox(width: 10),
-              trailing!,
-            ] else if (onTap != null) ...[
-              const SizedBox(width: 8),
-              SpendIcon('chevronRight', size: 16, color: c.mu),
-            ],
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 10),
+            trailing!,
+          ] else if (onTap != null) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: SpendIcon('chevronRight', size: 16, color: c.mu),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

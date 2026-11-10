@@ -69,7 +69,10 @@ class FirestoreUserProfileRepository {
 
   Future<void> loadOnce() async {
     final snapshot = await refs.user.get();
-    _apply(snapshot.data() ?? const <String, dynamic>{}, exists: snapshot.exists);
+    _apply(
+      snapshot.data() ?? const <String, dynamic>{},
+      exists: snapshot.exists,
+    );
   }
 
   Future<void> ensureProfile({String? email, String? displayName}) async {
@@ -112,14 +115,17 @@ class FirestoreUserProfileRepository {
     }
 
     final rawTags = (data['tags'] as List?) ?? const <dynamic>[];
-    _tags = rawTags.map((raw) {
-      final tag = asMap(raw);
-      return UserTag(
-        id: asString(tag['id']),
-        name: asString(tag['name']),
-        color: asString(tag['color'], 'blue'),
-      );
-    }).where((tag) => tag.id.isNotEmpty).toList(growable: false);
+    _tags = rawTags
+        .map((raw) {
+          final tag = asMap(raw);
+          return UserTag(
+            id: asString(tag['id']),
+            name: asString(tag['name']),
+            color: asString(tag['color'], 'blue'),
+          );
+        })
+        .where((tag) => tag.id.isNotEmpty)
+        .toList(growable: false);
     _tagIdToName = {for (final tag in _tags) tag.id: tag.name};
     _tagNameToId = {for (final tag in _tags) tag.name: tag.id};
 
@@ -146,19 +152,20 @@ class FirestoreUserProfileRepository {
       ),
       roundUps: asBool(mobilePrefs['roundUps']),
       monthStart: asInt(mobilePrefs['monthStart'], 1),
-      homeWidgets: _homeWidgets(
-        mobilePrefs['homeWidgets'],
-        HomeWidget.values,
-      ),
-      hiddenWidgets: _homeWidgets(mobilePrefs['hiddenWidgets'], const [])
-          .toSet(),
+      homeWidgets: _homeWidgets(mobilePrefs['homeWidgets'], HomeWidget.values),
+      hiddenWidgets: _homeWidgets(
+        mobilePrefs['hiddenWidgets'],
+        const [],
+      ).toSet(),
       billReminders: asBool(mobilePrefs['billReminders'], true),
       dailyReminder: asBool(mobilePrefs['dailyReminder'], true),
       weeklyDigest: asBool(mobilePrefs['weeklyDigest']),
+      smsCaptureEnabled: asBool(mobilePrefs['smsCaptureEnabled'], true),
       reminderHour: asInt(mobilePrefs['reminderHour'], 20).clamp(0, 23).toInt(),
-      reminderMinute: asInt(mobilePrefs['reminderMinute'], 0)
-          .clamp(0, 59)
-          .toInt(),
+      reminderMinute: asInt(
+        mobilePrefs['reminderMinute'],
+        0,
+      ).clamp(0, 59).toInt(),
       categories: categoryMap,
     );
     _controller.add(_settings);
@@ -200,6 +207,7 @@ class FirestoreUserProfileRepository {
         'billReminders': settings.billReminders,
         'dailyReminder': settings.dailyReminder,
         'weeklyDigest': settings.weeklyDigest,
+        'smsCaptureEnabled': settings.smsCaptureEnabled,
         'reminderHour': settings.reminderHour,
         'reminderMinute': settings.reminderMinute,
         'categoryColors': settings.categories.map(

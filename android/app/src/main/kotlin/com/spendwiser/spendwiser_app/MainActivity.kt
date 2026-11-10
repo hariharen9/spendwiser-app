@@ -1,6 +1,7 @@
 package com.spendwiser.spendwiser_app
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -60,8 +61,30 @@ class MainActivity : FlutterFragmentActivity() {
                 val count = SmsInboxStore(this).count()
                 result.success(SmsNotifier.notify(this, count, test = true))
             }
+            "isEnabled" -> result.success(SmsInboxStore(this).isEnabled())
+            "setEnabled" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: true
+                SmsInboxStore(this).setEnabled(enabled)
+                setSmsReceiverEnabled(enabled)
+                if (!enabled) SmsNotifier.cancel(this)
+                result.success(enabled)
+            }
             else -> result.notImplemented()
         }
+    }
+
+    private fun setSmsReceiverEnabled(enabled: Boolean) {
+        val component = ComponentName(this, SmsReceiver::class.java)
+        val state = if (enabled) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
+        packageManager.setComponentEnabledSetting(
+            component,
+            state,
+            PackageManager.DONT_KILL_APP,
+        )
     }
 
     private fun hasSmsPermission(): Boolean =

@@ -12,6 +12,14 @@ class SmsInboxStore(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
+    fun setEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ENABLED, enabled).commit()
+    }
+
+    @Synchronized
+    fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, true)
+
+    @Synchronized
     fun add(sender: String, body: String, receivedAt: Long): Map<String, Any?>? {
         val id = digest("$sender|$receivedAt|$body")
         val array = load()
@@ -82,6 +90,7 @@ class SmsInboxStore(context: Context) {
     companion object {
         private const val PREFS = "spendwiser_sms"
         private const val KEY = "pending"
+        private const val KEY_ENABLED = "enabled"
         private const val MAX_ITEMS = 200
     }
 }

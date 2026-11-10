@@ -8,6 +8,8 @@ import android.provider.Telephony
 class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+        val store = SmsInboxStore(context)
+        if (!store.isEnabled()) return
         val messages = try {
             Telephony.Sms.Intents.getMessagesFromIntent(intent)
         } catch (_: Exception) {
@@ -21,7 +23,6 @@ class SmsReceiver : BroadcastReceiver() {
         if (!SmsFilter.isCandidate(sender, body)) return
 
         val receivedAt = messages.firstOrNull()?.timestampMillis ?: System.currentTimeMillis()
-        val store = SmsInboxStore(context)
         val item = store.add(sender, body, receivedAt) ?: return
         SmsEventBus.emit(item)
         SmsNotifier.notify(context, store.count())

@@ -13,6 +13,12 @@ object SmsNotifier {
     private const val CHANNEL_ID = "sms_capture"
     private const val NOTIFICATION_ID = 7100
 
+    fun cancel(context: Context) {
+        val manager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(NOTIFICATION_ID)
+    }
+
     fun notify(context: Context, count: Int, test: Boolean = false): Boolean {
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
