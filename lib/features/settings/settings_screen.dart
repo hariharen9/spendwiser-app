@@ -20,6 +20,7 @@ import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/app_settings.dart';
@@ -99,7 +100,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings = ref.watch(settingsProvider);
     final security = ref.watch(securityProvider);
     final snapshot = ref.watch(financeSnapshotProvider);
-    final email = ref.watch(authStateProvider).value?.email ?? 'Signed in';
+    final user = ref.watch(authStateProvider).value;
+    final email = user?.email ?? 'Signed in';
+    final photoUrl = user?.photoURL;
     final pendingSms = ref.watch(smsReviewProvider).length;
     final categoryCount = settings.categories.keys
         .where((category) => category != 'Transfer')
@@ -127,20 +130,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () => _editProfile(context, settings),
           child: Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: c.ac,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  settings.initials,
-                  style: AppTypography.sans(
-                    size: 18,
-                    color: c.aci,
-                    weight: FontWeight.w600,
+              ProfileAvatar(
+                photoUrl: photoUrl,
+                size: 52,
+                fallback: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: c.ac,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    settings.initials,
+                    style: AppTypography.sans(
+                      size: 18,
+                      color: c.aci,
+                      weight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

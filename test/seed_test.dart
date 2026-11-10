@@ -18,6 +18,11 @@ void main() {
     expect(safe.perDay, 1190);
     expect(safe.daysLeft, 22);
 
+    final runway = FinanceCalculator.cashRunway(s, now: DateTime(2026, 11, 9));
+    expect(runway.points.length, runway.days + 1);
+    expect(runway.payday, isNotNull);
+    expect(runway.expectedIncome, greaterThan(0));
+
     final icici = s.cards.first;
     expect(icici.outstanding, 14170);
     expect(icici.due?.amount, 4130);

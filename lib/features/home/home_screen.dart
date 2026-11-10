@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/state/auth_provider.dart';
 import '../../core/state/providers.dart';
 import '../../core/utils/category_aliases.dart';
 import '../../core/theme/app_colors.dart';
@@ -14,10 +15,10 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/custom_painters/debt_amortization_chart.dart';
-import '../../core/widgets/custom_painters/hero_gauge_painter.dart';
+import '../../core/widgets/custom_painters/cash_runway_chart.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/transaction_row.dart';
 import '../../data/models/account.dart';
@@ -45,8 +46,13 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(financeSnapshotProvider);
     final settings = ref.watch(settingsProvider);
+    final photoUrl = ref.watch(authStateProvider).value?.photoURL;
     final widgets = settings.homeWidgets
-        .where((w) => !settings.hiddenWidgets.contains(w))
+        .where(
+          (widget) =>
+              widget != HomeWidget.forecast &&
+              !settings.hiddenWidgets.contains(widget),
+        )
         .toList();
 
     final builders = <HomeWidget, Widget>{
@@ -55,13 +61,15 @@ class HomeScreen extends ConsumerWidget {
         onInsights: () => onNavigate(AppModule.insights),
       ),
       HomeWidget.quickAdd: _CaptureBar(snapshot: snapshot),
-      HomeWidget.safeRing: _SafeRing(snapshot: snapshot),
+      HomeWidget.safeRing: _CashRunwayHero(
+        snapshot: snapshot,
+        onOpen: () => onNavigate(AppModule.calendar),
+      ),
       HomeWidget.comingUp: _ComingUp(
         snapshot: snapshot,
         onOpen: () => onNavigate(AppModule.calendar),
       ),
       HomeWidget.streak: _StreakAndBuffer(snapshot: snapshot),
-      HomeWidget.forecast: _CashFlowCard(snapshot: snapshot),
       HomeWidget.goals: _GoalsStrip(
         snapshot: snapshot,
         onOpen: () => onNavigate(AppModule.goals),
@@ -76,6 +84,7 @@ class HomeScreen extends ConsumerWidget {
       children: [
         _HomeHeader(
           settings: settings,
+          photoUrl: photoUrl,
           onAvatar: () => onNavigate(AppModule.settings),
         ),
         const SmsReviewBanner(),
@@ -96,9 +105,14 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.settings, required this.onAvatar});
+  const _HomeHeader({
+    required this.settings,
+    required this.photoUrl,
+    required this.onAvatar,
+  });
 
   final AppSettings settings;
+  final String? photoUrl;
   final VoidCallback onAvatar;
 
   @override
@@ -125,11 +139,15 @@ class _HomeHeader extends StatelessWidget {
             ],
           ),
         ),
-        AppPill(
-          label: settings.initials,
-          textColor: c.tx,
-          fontSize: 12,
+        ProfileAvatar(
+          photoUrl: photoUrl,
+          size: 42,
           onTap: onAvatar,
+          fallback: AppPill(
+            label: settings.initials,
+            textColor: c.tx,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -265,24 +283,30 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
     if (shortcutMatch != null) {
       final shortcut = shortcutMatch.shortcut;
       final amount = shortcutMatch.amount;
-      final isCard = shortcut.accountId != null &&
+      final isCard =
+          shortcut.accountId != null &&
           snapshot.cards.any((card) => card.id == shortcut.accountId);
       final category = resolveCategoryName(
         shortcut.category,
         ref.read(settingsProvider).categories.keys,
       );
-      final defaultAccountId =
-          ref.read(userProfileRepositoryProvider)?.defaultAccountId;
-      await ref.read(transactionRepositoryProvider).addTransaction(
-        TransactionDraft(
-          merchant: shortcut.name,
-          category: category,
-          amount: shortcut.isIncome ? amount : -amount,
-          date: DateTime.now(),
-          accountId: isCard ? null : (shortcut.accountId ?? defaultAccountId),
-          cardId: isCard ? shortcut.accountId : null,
-        ),
-      );
+      final defaultAccountId = ref
+          .read(userProfileRepositoryProvider)
+          ?.defaultAccountId;
+      await ref
+          .read(transactionRepositoryProvider)
+          .addTransaction(
+            TransactionDraft(
+              merchant: shortcut.name,
+              category: category,
+              amount: shortcut.isIncome ? amount : -amount,
+              date: DateTime.now(),
+              accountId: isCard
+                  ? null
+                  : (shortcut.accountId ?? defaultAccountId),
+              cardId: isCard ? shortcut.accountId : null,
+            ),
+          );
       _controller.clear();
       ref
           .read(toastProvider.notifier)
@@ -292,26 +316,31 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
 
     final parsed = CaptureParser.parse(input);
     if (parsed == null) {
-      ref.read(toastProvider.notifier).show('Add an amount, e.g. “chai 40” or “uber 280”');
+      ref
+          .read(toastProvider.notifier)
+          .show('Add an amount, e.g. “chai 40” or “uber 280”');
       return;
     }
 
     final account = widget.snapshot.accounts.isEmpty
         ? null
         : widget.snapshot.accounts.first;
-    final defaultAccountId =
-        ref.read(userProfileRepositoryProvider)?.defaultAccountId;
+    final defaultAccountId = ref
+        .read(userProfileRepositoryProvider)
+        ?.defaultAccountId;
     final category = resolveCategoryName(
       parsed.category,
       ref.read(settingsProvider).categories.keys,
     );
 
-    await ref.read(transactionRepositoryProvider).addTransaction(
-      parsed.toDraft(
-        accountId: defaultAccountId ?? account?.id,
-        category: category,
-      ),
-    );
+    await ref
+        .read(transactionRepositoryProvider)
+        .addTransaction(
+          parsed.toDraft(
+            accountId: defaultAccountId ?? account?.id,
+            category: category,
+          ),
+        );
 
     _controller.clear();
     final label = parsed.isIncome
@@ -418,57 +447,234 @@ void _showScan(BuildContext context) {
   showReceiptScannerSheet(context);
 }
 
-class _SafeRing extends StatelessWidget {
-  const _SafeRing({required this.snapshot});
+class _CashRunwayHero extends StatelessWidget {
+  const _CashRunwayHero({required this.snapshot, required this.onOpen});
 
   final FinanceSnapshot snapshot;
+  final VoidCallback onOpen;
+
+  String _money(double value) => '${value < 0 ? '−' : ''}${compactINR(value)}';
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
-    final now = DateTime.now();
-    final safe = FinanceCalculator.safeToSpend(snapshot, now: now);
-    final progress = safe.limit <= 0 ? 0.0 : safe.spent / safe.limit * 100;
-    final days = daysInMonth(now.year, now.month);
+    final runway = FinanceCalculator.cashRunway(snapshot);
+    final shortfall = runway.isShortfall;
+    final noData = snapshot.accounts.isEmpty && snapshot.transactions.isEmpty;
+    final tight = !shortfall && runway.lowestBalance < runway.dailySpend * 7;
+    final status = noData
+        ? 'No data'
+        : shortfall
+        ? 'Shortfall'
+        : tight
+        ? 'Tight'
+        : 'Covered';
+    final accent = shortfall ? c.co : c.ac;
+    final lowIndex = runway.points.indexWhere(
+      (point) => point.date == runway.lowestDate,
+    );
+    final billIndices = <int>{
+      for (final event in runway.events.where((event) => !event.isIncome))
+        event.date.difference(runway.startDate).inDays,
+    };
+    final paydayIndex = runway.paydayInWindow
+        ? runway.payday!.difference(runway.startDate).inDays
+        : null;
 
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        HeroGauge(
-          progress: progress,
-          dayCount: days,
-          currentDay: now.day,
-          size: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return GlowCard(
+      color: accent,
+      margin: const EdgeInsets.only(top: 16, bottom: 8),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
               Text(
-                'Safe to spend today',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-              AnimatedAmount(
-                value: safe.perDay,
-                style: AppTypography.serif(
-                  size: 54,
-                  color: c.tx,
-                  letterSpacing: -1,
-                  height: 1.05,
+                'CASH RUNWAY',
+                style: AppTypography.sans(
+                  size: 11,
+                  color: c.mu,
+                  letterSpacing: 1.32,
                 ),
               ),
-              MoneyText(
-                '${rupee(safe.left)} left · ${safe.daysLeft} days',
-                style: AppTypography.sans(size: 12, color: c.mu),
+              const Spacer(),
+              AppPill(
+                label: status,
+                active: status == 'Covered',
+                textColor: status == 'Covered' ? null : accent,
+                borderColor: status == 'Covered'
+                    ? null
+                    : accent.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 8),
+              Pressable(
+                onTap: onOpen,
+                child: Text(
+                  'Calendar →',
+                  style: AppTypography.sans(size: 12, color: c.ac),
+                ),
               ),
             ],
           ),
-        ),
-        AppButton(
-          label: '+ Add transaction',
-          centered: true,
-          margin: const EdgeInsets.only(top: 14),
-          onTap: () => showAddTransactionSheet(context),
-        ),
-      ],
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shortfall
+                          ? runway.paydayInWindow
+                                ? 'Shortfall before payday'
+                                : 'Shortfall in ${runway.days} days'
+                          : runway.paydayInWindow
+                          ? 'Lowest before payday'
+                          : 'Lowest in ${runway.days} days',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                    AnimatedAmount(
+                      value: runway.lowestBalance,
+                      formatter: (value) => formatINR(value),
+                      style: AppTypography.serif(
+                        size: 42,
+                        color: shortfall ? c.co : c.tx,
+                        letterSpacing: -1,
+                        height: 1.05,
+                      ),
+                    ),
+                    Text(
+                      runway.paydayInWindow
+                          ? '${dayMonth(runway.lowestDate)} · payday ${dayMonth(runway.payday!)}'
+                          : '${dayMonth(runway.lowestDate)} · next ${runway.days} days',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    runway.paydayInWindow ? 'at payday' : 'now',
+                    style: AppTypography.sans(size: 10, color: c.mu),
+                  ),
+                  Text(
+                    _money(
+                      runway.paydayInWindow
+                          ? runway.endingBalance
+                          : runway.startingBalance,
+                    ),
+                    style: AppTypography.serif(
+                      size: 20,
+                      color: c.tx,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.scale(
+                scale: 0.985 + 0.015 * value,
+                alignment: Alignment.center,
+                child: child,
+              ),
+            ),
+            child: CashRunwayChart(
+              values: [for (final point in runway.points) point.balance],
+              lowestIndex: lowIndex < 0 ? 0 : lowIndex,
+              billIndices: billIndices,
+              paydayIndex: paydayIndex,
+              color: accent,
+              height: 128,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _RunwayMetric(
+                label: 'Bills',
+                value: compactINR(runway.totalBills),
+              ),
+              const _RunwayDivider(),
+              _RunwayMetric(
+                label: 'Typical spend',
+                value: '${compactINR(runway.dailySpend)}/day',
+              ),
+              const _RunwayDivider(),
+              _RunwayMetric(
+                label: runway.paydayInWindow ? 'Payday' : 'Window',
+                value: runway.paydayInWindow
+                    ? _money(runway.expectedIncome)
+                    : '${runway.days} days',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RunwayMetric extends StatelessWidget {
+  const _RunwayMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.sans(size: 9, color: c.mu, letterSpacing: 0.8),
+          ),
+          const SizedBox(height: 3),
+          FittedBox(
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: AppTypography.sans(
+                size: 13,
+                color: c.tx,
+                weight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RunwayDivider extends StatelessWidget {
+  const _RunwayDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 28,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: context.spend.ln,
     );
   }
 }
@@ -709,45 +915,6 @@ class _StreakAndBuffer extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CashFlowCard extends StatelessWidget {
-  const _CashFlowCard({required this.snapshot});
-
-  final FinanceSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.spend;
-    final points = FinanceCalculator.cashFlowForecast(snapshot, days: 30);
-    final values = points.map((p) => p.balance).toList();
-    final low = values.isEmpty ? 0.0 : values.reduce((a, b) => a < b ? a : b);
-
-    return AppCard(
-      margin: const EdgeInsets.only(top: 10, bottom: 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Cash-flow forecast · 30 days',
-                  style: AppTypography.sans(size: 14, color: c.mu),
-                ),
-              ),
-              Text(
-                'low ${compactINR(low)}',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          AreaLineChart(values: values, color: c.ac, height: 80),
-        ],
-      ),
     );
   }
 }

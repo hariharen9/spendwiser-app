@@ -7,6 +7,7 @@ import '../models/bill.dart';
 import '../models/credit_card.dart';
 import '../models/finance_snapshot.dart';
 import '../models/loan.dart';
+import '../models/subscription.dart';
 import '../models/transaction.dart';
 
 enum PayoffStrategy { avalanche, snowball }
@@ -68,6 +69,67 @@ class CashFlowPoint {
 
   final int day;
   final double balance;
+}
+
+@immutable
+class CashRunwayPoint {
+  const CashRunwayPoint({required this.date, required this.balance});
+
+  final DateTime date;
+  final double balance;
+}
+
+@immutable
+class CashRunwayEvent {
+  const CashRunwayEvent({
+    required this.date,
+    required this.label,
+    required this.amount,
+    required this.isIncome,
+  });
+
+  final DateTime date;
+  final String label;
+
+  /// Positive for income, negative for a bill or other commitment.
+  final double amount;
+  final bool isIncome;
+}
+
+@immutable
+class CashRunway {
+  const CashRunway({
+    required this.startDate,
+    required this.startingBalance,
+    required this.endingBalance,
+    required this.lowestBalance,
+    required this.lowestDate,
+    required this.payday,
+    required this.expectedIncome,
+    required this.dailySpend,
+    required this.totalBills,
+    required this.days,
+    required this.points,
+    required this.events,
+  });
+
+  final DateTime startDate;
+  final double startingBalance;
+  final double endingBalance;
+  final double lowestBalance;
+  final DateTime lowestDate;
+  final DateTime? payday;
+  final double expectedIncome;
+  final double dailySpend;
+  final double totalBills;
+  final int days;
+  final List<CashRunwayPoint> points;
+  final List<CashRunwayEvent> events;
+
+  bool get hasPayday => payday != null;
+  bool get paydayInWindow =>
+      payday != null && payday!.difference(startDate).inDays <= days;
+  bool get isShortfall => lowestBalance < 0;
 }
 
 @immutable
@@ -426,6 +488,205 @@ abstract final class FinanceCalculator {
       perDay: (left / days / 10).round() * 10.0,
       daysLeft: days,
     );
+  }
+
+  /// Projects liquid cash until the next expected income, net of upcoming
+  /// bills and typical daily spending.
+  static CashRunway cashRunway(FinanceSnapshot snapshot, {DateTime? now}) {
+    final n = now ?? DateTime.now();
+    final start = todayFrom(n);
+    final starting = snapshot.liquidAssets;
+    final nextIncome = _nextIncome(snapshot, start);
+    final payday = nextIncome?.date;
+    final expectedIncome = nextIncome?.amount ?? 0;
+    final window = (payday == null ? 30 : payday.difference(start).inDays)
+        .clamp(1, 60)
+        .toInt();
+    final dailySpend = avgDailySpend(snapshot, now: n);
+    final upcoming = bills(
+      snapshot,
+      now: n,
+    ).where((bill) => bill.days >= 0 && bill.days <= window).toList();
+    final commitments = <({DateTime date, String label, double amount})>[
+      for (final bill in upcoming)
+        (date: dateOnly(bill.dueDate), label: bill.name, amount: bill.amount),
+    ];
+    final subscribedIds = <String>{
+      for (final subscription in snapshot.subscriptions.where(
+        (subscription) => subscription.active,
+      ))
+        if (subscription.recurringId != null) subscription.recurringId!,
+    };
+    for (final recurring in snapshot.recurring.where(
+      (item) => item.active && !item.isIncome,
+    )) {
+      if (subscribedIds.contains(recurring.id)) continue;
+      final base = recurring.lastProcessedDate ?? recurring.startDate;
+      var date = base == null
+          ? DateTime(start.year, start.month + 1, 1)
+          : _addRecurring(dateOnly(base), recurring.frequency);
+      var guard = 0;
+      while (!date.isAfter(start) && guard++ < 120) {
+        date = _addRecurring(date, recurring.frequency);
+      }
+      final limit = start.add(Duration(days: window));
+      while (!date.isAfter(limit) && guard++ < 240) {
+        commitments.add((
+          date: dateOnly(date),
+          label: recurring.name,
+          amount: recurring.amount.abs(),
+        ));
+        date = _addRecurring(date, recurring.frequency);
+      }
+    }
+
+    var balance = starting;
+    var lowest = starting;
+    var lowestDate = start;
+    final points = <CashRunwayPoint>[];
+    final events = <CashRunwayEvent>[];
+
+    for (var d = 0; d <= window; d++) {
+      final date = start.add(Duration(days: d));
+      if (payday != null &&
+          payday.difference(start).inDays == d &&
+          expectedIncome > 0) {
+        balance += expectedIncome;
+        events.add(
+          CashRunwayEvent(
+            date: date,
+            label: 'Payday',
+            amount: expectedIncome,
+            isIncome: true,
+          ),
+        );
+      }
+      if (d > 0) balance -= dailySpend;
+      for (final commitment in commitments.where(
+        (commitment) => commitment.date.difference(start).inDays == d,
+      )) {
+        balance -= commitment.amount;
+        events.add(
+          CashRunwayEvent(
+            date: date,
+            label: commitment.label,
+            amount: -commitment.amount,
+            isIncome: false,
+          ),
+        );
+      }
+      points.add(CashRunwayPoint(date: date, balance: balance));
+      if (balance < lowest) {
+        lowest = balance;
+        lowestDate = date;
+      }
+    }
+
+    return CashRunway(
+      startDate: start,
+      startingBalance: starting,
+      endingBalance: points.isEmpty ? starting : points.last.balance,
+      lowestBalance: lowest,
+      lowestDate: lowestDate,
+      payday: payday,
+      expectedIncome: expectedIncome,
+      dailySpend: dailySpend,
+      totalBills: commitments.fold(0.0, (sum, item) => sum + item.amount),
+      days: window,
+      points: List.unmodifiable(points),
+      events: List.unmodifiable(events),
+    );
+  }
+
+  static ({DateTime date, double amount})? _nextIncome(
+    FinanceSnapshot snapshot,
+    DateTime today,
+  ) {
+    DateTime? bestDate;
+    var bestAmount = 0.0;
+
+    for (final recurring in snapshot.recurring.where(
+      (item) => item.active && item.isIncome,
+    )) {
+      final base = recurring.lastProcessedDate ?? recurring.startDate;
+      DateTime next;
+      if (base == null) {
+        next = DateTime(today.year, today.month + 1, 1);
+      } else {
+        next = _addRecurring(dateOnly(base), recurring.frequency);
+        var guard = 0;
+        while (!next.isAfter(today) && guard++ < 120) {
+          next = _addRecurring(next, recurring.frequency);
+        }
+      }
+      if (next.isAfter(today) &&
+          (bestDate == null || next.isBefore(bestDate))) {
+        bestDate = next;
+        bestAmount = recurring.amount.abs();
+      }
+    }
+
+    if (bestDate != null && bestAmount > 0) {
+      return (date: bestDate, amount: bestAmount);
+    }
+
+    final cutoff = today.subtract(const Duration(days: 180));
+    final counts = <int, int>{};
+    final totals = <int, double>{};
+    for (final transaction in snapshot.transactions) {
+      if (transaction.amount > 0 &&
+          transaction.category != 'Transfer' &&
+          !transaction.date.isBefore(cutoff)) {
+        final day = transaction.date.day;
+        counts[day] = (counts[day] ?? 0) + 1;
+        totals[day] = (totals[day] ?? 0) + transaction.amount;
+      }
+    }
+    if (counts.isEmpty) return null;
+
+    var day = counts.keys.first;
+    for (final candidate in counts.keys) {
+      if (counts[candidate]! > counts[day]! ||
+          (counts[candidate] == counts[day] &&
+              (totals[candidate] ?? 0) > (totals[day] ?? 0))) {
+        day = candidate;
+      }
+    }
+    final expected = avgMonthlyIncome(snapshot, now: today);
+    if (expected <= 0) return null;
+    return (date: _nextDayOfMonth(today, day), amount: expected);
+  }
+
+  static DateTime _addRecurring(DateTime date, RecurringFrequency frequency) {
+    return switch (frequency) {
+      RecurringFrequency.daily => DateTime(date.year, date.month, date.day + 1),
+      RecurringFrequency.weekly => DateTime(
+        date.year,
+        date.month,
+        date.day + 7,
+      ),
+      RecurringFrequency.monthly => DateTime(
+        date.year,
+        date.month + 1,
+        date.day,
+      ),
+      RecurringFrequency.yearly => DateTime(
+        date.year + 1,
+        date.month,
+        date.day,
+      ),
+    };
+  }
+
+  static DateTime _nextDayOfMonth(DateTime today, int day) {
+    DateTime at(int year, int month) {
+      final last = daysInMonth(year, month);
+      return DateTime(year, month, math.min(day, last));
+    }
+
+    final thisMonth = at(today.year, today.month);
+    if (thisMonth.isAfter(today)) return thisMonth;
+    return at(today.year, today.month + 1);
   }
 
   static double avgMonthlyIncome(

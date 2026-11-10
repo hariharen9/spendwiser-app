@@ -25,7 +25,7 @@ void main() {
 
     expect(find.textContaining('Good '), findsOneWidget);
     expect(find.text('CURRENT BALANCE'), findsOneWidget);
-    expect(find.text('Safe to spend today'), findsOneWidget);
+    expect(find.text('CASH RUNWAY'), findsOneWidget);
     expect(find.text('Customize Home'), findsOneWidget);
   });
 
@@ -48,29 +48,48 @@ void main() {
     addTearDown(container.dispose);
 
     final notifier = container.read(settingsProvider.notifier);
-    expect(container.read(settingsProvider).categories.containsKey('Groceries'), false);
+    expect(
+      container.read(settingsProvider).categories.containsKey('Groceries'),
+      false,
+    );
 
     // Add category
     const customColor = Color(0xFF34D399);
     notifier.addCategory('Groceries', customColor);
-    expect(container.read(settingsProvider).categories['Groceries'], customColor);
+    expect(
+      container.read(settingsProvider).categories['Groceries'],
+      customColor,
+    );
     expect(AppColors.category('Groceries'), customColor);
     expect(AppColors.categoryList.contains('Groceries'), true);
 
     // Edit category
     const updatedColor = Color(0xFFFB7185);
     notifier.editCategory('Groceries', 'Supermarket', updatedColor);
-    expect(container.read(settingsProvider).categories.containsKey('Groceries'), false);
-    expect(container.read(settingsProvider).categories['Supermarket'], updatedColor);
+    expect(
+      container.read(settingsProvider).categories.containsKey('Groceries'),
+      false,
+    );
+    expect(
+      container.read(settingsProvider).categories['Supermarket'],
+      updatedColor,
+    );
     expect(AppColors.category('Supermarket'), updatedColor);
 
     // Delete category
     notifier.deleteCategory('Supermarket');
-    expect(container.read(settingsProvider).categories.containsKey('Supermarket'), false);
+    expect(
+      container.read(settingsProvider).categories.containsKey('Supermarket'),
+      false,
+    );
     expect(AppColors.categoryList.contains('Supermarket'), false);
 
     // Reorder categories
-    final beforeKeys = container.read(settingsProvider).categories.keys.toList();
+    final beforeKeys = container
+        .read(settingsProvider)
+        .categories
+        .keys
+        .toList();
     final first = beforeKeys[0];
     final second = beforeKeys[1];
     notifier.reorderCategories(0, 2);
@@ -79,23 +98,26 @@ void main() {
     expect(afterKeys[1], first);
   });
 
-  test('ITransactionRepository allows adding, renaming and deleting tags', () async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+  test(
+    'ITransactionRepository allows adding, renaming and deleting tags',
+    () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
 
-    final repo = container.read(transactionRepositoryProvider);
-    final financeRepo = container.read(financeRepositoryProvider);
+      final repo = container.read(transactionRepositoryProvider);
+      final financeRepo = container.read(financeRepositoryProvider);
 
-    expect(financeRepo.current.tags.contains('Vacation'), false);
+      expect(financeRepo.current.tags.contains('Vacation'), false);
 
-    await repo.addTag('Vacation');
-    expect(financeRepo.current.tags.contains('Vacation'), true);
+      await repo.addTag('Vacation');
+      expect(financeRepo.current.tags.contains('Vacation'), true);
 
-    await repo.renameTag('Vacation', 'Holiday');
-    expect(financeRepo.current.tags.contains('Vacation'), false);
-    expect(financeRepo.current.tags.contains('Holiday'), true);
+      await repo.renameTag('Vacation', 'Holiday');
+      expect(financeRepo.current.tags.contains('Vacation'), false);
+      expect(financeRepo.current.tags.contains('Holiday'), true);
 
-    await repo.deleteTag('Holiday');
-    expect(financeRepo.current.tags.contains('Holiday'), false);
-  });
+      await repo.deleteTag('Holiday');
+      expect(financeRepo.current.tags.contains('Holiday'), false);
+    },
+  );
 }

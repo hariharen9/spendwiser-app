@@ -11,7 +11,7 @@ enum AppFontMode { dmSans, serif, mono }
 enum HomeWidget {
   netWorth('Balance'),
   quickAdd('Quick add'),
-  safeRing('Safe to spend'),
+  safeRing('Cash runway'),
   comingUp('Coming up'),
   streak('Streak & buffer'),
   forecast('Cash-flow forecast'),
@@ -21,6 +21,18 @@ enum HomeWidget {
   const HomeWidget(this.label);
   final String label;
 }
+
+/// Default Home layout. The old standalone forecast card is folded into the
+/// cash-runway hero, so it is intentionally excluded.
+const defaultHomeWidgets = <HomeWidget>[
+  HomeWidget.netWorth,
+  HomeWidget.quickAdd,
+  HomeWidget.safeRing,
+  HomeWidget.comingUp,
+  HomeWidget.streak,
+  HomeWidget.goals,
+  HomeWidget.recent,
+];
 
 @immutable
 class AppSettings {
@@ -35,7 +47,7 @@ class AppSettings {
     this.onboardingSeen = false,
     this.roundUps = false,
     this.monthStart = 1,
-    this.homeWidgets = HomeWidget.values,
+    this.homeWidgets = defaultHomeWidgets,
     this.hiddenWidgets = const <HomeWidget>{},
     this.billReminders = true,
     this.dailyReminder = true,
@@ -168,13 +180,14 @@ class AppSettings {
     monthStart: (j['monthStart'] as num? ?? 1).toInt(),
     homeWidgets:
         ((j['homeWidgets'] as List?) ??
-                HomeWidget.values.map((e) => e.name).toList())
+                defaultHomeWidgets.map((widget) => widget.name).toList())
             .map(
-              (e) => HomeWidget.values.firstWhere(
-                (w) => w.name == e,
+              (name) => HomeWidget.values.firstWhere(
+                (widget) => widget.name == name,
                 orElse: () => HomeWidget.netWorth,
               ),
             )
+            .where((widget) => widget != HomeWidget.forecast)
             .toList(),
     hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
         .map(

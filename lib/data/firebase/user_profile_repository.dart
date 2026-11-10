@@ -152,7 +152,7 @@ class FirestoreUserProfileRepository {
       ),
       roundUps: asBool(mobilePrefs['roundUps']),
       monthStart: asInt(mobilePrefs['monthStart'], 1),
-      homeWidgets: _homeWidgets(mobilePrefs['homeWidgets'], HomeWidget.values),
+      homeWidgets: _homeWidgets(mobilePrefs['homeWidgets'], defaultHomeWidgets),
       hiddenWidgets: _homeWidgets(
         mobilePrefs['hiddenWidgets'],
         const [],
@@ -181,6 +181,7 @@ class FirestoreUserProfileRepository {
             orElse: () => HomeWidget.netWorth,
           ),
         )
+        .where((widget) => widget != HomeWidget.forecast)
         .toList();
   }
 

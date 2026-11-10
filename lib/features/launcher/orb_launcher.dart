@@ -60,9 +60,12 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
 
   String _metric(AppModule module, FinanceSnapshot s) {
     final now = DateTime.now();
+    final runway = FinanceCalculator.cashRunway(s, now: now);
     return switch (module) {
       AppModule.home =>
-        '${compactINR(FinanceCalculator.safeToSpend(s, now: now).perDay)} safe today',
+        runway.isShortfall
+            ? 'Shortfall before payday'
+            : '${compactINR(runway.lowestBalance)} runway low',
       AppModule.ledger => '${s.transactions.length} entries',
       AppModule.accounts =>
         '${compactINR(s.accounts.where((a) => a.type != AccountType.investments).fold<double>(0, (sum, a) => sum + a.balance))} available',
@@ -76,7 +79,8 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
       AppModule.goals => '${s.goalsProgress.round()}% funded',
       AppModule.calendar =>
         '${FinanceCalculator.bills(s, now: now).where((b) => b.days <= 7).length} bills this week',
-      AppModule.insights => 'Health ${FinanceCalculator.health(s, now: now).score}',
+      AppModule.insights =>
+        'Health ${FinanceCalculator.health(s, now: now).score}',
       AppModule.tools => 'Calc · SIP',
       AppModule.settings =>
         '${ref.read(settingsProvider).themeLabel} · INR · Synced',
@@ -119,174 +123,173 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
 
     return ClipRect(
       child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-          child: ColoredBox(
-            color: c.bg.withValues(alpha: 0.72),
-            child: SafeArea(
-              bottom: false,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.paddingOf(context).top > 40
-                      ? MediaQuery.paddingOf(context).top + 6
-                      : 50,
-                  16,
-                  130,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth;
-                    final column = (width - 16) / 3;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _FadeSlide(
-                          animation: _entrance,
-                          interval: const Interval(
-                            0,
-                            0.28,
-                            curve: Curves.easeOut,
+        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+        child: ColoredBox(
+          color: c.bg.withValues(alpha: 0.72),
+          child: SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.paddingOf(context).top > 40
+                    ? MediaQuery.paddingOf(context).top + 6
+                    : 50,
+                16,
+                130,
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final column = (width - 16) / 3;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _FadeSlide(
+                        animation: _entrance,
+                        interval: const Interval(
+                          0,
+                          0.28,
+                          curve: Curves.easeOut,
+                        ),
+                        offset: const Offset(0, -12),
+                        child: Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: c.c1,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: c.ln),
                           ),
-                          offset: const Offset(0, -12),
-                          child: Container(
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: c.c1,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: c.ln),
-                            ),
-                            child: Row(
-                              children: [
-                                SpendIcon('search', size: 18, color: c.mu),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _search,
-                                    textAlignVertical: TextAlignVertical.center,
-                                    style: AppTypography.sans(
-                                      size: 14,
-                                      color: c.tx,
-                                    ),
-                                    textInputAction: TextInputAction.search,
-                                    onChanged: (value) =>
-                                        setState(() => _query = value.trim()),
-                                    onSubmitted: (_) {
-                                      if (modules.isNotEmpty) {
-                                        widget.onNavigate(modules.first);
-                                      } else if (_query.isNotEmpty) {
-                                        _quick(
-                                          () => showAskSpendwiserSheet(
-                                            context,
-                                            initialQuery: _query,
-                                            onOpenLedger: () => widget
-                                                .onNavigate(AppModule.ledger),
+                          child: Row(
+                            children: [
+                              SpendIcon('search', size: 18, color: c.mu),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: _search,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  style: AppTypography.sans(
+                                    size: 14,
+                                    color: c.tx,
+                                  ),
+                                  textInputAction: TextInputAction.search,
+                                  onChanged: (value) =>
+                                      setState(() => _query = value.trim()),
+                                  onSubmitted: (_) {
+                                    if (modules.isNotEmpty) {
+                                      widget.onNavigate(modules.first);
+                                    } else if (_query.isNotEmpty) {
+                                      _quick(
+                                        () => showAskSpendwiserSheet(
+                                          context,
+                                          initialQuery: _query,
+                                          onOpenLedger: () => widget.onNavigate(
+                                            AppModule.ledger,
                                           ),
-                                        );
-                                      }
-                                    },
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      border: InputBorder.none,
-                                      hintText: 'Jump to anything, or ask a question…',
-                                      hintStyle: AppTypography.sans(
-                                        size: 14,
-                                        color: c.mu,
-                                      ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    hintText:
+                                        'Jump to anything, or ask a question…',
+                                    hintStyle: AppTypography.sans(
+                                      size: 14,
+                                      color: c.mu,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _FadeSlide(
-                          animation: _entrance,
-                          interval: const Interval(
-                            0.04,
-                            0.32,
-                            curve: Curves.easeOut,
-                          ),
-                          offset: const Offset(0, -10),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            child: Row(
-                              children: [
-                                AppPill(
-                                  label: '＋ Transaction',
-                                  onTap: () => _quick(
-                                    () => showAddTransactionSheet(context),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                AppPill(
-                                  label: 'Pay card',
-                                  onTap: () =>
-                                      widget.onNavigate(AppModule.cards),
-                                ),
-                                const SizedBox(width: 8),
-                                AppPill(
-                                  label: 'Split bill',
-                                  onTap: () =>
-                                      widget.onNavigate(AppModule.split),
-                                ),
-                                const SizedBox(width: 8),
-                                if (smsCount > 0) ...[
-                                  AppPill(
-                                    label: 'Review SMS · $smsCount',
-                                    onTap: () => _quick(
-                                      () => showSmsReviewSheet(context),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                AppPill(
-                                  label: 'Ask Spendwiser',
-                                  onTap: () => _quick(
-                                    () => showAskSpendwiserSheet(
-                                      context,
-                                      onOpenLedger: () =>
-                                          widget.onNavigate(AppModule.ledger),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (var i = 0; i < modules.length; i++)
-                              _buildTile(
-                                context,
-                                module: modules[i],
-                                index: i,
-                                width: modules[i].fullWidth
-                                    ? width
-                                    : modules[i].wide
-                                    ? column * 2 + 8
-                                    : column,
-                                snapshot: snapshot,
-                                settingsLabel: settings.themeLabel,
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                      const SizedBox(height: 10),
+                      _FadeSlide(
+                        animation: _entrance,
+                        interval: const Interval(
+                          0.04,
+                          0.32,
+                          curve: Curves.easeOut,
+                        ),
+                        offset: const Offset(0, -10),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              AppPill(
+                                label: '＋ Transaction',
+                                onTap: () => _quick(
+                                  () => showAddTransactionSheet(context),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              AppPill(
+                                label: 'Pay card',
+                                onTap: () => widget.onNavigate(AppModule.cards),
+                              ),
+                              const SizedBox(width: 8),
+                              AppPill(
+                                label: 'Split bill',
+                                onTap: () => widget.onNavigate(AppModule.split),
+                              ),
+                              const SizedBox(width: 8),
+                              if (smsCount > 0) ...[
+                                AppPill(
+                                  label: 'Review SMS · $smsCount',
+                                  onTap: () =>
+                                      _quick(() => showSmsReviewSheet(context)),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              AppPill(
+                                label: 'Ask Spendwiser',
+                                onTap: () => _quick(
+                                  () => showAskSpendwiserSheet(
+                                    context,
+                                    onOpenLedger: () =>
+                                        widget.onNavigate(AppModule.ledger),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (var i = 0; i < modules.length; i++)
+                            _buildTile(
+                              context,
+                              module: modules[i],
+                              index: i,
+                              width: modules[i].fullWidth
+                                  ? width
+                                  : modules[i].wide
+                                  ? column * 2 + 8
+                                  : column,
+                              snapshot: snapshot,
+                              settingsLabel: settings.themeLabel,
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildTile(

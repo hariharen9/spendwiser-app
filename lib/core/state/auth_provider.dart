@@ -12,7 +12,7 @@ final firebaseAuthProvider = Provider<FirebaseAuth>(
 
 final authStateProvider = StreamProvider<User?>((ref) {
   try {
-    return ref.watch(firebaseAuthProvider).authStateChanges();
+    return ref.watch(firebaseAuthProvider).userChanges();
   } catch (_) {
     // Firebase is not initialized (tests / pre-bootstrap): stay signed out.
     return Stream<User?>.value(null);
@@ -32,10 +32,7 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
 
   Future<void> signIn({required String email, required String password}) =>
-      _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
 
   Future<void> register({
     required String email,
@@ -84,7 +81,26 @@ class AuthService {
       );
     }
     final credential = GoogleAuthProvider.credential(idToken: idToken);
-    await _auth.signInWithCredential(credential);
+    final result = await _auth.signInWithCredential(credential);
+    final user = result.user;
+    final photo = account.photoUrl;
+    final name = account.displayName;
+    if (user != null) {
+      try {
+        if ((user.photoURL == null || user.photoURL!.isEmpty) &&
+            photo != null &&
+            photo.isNotEmpty) {
+          await user.updatePhotoURL(photo);
+        }
+        if ((user.displayName == null || user.displayName!.isEmpty) &&
+            name != null &&
+            name.isNotEmpty) {
+          await user.updateDisplayName(name);
+        }
+      } catch (_) {
+        // Profile enrichment is best-effort; sign-in has already succeeded.
+      }
+    }
   }
 
   Future<void> reauthenticate({String? password}) async {
@@ -129,8 +145,8 @@ String authErrorMessage(Object error) {
       'invalid-email' => 'That email address looks invalid.',
       'user-disabled' => 'This account has been disabled.',
       'user-not-found' => 'No account found with that email.',
-      'wrong-password' || 'invalid-credential' =>
-        'Email or password is incorrect.',
+      'wrong-password' ||
+      'invalid-credential' => 'Email or password is incorrect.',
       'email-already-in-use' => 'An account already exists with that email.',
       'weak-password' => 'Use at least 6 characters for the password.',
       'operation-not-allowed' =>
@@ -147,8 +163,7 @@ String authErrorMessage(Object error) {
       GoogleSignInExceptionCode.canceled => 'Google sign-in was cancelled.',
       GoogleSignInExceptionCode.uiUnavailable =>
         'Google sign-in is unavailable right now.',
-      GoogleSignInExceptionCode.clientConfigurationError =>
-        'Google sign-in is not configured for this build (SHA-1 or plist missing).',
+      GoogleSignInExceptionCode.clientConfigurationError => 'Google sign-in is not configured for this build (SHA-1 or plist missing).',
       GoogleSignInExceptionCode.providerConfigurationError =>
         'Google sign-in provider is not configured in Firebase.',
       _ => error.description ?? 'Google sign-in failed.',
