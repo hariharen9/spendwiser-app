@@ -4,26 +4,79 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/auth_provider.dart';
 import '../../core/state/providers.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_icons.dart';
-import '../../core/widgets/atmosphere_background.dart';
+import '../../core/widgets/brand_splash.dart';
 import '../shell/app_shell.dart';
 import 'login_screen.dart';
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  late final Future<void> _minimumSplash;
+
+  @override
+  void initState() {
+    super.initState();
+    _minimumSplash = Future<void>.delayed(
+      const Duration(milliseconds: 850),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authStateProvider);
-    if (auth.isLoading) return const _BootScreen();
-    if (auth.hasError) {
-      return _BootScreen(message: '${auth.error}');
-    }
-    final user = auth.value;
-    if (user == null) return const LoginScreen();
-    return _SignedIn(key: ValueKey(user.uid), user: user);
+    return FutureBuilder<void>(
+      future: _minimumSplash,
+      builder: (context, splash) {
+        final waiting =
+            splash.connectionState != ConnectionState.done || auth.isLoading;
+
+        final Widget child;
+        if (waiting) {
+          child = const BrandSplash(key: ValueKey('splash'));
+        } else if (auth.hasError) {
+          child = BrandSplash(
+            key: const ValueKey('splash-error'),
+            still: true,
+            message: '${auth.error}',
+          );
+        } else {
+          final user = auth.value;
+          child = user == null
+              ? const LoginScreen(key: ValueKey('login'))
+              : _SignedIn(key: ValueKey(user.uid), user: user);
+        }
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 460),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (current, previous) => Stack(
+            fit: StackFit.expand,
+            children: [...previous, ?current],
+          ),
+          transitionBuilder: (child, animation) {
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: fade,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.985, end: 1).animate(fade),
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        );
+      },
+    );
   }
 }
 
@@ -81,56 +134,6 @@ class _BootScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.spend;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: AtmosphereBackground(
-        tint: AppColors.moduleTint['home']!,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: c.ac,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                alignment: Alignment.center,
-                child: SpendIcon('sparkle', size: 26, color: c.aci),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Spendwiser',
-                style: AppTypography.serif(size: 30, color: c.tx),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: c.ac,
-                ),
-              ),
-              if (message != null) ...[
-                const SizedBox(height: 18),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    message!,
-                    textAlign: TextAlign.center,
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.sans(size: 12, color: c.co),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
+    return BrandSplash(still: true, message: message);
   }
 }

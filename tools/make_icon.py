@@ -21,6 +21,7 @@ MASTER = 1024
 IOS_SCALE = 0.80
 ANDROID_SCALE = 0.94
 ADAPTIVE_SCALE = 0.62
+LAUNCH_SIZE = 128
 GRADIENT_TOP = (14, 17, 14)
 GRADIENT_BOTTOM = (5, 6, 5)
 
@@ -139,6 +140,34 @@ def write_ios() -> None:
         icon.save(IOS_SET / name)
 
 
+def write_launch_marks() -> None:
+    densities = {
+        "mdpi": 128,
+        "hdpi": 192,
+        "xhdpi": 256,
+        "xxhdpi": 384,
+        "xxxhdpi": 512,
+    }
+    for density, size in densities.items():
+        folder = ANDROID_RES / f"drawable-{density}"
+        folder.mkdir(parents=True, exist_ok=True)
+        transparent_mark(size, 1.0).save(folder / "launch_mark.png")
+
+    launch_set = (
+        ROOT
+        / "ios"
+        / "Runner"
+        / "Assets.xcassets"
+        / "LaunchImage.imageset"
+    )
+    for name, size in (
+        ("LaunchImage.png", LAUNCH_SIZE),
+        ("LaunchImage@2x.png", LAUNCH_SIZE * 2),
+        ("LaunchImage@3x.png", LAUNCH_SIZE * 3),
+    ):
+        transparent_mark(size, 1.0).save(launch_set / name)
+
+
 def main() -> None:
     if not SOURCE.exists():
         raise SystemExit(f"Missing source icon: {SOURCE}")
@@ -147,9 +176,11 @@ def main() -> None:
     master = compose(MASTER).convert("RGB")
     master.save(branding / "app_icon.png")
     master.save(branding / "app_icon_rgb.png")
+    transparent_mark(512, 1.0).save(branding / "splash_mark.png")
 
     write_android()
     write_ios()
+    write_launch_marks()
 
 
 

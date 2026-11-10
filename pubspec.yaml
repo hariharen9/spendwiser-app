@@ -79,6 +79,8 @@ flutter:
 
   assets:
     - assets/
+    - assets/branding/icon-money.svg
+    - assets/branding/splash_mark.png
 
   fonts:
     - family: InstrumentSerif
