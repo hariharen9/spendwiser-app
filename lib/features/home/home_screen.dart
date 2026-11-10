@@ -493,6 +493,7 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
               category: category,
               amount: shortcut.isIncome ? amount : -amount,
               date: DateTime.now(),
+              addedAt: DateTime.now(),
               accountId: isCard
                   ? null
                   : (shortcut.accountId ?? defaultAccountId),

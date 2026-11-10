@@ -92,6 +92,7 @@ class SmsReviewNotifier extends Notifier<List<SmsReviewItem>> {
               category: category,
               amount: isIncome ? amount.abs() : -amount.abs(),
               date: date,
+              addedAt: DateTime.now(),
               accountId: accountId,
               cardId: cardId,
               note: 'SMS · ${item.message.sender}',

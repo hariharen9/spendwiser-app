@@ -775,7 +775,7 @@ class _StatementDetailSheet extends ConsumerWidget {
                   t.date.isBefore(rangeEnd.add(const Duration(days: 1))),
             )
             .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
+          ..sort(compareTransactionsNewestFirst);
     final categories = <String, double>{};
     for (final t in tx) {
       if (t.amount < 0) {
@@ -987,7 +987,11 @@ class _MiniTransaction extends StatelessWidget {
                   style: AppTypography.sans(size: 13, color: c.tx),
                 ),
                 Text(
-                  '${tx.category} · ${tx.dateLabel}',
+                  [
+                    tx.category,
+                    tx.dateLabel,
+                    if (tx.addedTimeLabel != null) tx.addedTimeLabel!,
+                  ].join(' · '),
                   style: AppTypography.sans(size: 11, color: c.mu),
                 ),
               ],

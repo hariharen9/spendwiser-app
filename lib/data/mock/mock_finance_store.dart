@@ -122,7 +122,7 @@ class MockFinanceStore
     _seedCardsTransactions(now);
     _seedLoanTransactions(now);
 
-    _transactions.sort((a, b) => b.date.compareTo(a.date));
+    _transactions.sort(compareTransactionsNewestFirst);
     _recalc();
     _commit();
   }
@@ -653,7 +653,7 @@ class MockFinanceStore
 
   void _commit() {
     _recalc();
-    _transactions.sort((a, b) => b.date.compareTo(a.date));
+    _transactions.sort(compareTransactionsNewestFirst);
     _revision++;
     _snapshot = FinanceSnapshot(
       transactions: List.unmodifiable(_transactions),
@@ -900,6 +900,7 @@ class MockFinanceStore
       category: draft.category,
       amount: draft.amount,
       date: draft.date,
+      addedAt: draft.addedAt ?? DateTime.now(),
       accountId: draft.accountId,
       cardId: draft.cardId,
       note: draft.note,
@@ -1053,6 +1054,7 @@ class MockFinanceStore
         category: 'Transfer',
         amount: -amount,
         date: DateTime.now(),
+        addedAt: DateTime.now(),
         accountId: fromAccountId,
       ),
     );
@@ -1142,6 +1144,7 @@ class MockFinanceStore
         category: 'Transfer',
         amount: -payable,
         date: DateTime.now(),
+        addedAt: DateTime.now(),
         accountId: accountId,
       ),
     );
@@ -1233,6 +1236,7 @@ class MockFinanceStore
           '${loan.name}${type == LoanPaymentType.emi ? ' EMI' : ' prepayment'}',
       category: 'EMI',
       amount: -amount,
+      addedAt: DateTime.now(),
       date: date,
       accountId: accountId,
     );
@@ -1376,6 +1380,7 @@ class MockFinanceStore
       category: 'Transfer',
       amount: -amount,
       date: DateTime.now(),
+      addedAt: DateTime.now(),
       accountId: account,
     );
     _transactions.add(tx);

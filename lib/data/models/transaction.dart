@@ -10,6 +10,7 @@ class Transaction {
     required this.category,
     required this.amount,
     required this.date,
+    this.addedAt,
     this.accountId,
     this.cardId,
     this.note = '',
@@ -26,6 +27,11 @@ class Transaction {
   /// Negative = money out, positive = money in.
   final double amount;
   final DateTime date;
+
+  /// When this entry was created in Spendwiser.
+  ///
+  /// Older/web records may not have this; [date] remains the transaction date.
+  final DateTime? addedAt;
   final String? accountId;
   final String? cardId;
   final String note;
@@ -36,6 +42,8 @@ class Transaction {
   bool get isExpense => amount < 0;
 
   String get dateLabel => dayLabel(date);
+
+  String? get addedTimeLabel => addedAt == null ? null : clockTime(addedAt!);
 
   String get subtitle {
     final parts = <String>[category];
@@ -50,6 +58,7 @@ class Transaction {
     String? category,
     double? amount,
     DateTime? date,
+    DateTime? addedAt,
     String? accountId,
     String? cardId,
     String? note,
@@ -64,6 +73,7 @@ class Transaction {
       category: category ?? this.category,
       amount: amount ?? this.amount,
       date: date ?? this.date,
+      addedAt: addedAt ?? this.addedAt,
       accountId: clearAccount ? null : (accountId ?? this.accountId),
       cardId: clearCard ? null : (cardId ?? this.cardId),
       note: note ?? this.note,
@@ -78,6 +88,7 @@ class Transaction {
     'category': category,
     'amount': amount,
     'date': date.toIso8601String(),
+    'addedAt': addedAt?.toIso8601String(),
     'accountId': accountId,
     'cardId': cardId,
     'note': note,
@@ -91,6 +102,9 @@ class Transaction {
     category: j['category'] as String,
     amount: (j['amount'] as num).toDouble(),
     date: DateTime.parse(j['date'] as String),
+    addedAt: j['addedAt'] == null
+        ? null
+        : DateTime.tryParse('${j['addedAt']}')?.toLocal(),
     accountId: j['accountId'] as String?,
     cardId: j['cardId'] as String?,
     note: j['note'] as String? ?? '',
@@ -106,6 +120,7 @@ class TransactionDraft {
     required this.category,
     required this.amount,
     required this.date,
+    this.addedAt,
     this.accountId,
     this.cardId,
     this.note = '',
@@ -116,11 +131,39 @@ class TransactionDraft {
   final String category;
   final double amount;
   final DateTime date;
+  final DateTime? addedAt;
   final String? accountId;
   final String? cardId;
   final String note;
   final List<String> tags;
 }
+
+/// Newest transaction day first; within a day, newest app-added entry first.
+///
+/// Records without [Transaction.addedAt] (web/legacy) keep working and fall
+/// back to their stored date/time.
+int compareTransactionsNewestFirst(Transaction a, Transaction b) {
+  final dayOrder = dateOnly(b.date).compareTo(dateOnly(a.date));
+  if (dayOrder != 0) return dayOrder;
+
+  final aAdded = a.addedAt;
+  final bAdded = b.addedAt;
+  if (aAdded != null && bAdded != null) {
+    final addedOrder = bAdded.compareTo(aAdded);
+    if (addedOrder != 0) return addedOrder;
+  } else if (aAdded != null) {
+    return -1;
+  } else if (bAdded != null) {
+    return 1;
+  }
+
+  final timeOrder = b.date.compareTo(a.date);
+  if (timeOrder != 0) return timeOrder;
+  return b.id.compareTo(a.id);
+}
+
+int compareTransactionsOldestFirst(Transaction a, Transaction b) =>
+    compareTransactionsNewestFirst(b, a);
 
 @immutable
 class MonthFlow {

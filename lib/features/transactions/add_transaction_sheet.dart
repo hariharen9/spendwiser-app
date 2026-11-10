@@ -165,6 +165,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
             category: category,
             amount: _income ? value : -value,
             date: DateTime(_date.year, _date.month, _date.day, 12),
+            addedAt: DateTime.now(),
             accountId: isCard ? null : sourceId,
             cardId: isCard ? sourceId : null,
             note: _note.text.trim(),

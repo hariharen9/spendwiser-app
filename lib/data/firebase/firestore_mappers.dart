@@ -65,6 +65,7 @@ Transaction transactionFromDoc(
     category: category,
     amount: asDouble(data['amount']),
     date: parseFirestoreDate(data['date']) ?? DateTime.now(),
+    addedAt: parseFirestoreDate(data['createdAt']),
     accountId: isCard ? null : (rawAccountId.isEmpty ? null : rawAccountId),
     cardId: isCard ? rawAccountId : null,
     note: asString(data['comments']),
@@ -87,7 +88,7 @@ Map<String, dynamic> transactionCreatePayload(
     if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
     if (draft.note.isNotEmpty) 'comments': draft.note,
     'tags': draft.tags.map((tag) => tagNameToId[tag] ?? tag).toList(),
-    'createdAt': nowIso(),
+    'createdAt': draft.addedAt?.toUtc().toIso8601String() ?? nowIso(),
     'isMock': false,
   };
 }
@@ -139,16 +140,17 @@ CreditCard creditCardFromDoc(
   required List<Map<String, dynamic>> paymentDocs,
   required DateTime now,
 }) {
-  final payments = paymentDocs
-      .map(
-        (payment) => CardPayment(
-          date: parseFirestoreDate(payment['date']) ?? now,
-          amount: asDouble(payment['amount']).abs(),
-          accountId: asString(payment['accountId']),
-        ),
-      )
-      .toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
+  final payments =
+      paymentDocs
+          .map(
+            (payment) => CardPayment(
+              date: parseFirestoreDate(payment['date']) ?? now,
+              amount: asDouble(payment['amount']).abs(),
+              accountId: asString(payment['accountId']),
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
 
   return CreditCard(
     id: id,
@@ -351,10 +353,7 @@ String remoteSplitType(SplitType type) => switch (type) {
   SplitType.equal => 'equal',
 };
 
-String splitParticipantName(
-  String id,
-  Map<String, String> participantNames,
-) {
+String splitParticipantName(String id, Map<String, String> participantNames) {
   if (id.isEmpty) return 'Member';
   return participantNames[id] ?? (id == '1' ? 'You' : id);
 }
@@ -376,13 +375,11 @@ SplitExpense splitExpenseFromDoc(
   return SplitExpense(
     description: asString(data['description'], 'Expense'),
     amount: asDouble(data['amount']),
-    paidBy: splitParticipantName(
-      asString(data['paidBy']),
-      participantNames,
-    ),
+    paidBy: splitParticipantName(asString(data['paidBy']), participantNames),
     shares: shares,
     type: splitTypeFromRemote(asString(data['splitType'], 'equal')),
-    date: parseFirestoreDate(data['date']) ??
+    date:
+        parseFirestoreDate(data['date']) ??
         parseFirestoreDate(data['createdAt']) ??
         DateTime.now(),
   );
@@ -421,18 +418,18 @@ MappedSplitGroup splitGroupFromDocs({
       parseFirestoreDate(doc['createdAt']) ??
       DateTime.fromMillisecondsSinceEpoch(0);
 
-  final orderedExpenses = List<MapEntry<String, Map<String, dynamic>>>.from(
-    expenseDocs,
-  )..sort((a, b) {
-    final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
-    return byDate != 0 ? byDate : a.key.compareTo(b.key);
-  });
-  final orderedSettlements = List<MapEntry<String, Map<String, dynamic>>>.from(
-    settledDocs,
-  )..sort((a, b) {
-    final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
-    return byDate != 0 ? byDate : a.key.compareTo(b.key);
-  });
+  final orderedExpenses =
+      List<MapEntry<String, Map<String, dynamic>>>.from(expenseDocs)
+        ..sort((a, b) {
+          final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
+          return byDate != 0 ? byDate : a.key.compareTo(b.key);
+        });
+  final orderedSettlements =
+      List<MapEntry<String, Map<String, dynamic>>>.from(settledDocs)
+        ..sort((a, b) {
+          final byDate = expenseDate(a.value).compareTo(expenseDate(b.value));
+          return byDate != 0 ? byDate : a.key.compareTo(b.key);
+        });
 
   final expenses = <SplitExpense>[];
   final history = <SplitHistoryEntry>[];
@@ -453,10 +450,7 @@ MappedSplitGroup splitGroupFromDocs({
     final doc = entry.value;
     final amount = asDouble(doc['amount']);
     if (amount <= 0) continue;
-    final from = splitParticipantName(
-      asString(doc['from']),
-      participantNames,
-    );
+    final from = splitParticipantName(asString(doc['from']), participantNames);
     final to = splitParticipantName(asString(doc['to']), participantNames);
     expenses.add(
       SplitExpense(
@@ -465,7 +459,8 @@ MappedSplitGroup splitGroupFromDocs({
         paidBy: from,
         shares: const {},
         type: SplitType.exact,
-        date: parseFirestoreDate(doc['createdAt']) ??
+        date:
+            parseFirestoreDate(doc['createdAt']) ??
             parseFirestoreDate(doc['date']) ??
             DateTime.now(),
         settledTo: to,

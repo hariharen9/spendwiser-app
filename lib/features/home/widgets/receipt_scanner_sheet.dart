@@ -241,6 +241,7 @@ Thank you for shopping with us!
             category: category,
             amount: -value,
             date: DateTime(_date.year, _date.month, _date.day, 12),
+            addedAt: DateTime.now(),
             accountId: isCard ? null : sourceId,
             cardId: isCard ? sourceId : null,
             note: note,

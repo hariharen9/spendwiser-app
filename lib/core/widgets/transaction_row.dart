@@ -35,6 +35,8 @@ class TransactionRow extends ConsumerWidget {
         : snapshot.cardById(transaction.cardId!);
     final parts = <String>[transaction.category];
     if (showDate) parts.add(transaction.dateLabel);
+    final addedTime = transaction.addedTimeLabel;
+    if (addedTime != null) parts.add(addedTime);
     parts.addAll(transaction.tags.map((tag) => '#$tag'));
     if (transaction.hasReceipt) parts.add('receipt');
     if (card != null) parts.add('${card.firstName} card');

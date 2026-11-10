@@ -311,7 +311,7 @@ class FirestoreFinanceStore
               ),
             )
             .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
+          ..sort(compareTransactionsNewestFirst);
 
     final accountDeltas = <String, double>{};
     for (final doc in _transactionDocs.values) {
@@ -563,6 +563,7 @@ class FirestoreFinanceStore
                 category: transaction.category,
                 amount: transaction.amount,
                 date: transaction.date,
+                addedAt: transaction.addedAt,
                 accountId: transaction.accountId,
                 cardId: transaction.cardId,
                 note: transaction.note,

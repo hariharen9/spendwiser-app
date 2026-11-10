@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:hive/hive.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helpers.dart';
 import '../models/app_settings.dart';
+import '../models/bill.dart';
 import '../models/finance_snapshot.dart';
 import '../services/finance_calculator.dart';
 
@@ -23,6 +26,9 @@ abstract final class NotificationsService {
   static const _weeklyId = 60;
   static const _billIdStart = 100;
   static const _billIdEnd = 200;
+  static const _billRecordPrefix = 'billReminderSent:';
+  static String? _lastSignature;
+  static Future<void> _queue = Future<void>.value();
 
   static Future<void> init() async {
     if (_initialized) return;
@@ -47,11 +53,13 @@ abstract final class NotificationsService {
   static Future<void> requestPermissions() async {
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
@@ -84,10 +92,72 @@ abstract final class NotificationsService {
   static Future<void> reschedule(
     FinanceSnapshot snapshot,
     AppSettings settings,
+  ) {
+    if (!_initialized) return Future<void>.value();
+    final bills = FinanceCalculator.bills(snapshot);
+    final signature = _signature(settings, bills);
+    if (signature == _lastSignature) return _queue;
+
+    _lastSignature = signature;
+    _queue = _queue
+        .then((_) => _rescheduleNow(snapshot, settings, bills))
+        .catchError((Object error) {
+          if (_lastSignature == signature) _lastSignature = null;
+          debugPrint('Notification reschedule failed: $error');
+        });
+    return _queue;
+  }
+
+  static String _signature(AppSettings settings, List<BillItem> bills) {
+    final today = dateOnly(DateTime.now()).toIso8601String();
+    return [
+      today,
+      settings.dailyReminder,
+      settings.billReminders,
+      settings.weeklyDigest,
+      settings.reminderHour,
+      settings.reminderMinute,
+      for (final bill in bills)
+        '${bill.kind.name}:${bill.name.trim().toLowerCase()}:'
+            '${bill.amount.toStringAsFixed(2)}:${dateOnly(bill.dueDate)}',
+    ].join('|');
+  }
+
+  static Box<String>? get _settingsBox {
+    try {
+      if (Hive.isBoxOpen('settings')) return Hive.box<String>('settings');
+    } catch (_) {}
+    return null;
+  }
+
+  static String _billRecordKey(BillItem bill) =>
+      '$_billRecordPrefix${bill.kind.name}:${bill.name.trim().toLowerCase()}:'
+      '${dateOnly(bill.dueDate).toIso8601String()}';
+
+  static Future<void> _cleanBillRecords(Box<String>? box, DateTime now) async {
+    if (box == null) return;
+    final cutoff = now.subtract(const Duration(days: 45));
+    for (final key in box.keys.whereType<String>().toList()) {
+      if (!key.startsWith(_billRecordPrefix)) continue;
+      final value = box.get(key);
+      final scheduled = value == null
+          ? null
+          : DateTime.tryParse(value)?.toLocal();
+      if (scheduled == null || scheduled.isBefore(cutoff)) {
+        await box.delete(key);
+      }
+    }
+  }
+
+  static Future<void> _rescheduleNow(
+    FinanceSnapshot snapshot,
+    AppSettings settings,
+    List<BillItem> bills,
   ) async {
     if (!_initialized) return;
     await _cancelScheduled();
     final now = tz.TZDateTime.now(tz.local);
+    final nowLocal = now.toLocal();
     final hour = settings.reminderHour.clamp(0, 23).toInt();
     final minute = settings.reminderMinute.clamp(0, 59).toInt();
     final android = _plugin
@@ -121,9 +191,20 @@ abstract final class NotificationsService {
     }
 
     if (settings.billReminders) {
+      final box = _settingsBox;
+      await _cleanBillRecords(box, nowLocal);
       var id = _billIdStart;
-      for (final bill in FinanceCalculator.bills(snapshot)) {
+      for (final bill in bills) {
         if (bill.days < 0) continue;
+        final recordKey = _billRecordKey(bill);
+        final previousRaw = box?.get(recordKey);
+        final previous = previousRaw == null
+            ? null
+            : DateTime.tryParse(previousRaw)?.toLocal();
+        // A reminder already scheduled for this due date and now in the past
+        // has fired. Never recreate the same catch-up reminder again.
+        if (previous != null && !previous.isAfter(nowLocal)) continue;
+
         final reminderDate = bill.dueDate.subtract(const Duration(days: 2));
         var when = tz.TZDateTime(
           tz.local,
@@ -145,6 +226,7 @@ abstract final class NotificationsService {
           title: 'Bill reminder',
           body: '${bill.name} · ${rupee(bill.amount)} ${bill.relativeLabel}',
         );
+        await box?.put(recordKey, when.toLocal().toIso8601String());
       }
     }
 
@@ -168,7 +250,8 @@ abstract final class NotificationsService {
         notificationDetails: _details,
         androidScheduleMode: scheduleMode,
         title: 'Weekly digest',
-        body: 'Spent ${rupee(flow.expense)} · Earned ${rupee(flow.income)} this month',
+        body:
+            'Spent ${rupee(flow.expense)} · Earned ${rupee(flow.income)} this month',
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     }
@@ -190,7 +273,11 @@ abstract final class NotificationsService {
 
   /// Fired when a new expense pushes an envelope over its alert level.
   /// Mirrors the in-app toast in AddTransactionSheet.
-  static Future<void> budgetAlert(String category, double progress, int alertAt) async {
+  static Future<void> budgetAlert(
+    String category,
+    double progress,
+    int alertAt,
+  ) async {
     await showNow(
       'Budget alert',
       '$category is at ${(progress * 100).round()}% (alert $alertAt%)',

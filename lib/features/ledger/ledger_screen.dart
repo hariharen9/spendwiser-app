@@ -836,7 +836,7 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
 
     switch (_sort) {
       case 'old':
-        list.sort((a, b) => a.date.compareTo(b.date));
+        list.sort(compareTransactionsOldestFirst);
       case 'largest':
         list.sort((a, b) => b.amount.abs().compareTo(a.amount.abs()));
       case 'smallest':
@@ -854,10 +854,12 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
       case 'category':
         list.sort((a, b) {
           final category = a.category.compareTo(b.category);
-          return category != 0 ? category : b.date.compareTo(a.date);
+          return category != 0
+              ? category
+              : compareTransactionsNewestFirst(a, b);
         });
       default:
-        list.sort((a, b) => b.date.compareTo(a.date));
+        list.sort(compareTransactionsNewestFirst);
     }
     return list;
   }

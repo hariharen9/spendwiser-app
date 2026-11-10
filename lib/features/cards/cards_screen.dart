@@ -762,7 +762,7 @@ class _Transactions extends ConsumerWidget {
                       )),
             )
             .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
+          ..sort(compareTransactionsNewestFirst);
     final categories = <String>{
       for (final t in snapshot.forCard(card.id)) t.category,
     }.toList();

@@ -104,6 +104,14 @@ String shortDate(DateTime date) =>
 String longDate(DateTime date) =>
     '${weekdayFullSun[date.weekday % 7]}, ${date.day} ${monthFull[date.month - 1]}';
 
+/// "3:42 PM" in the device's local time.
+String clockTime(DateTime date) {
+  final local = date.toLocal();
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute ${local.hour < 12 ? 'AM' : 'PM'}';
+}
+
 /// "Today", "Yesterday", "Mon 9 Nov"
 String dayLabel(DateTime date, {DateTime? now}) {
   final n = todayFrom(now);

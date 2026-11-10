@@ -29,6 +29,7 @@ class ParsedCapture {
       category: category ?? this.category,
       amount: isIncome ? amount.abs() : -amount.abs(),
       date: date ?? DateTime.now(),
+      addedAt: DateTime.now(),
       accountId: accountId,
     );
   }
