@@ -833,10 +833,7 @@ class _NetWorthTab extends StatelessWidget {
             ).month -
             1],
     ];
-    final liabilities = snapshot.loans.fold<double>(
-      0,
-      (total, loan) => total + loan.original,
-    );
+    final liabilities = snapshot.cardDues + snapshot.loanOutstanding;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -846,11 +843,12 @@ class _NetWorthTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Net worth · last 6 months',
+                'Liquid net worth · last 6 months',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
               AnimatedAmount(
                 value: snapshot.netWorth,
+                formatter: (value) => formatINR(value),
                 style: AppTypography.serif(
                   size: 44,
                   color: c.tx,
@@ -883,15 +881,7 @@ class _NetWorthTab extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 10),
               ),
               KeyValueRow(
-                label: 'Investments',
-                value: MoneyText(
-                  rupee(snapshot.investmentsValue),
-                  style: AppTypography.sans(size: 14, color: c.tx),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              KeyValueRow(
-                label: 'Loan principal',
+                label: 'Cards + loans',
                 value: MoneyText(
                   '−${rupee(liabilities)}',
                   style: AppTypography.sans(size: 14, color: c.co),

@@ -9,7 +9,7 @@ enum AppFontMode { dmSans, serif, mono }
 /// Reorderable / hideable Home widgets, mirroring the prototype's Customize
 /// Home sheet.
 enum HomeWidget {
-  netWorth('Net worth'),
+  netWorth('Balance'),
   quickAdd('Quick add'),
   safeRing('Safe to spend'),
   comingUp('Coming up'),

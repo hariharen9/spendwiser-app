@@ -21,7 +21,7 @@ enum AppModule {
   accounts(
     id: 'accounts',
     label: 'Banks',
-    subtitle: 'Accounts & net worth',
+    subtitle: 'Bank accounts & cash',
     icon: 'accounts',
     tint: Color(0xFF2DD4BF),
   ),

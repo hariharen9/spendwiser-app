@@ -1,4 +1,5 @@
 import '../mock/mock_finance_store.dart';
+import '../models/account.dart';
 import 'firestore_mappers.dart';
 import 'firestore_refs.dart';
 import 'firestore_utils.dart';
@@ -35,6 +36,7 @@ class DemoDataSeeder {
     final batch = refs.db.batch();
 
     for (final account in snapshot.accounts) {
+      if (account.type == AccountType.investments) continue;
       final opening = account.balance -
           (deltas[account.id] ?? 0) +
           (paymentDebits[account.id] ?? 0);

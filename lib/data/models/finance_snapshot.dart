@@ -34,6 +34,7 @@ class FinanceSnapshot {
     this.totalBudgetOverride,
     this.hasMockData = false,
     this.shortcuts = const [],
+    this.excludeInvestments = false,
   });
 
   final List<Transaction> transactions;
@@ -62,6 +63,9 @@ class FinanceSnapshot {
 
   final List<Shortcut> shortcuts;
 
+  /// Cloud snapshots hide investment-type accounts from every total.
+  final bool excludeInvestments;
+
   static const double propertyValue = 2800000;
 
   factory FinanceSnapshot.empty() => FinanceSnapshot(
@@ -80,8 +84,16 @@ class FinanceSnapshot {
     generatedAt: DateTime.now(),
   );
 
-  double get accountsTotal =>
-      accounts.fold(0, (sum, account) => sum + account.balance);
+  double get accountsTotal {
+    var total = 0.0;
+    for (final account in accounts) {
+      if (excludeInvestments && account.type == AccountType.investments) {
+        continue;
+      }
+      total += account.balance;
+    }
+    return total;
+  }
 
   double get investmentsValue =>
       investments.fold(0, (sum, holding) => sum + holding.value);

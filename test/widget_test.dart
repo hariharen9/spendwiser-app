@@ -24,7 +24,7 @@ void main() {
     await tester.pump(const Duration(seconds: 7));
 
     expect(find.textContaining('Good '), findsOneWidget);
-    expect(find.text('TOTAL NET WORTH'), findsOneWidget);
+    expect(find.text('CURRENT BALANCE'), findsOneWidget);
     expect(find.text('Safe to spend today'), findsOneWidget);
     expect(find.text('Customize Home'), findsOneWidget);
   });

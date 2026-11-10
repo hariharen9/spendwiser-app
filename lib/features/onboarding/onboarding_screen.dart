@@ -226,7 +226,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: GestureDetector(
-                  onTap: () => setState(() => _accent = accent),
+                  onTap: () {
+                    setState(() => _accent = accent);
+                    ref.read(settingsProvider.notifier).patch(accent: accent);
+                  },
                   child: Container(
                     width: 34,
                     height: 34,
@@ -249,7 +252,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             SegmentedOption(AppThemeMode.light, 'Light'),
           ],
           selected: _theme,
-          onChanged: (value) => setState(() => _theme = value),
+          onChanged: (value) {
+            setState(() => _theme = value);
+            ref.read(settingsProvider.notifier).patch(theme: value);
+          },
         ),
         AppButton(
           label: 'Continue',

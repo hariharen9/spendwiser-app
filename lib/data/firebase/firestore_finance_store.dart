@@ -451,13 +451,16 @@ class FirestoreFinanceStore
       ..clear()
       ..addAll(historyByGroup);
 
-    final loansOriginal = loans.fold<double>(
+    final accountsTotal = accounts
+        .where((account) => account.type != AccountType.investments)
+        .fold<double>(0, (total, account) => total + account.balance);
+    final cardDues = cards.fold<double>(
       0,
-      (total, loan) => total + loan.original,
+      (total, card) => total + card.outstanding,
     );
-    final accountsTotal = accounts.fold<double>(
+    final loanOutstanding = loans.fold<double>(
       0,
-      (total, account) => total + account.balance,
+      (total, loan) => total + loan.outstanding,
     );
 
     final totalLimit = _totalBudgetDoc == null
@@ -490,10 +493,11 @@ class FirestoreFinanceStore
       tags: List.unmodifiable(profile.tags.map((tag) => tag.name)),
       revision: _revision,
       generatedAt: now,
-      netWorthOverride: accountsTotal - loansOriginal,
+      netWorthOverride: accountsTotal - cardDues - loanOutstanding,
       totalBudgetOverride: totalBudgetOverride,
       hasMockData: hasMockData,
       shortcuts: List.unmodifiable(shortcuts),
+      excludeInvestments: true,
     );
     _controller.add(_snapshot);
   }
@@ -692,6 +696,8 @@ class FirestoreFinanceStore
       'isMock': false,
     };
     final ref = await refs.accounts.add(payload);
+    _accountDocs[ref.id] = Map<String, dynamic>.from(payload);
+    _emit();
     return Account(
       id: ref.id,
       name: name,
@@ -706,12 +712,26 @@ class FirestoreFinanceStore
     try {
       final delta = _accountDelta(account.id);
       final opening = account.balance - delta;
+      final remoteType =
+          account.remoteType == 'Wallet' && account.type == AccountType.cash
+          ? 'Wallet'
+          : remoteAccountType(null, account.type);
       await refs.accounts.doc(account.id).update({
         'name': account.name,
-        'type': remoteAccountType(account.remoteType, account.type),
+        'type': remoteType,
         'balance': opening,
         if (account.last4 != null) 'last4Digits': account.last4,
       });
+      final existing =
+          _accountDocs[account.id] ?? const <String, dynamic>{};
+      _accountDocs[account.id] = {
+        ...existing,
+        'name': account.name,
+        'type': remoteType,
+        'balance': opening,
+        if (account.last4 != null) 'last4Digits': account.last4,
+      };
+      _emit();
     } catch (error) {
       _error('Could not update account: $error');
     }
@@ -731,6 +751,8 @@ class FirestoreFinanceStore
   Future<void> removeAccount(String accountId) async {
     try {
       await refs.accounts.doc(accountId).delete();
+      _accountDocs.remove(accountId);
+      _emit();
     } catch (error) {
       _error('Could not remove account: $error');
     }

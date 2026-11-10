@@ -12,6 +12,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/pressable.dart';
+import '../../data/models/account.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../../data/services/finance_calculator.dart';
 import '../insights/ask_spendwiser_sheet.dart';
@@ -63,7 +64,8 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
       AppModule.home =>
         '${compactINR(FinanceCalculator.safeToSpend(s, now: now).perDay)} safe today',
       AppModule.ledger => '${s.transactions.length} entries',
-      AppModule.accounts => 'Net ${compactINR(s.accountsTotal - s.cardDues)}',
+      AppModule.accounts =>
+        '${compactINR(s.accounts.where((a) => a.type != AccountType.investments).fold<double>(0, (sum, a) => sum + a.balance))} available',
       AppModule.cards =>
         '${compactINR(s.cardDues)} due${s.cards.isEmpty ? '' : ' · ${math.max(0, FinanceCalculator.earliestCardDue(s)?.days ?? 0)}d'}',
       AppModule.budgets =>

@@ -20,6 +20,7 @@ import '../../core/widgets/money_text.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/transaction_row.dart';
+import '../../data/models/account.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/bill.dart';
 import '../../data/models/finance_snapshot.dart';
@@ -144,126 +145,50 @@ class _NetWorthHero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.spend;
-    final now = DateTime.now();
-    final flow = snapshot.flow(monthStart(now));
-    final saved = flow.saved;
-    final worth = snapshot.netWorth;
-    final pct = worth == 0 ? 0.0 : (saved.abs() / worth * 100);
-    final runway = FinanceCalculator.runwayMonths(snapshot, now: now);
+    final balance = snapshot.accounts
+        .where(
+          (account) =>
+              account.type == AccountType.savings ||
+              account.type == AccountType.cash,
+        )
+        .fold<double>(0, (sum, account) => sum + account.balance);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GlowCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return GlowCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Text(
-                    'TOTAL NET WORTH',
-                    style: AppTypography.sans(
-                      size: 11,
-                      color: c.mu,
-                      letterSpacing: 1.32,
-                    ),
-                  ),
-                  const Spacer(),
-                  Pressable(
-                    onTap: onInsights,
-                    child: Text(
-                      'Insights →',
-                      style: AppTypography.sans(size: 12, color: c.ac),
-                    ),
-                  ),
-                ],
-              ),
-              AnimatedAmount(
-                value: worth,
-                style: AppTypography.serif(
-                  size: 50,
-                  color: c.tx,
-                  letterSpacing: -1,
-                  height: 1.05,
+              Text(
+                'CURRENT BALANCE',
+                style: AppTypography.sans(
+                  size: 11,
+                  color: c.mu,
+                  letterSpacing: 1.32,
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  AppPill(
-                    label:
-                        '${saved >= 0 ? '+' : '−'}${pct.toStringAsFixed(1)}%',
-                    active: true,
-                    fontSize: 12,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: MoneyText(
-                      '${saved >= 0 ? '+' : '−'}${rupee(saved)} this month',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                margin: const EdgeInsets.only(top: 14),
-                padding: const EdgeInsets.only(top: 12),
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: c.ln)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Financial runway',
-                      style: AppTypography.sans(size: 13, color: c.mu),
-                    ),
-                    Text(
-                      '${runway.toStringAsFixed(1)} months safe',
-                      style: AppTypography.sans(
-                        size: 13,
-                        color: c.tx,
-                        weight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+              const Spacer(),
+              Pressable(
+                onTap: onInsights,
+                child: Text(
+                  'Insights →',
+                  style: AppTypography.sans(size: 12, color: c.ac),
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        _Trio(flow: flow),
-      ],
-    );
-  }
-}
-
-class _Trio extends StatelessWidget {
-  const _Trio({required this.flow});
-
-  final MonthFlow flow;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: MetricTile(label: 'Income', value: compactINR(flow.income)),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: MetricTile(label: 'Spent', value: compactINR(flow.expense)),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: MetricTile(
-            label: 'Saved',
-            value: '${flow.savingsRate.round()}%',
-            valueColor: context.spend.ac,
+          AnimatedAmount(
+            value: balance,
+            formatter: (value) => formatINR(value),
+            style: AppTypography.serif(
+              size: 50,
+              color: c.tx,
+              letterSpacing: -1,
+              height: 1.05,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -8,7 +8,6 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
@@ -18,6 +17,11 @@ import '../../data/models/account.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../transactions/edit_transaction_sheet.dart';
 
+const _accountTypeOptions = <AppSelectOption<AccountType>>[
+  AppSelectOption(AccountType.savings, 'Bank account'),
+  AppSelectOption(AccountType.cash, 'Cash'),
+];
+
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
@@ -25,210 +29,115 @@ class AccountsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.spend;
     final snapshot = ref.watch(financeSnapshotProvider);
-    final assets = snapshot.accountsTotal;
-    final dues = snapshot.cardDues;
-    final portfolioValue = snapshot.investmentsValue;
-    final portfolioInvested = snapshot.investments.fold<double>(
+    final bankAccounts = snapshot.accounts
+        .where((account) => account.type == AccountType.savings)
+        .toList();
+    final cashAccounts = snapshot.accounts
+        .where((account) => account.type == AccountType.cash)
+        .toList();
+    final bankTotal = bankAccounts.fold<double>(
       0,
-      (sum, i) => sum + i.invested,
+      (sum, account) => sum + account.balance,
     );
+    final cashTotal = cashAccounts.fold<double>(
+      0,
+      (sum, account) => sum + account.balance,
+    );
+    final available = bankTotal + cashTotal;
+    final accountCount = bankAccounts.length + cashAccounts.length;
 
     return ScreenScroll(
       children: [
         PageHeader(
           title: 'Banks',
-          subtitle: 'Net worth ${rupee(snapshot.netWorth)}',
+          subtitle: accountCount == 0
+              ? 'Bank & cash balances'
+              : '$accountCount account${accountCount == 1 ? '' : 's'} · ${rupee(available)} available',
         ),
-        const SectionCaption('Portfolio'),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'Available across banks & cash',
+                style: AppTypography.sans(size: 12, color: c.mu),
+              ),
+              MoneyText(
+                rupee(available),
+                style: AppTypography.serif(
+                  size: 42,
+                  color: c.tx,
+                  letterSpacing: -0.8,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 12),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Current value',
-                          style: AppTypography.sans(size: 12, color: c.mu),
-                        ),
-                        MoneyText(
-                          rupee(portfolioValue),
-                          style: AppTypography.serif(size: 34, color: c.tx),
-                        ),
-                      ],
+                    child: MetricTile(
+                      label: 'In banks',
+                      value: rupee(bankTotal),
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${portfolioValue >= portfolioInvested ? '+' : '−'}${rupee(portfolioValue - portfolioInvested)}',
-                        style: AppTypography.sans(
-                          size: 13,
-                          color: portfolioValue >= portfolioInvested
-                              ? c.ac
-                              : c.co,
-                        ),
-                      ),
-                      Text(
-                        '${portfolioInvested == 0 ? 0 : ((portfolioValue / portfolioInvested - 1) * 100).toStringAsFixed(1)}% overall',
-                        style: AppTypography.sans(size: 12, color: c.mu),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              for (var i = 0; i < snapshot.investments.length; i++)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    border: i < snapshot.investments.length - 1
-                        ? Border(bottom: BorderSide(color: c.ln))
-                        : null,
-                  ),
-                  child: Row(
-                    children: [
-                      MerchantAvatar(
-                        merchant: snapshot.investments[i].name,
-                        category: 'Income',
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              snapshot.investments[i].name,
-                              style: AppTypography.sans(size: 14, color: c.tx),
-                            ),
-                            Text(
-                              '${snapshot.investments[i].type}${snapshot.investments[i].monthlySip > 0 ? ' · SIP ${rupee(snapshot.investments[i].monthlySip)}' : ''}',
-                              style: AppTypography.sans(size: 12, color: c.mu),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          MoneyText(
-                            rupee(snapshot.investments[i].value),
-                            style: AppTypography.sans(size: 14, color: c.tx),
-                          ),
-                          Text(
-                            '${snapshot.investments[i].gain >= 0 ? '+' : '−'}${snapshot.investments[i].gainPercent.abs().toStringAsFixed(1)}%',
-                            style: AppTypography.sans(
-                              size: 11,
-                              color: snapshot.investments[i].gain >= 0
-                                  ? c.ac
-                                  : c.co,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              AppButton(
-                label: '+ Add holding',
-                onTap: () {
-                  ref
-                      .read(toastProvider.notifier)
-                      .show('Holdings are read-only in this demo');
-                },
-              ),
-            ],
-          ),
-        ),
-        const SectionCaption('Accounts & Dues'),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Assets',
-                    style: AppTypography.sans(size: 14, color: c.mu),
-                  ),
-                  const Spacer(),
-                  MoneyText(
-                    rupee(assets),
-                    style: AppTypography.sans(
-                      size: 14,
-                      color: c.tx,
-                      weight: FontWeight.w500,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MetricTile(
+                      label: 'Cash in hand',
+                      value: rupee(cashTotal),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: LinearProgressIndicator(
-                  value: assets + dues == 0 ? 0 : assets / (assets + dues),
-                  minHeight: 6,
-                  backgroundColor: c.c2,
-                  valueColor: AlwaysStoppedAnimation(c.ac),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    'Card dues',
-                    style: AppTypography.sans(size: 14, color: c.mu),
-                  ),
-                  const Spacer(),
-                  MoneyText(
-                    rupee(dues),
-                    style: AppTypography.sans(size: 14, color: c.co),
                   ),
                 ],
               ),
             ],
           ),
         ),
-        for (final type in AccountType.values) ...[
-          if (snapshot.accounts.any((a) => a.type == type)) ...[
-            SectionCaption(type.label),
-            AppCard(
-              child: Column(
-                children: [
-                  for (final entry
-                      in snapshot.accounts
-                          .where((a) => a.type == type)
-                          .toList()
-                          .asMap()
-                          .entries)
-                    _AccountRow(
-                      account: entry.value,
-                      showDivider:
-                          entry.key <
-                          snapshot.accounts
-                                  .where((a) => a.type == type)
-                                  .length -
-                              1,
-                      onTap: () => _showAccount(context, ref, entry.value),
-                    ),
-                ],
-              ),
+        if (accountCount == 0)
+          EmptyState(
+            title: 'No bank accounts yet',
+            message: 'Add a bank account or cash balance to start tracking.',
+            actionLabel: 'Add account',
+            onAction: () => _showAddAccount(context, ref),
+          ),
+        if (bankAccounts.isNotEmpty) ...[
+          const SectionCaption('Bank accounts'),
+          AppCard(
+            child: Column(
+              children: [
+                for (var i = 0; i < bankAccounts.length; i++)
+                  _AccountRow(
+                    account: bankAccounts[i],
+                    showDivider: i < bankAccounts.length - 1,
+                    onTap: () => _showAccount(context, ref, bankAccounts[i]),
+                  ),
+              ],
             ),
-          ],
+          ),
+        ],
+        if (cashAccounts.isNotEmpty) ...[
+          const SectionCaption('Cash'),
+          AppCard(
+            child: Column(
+              children: [
+                for (var i = 0; i < cashAccounts.length; i++)
+                  _AccountRow(
+                    account: cashAccounts[i],
+                    showDivider: i < cashAccounts.length - 1,
+                    onTap: () => _showAccount(context, ref, cashAccounts[i]),
+                  ),
+              ],
+            ),
+          ),
         ],
         AppButton(
           label: '+ Add account',
           onTap: () => _showAddAccount(context, ref),
         ),
-        AppButton(
-          label: 'Transfer between accounts',
-          onTap: () => _showTransfer(context, ref, snapshot),
-        ),
+        if (accountCount >= 2)
+          AppButton(
+            label: 'Transfer between accounts',
+            onTap: () => _showTransfer(context, ref, snapshot),
+          ),
       ],
     );
   }
@@ -264,10 +173,7 @@ class AccountsScreen extends ConsumerWidget {
                   Expanded(
                     child: AppSelect<AccountType>(
                       value: type,
-                      options: [
-                        for (final t in AccountType.values)
-                          AppSelectOption(t, t.label),
-                      ],
+                      options: _accountTypeOptions,
                       onChanged: (value) =>
                           setSheetState(() => type = value ?? account.type),
                     ),
@@ -369,10 +275,7 @@ class AccountsScreen extends ConsumerWidget {
               ),
               AppSelect<AccountType>(
                 value: type,
-                options: [
-                  for (final t in AccountType.values)
-                    AppSelectOption(t, t.label),
-                ],
+                options: _accountTypeOptions,
                 onChanged: (value) =>
                     setSheetState(() => type = value ?? AccountType.savings),
               ),
@@ -405,12 +308,15 @@ class AccountsScreen extends ConsumerWidget {
     WidgetRef ref,
     FinanceSnapshot snapshot,
   ) {
-    if (snapshot.accounts.length < 2) {
+    final transferable = snapshot.accounts
+        .where((account) => account.type != AccountType.investments)
+        .toList();
+    if (transferable.length < 2) {
       ref.read(toastProvider.notifier).show('Add two accounts first');
       return;
     }
-    var from = snapshot.accounts.first.id;
-    var to = snapshot.accounts[1].id;
+    var from = transferable.first.id;
+    var to = transferable[1].id;
     final amount = TextEditingController();
     showAppSheet<void>(
       context,
@@ -427,7 +333,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: AppSelect<String>(
                       value: from,
                       options: [
-                        for (final account in snapshot.accounts)
+                        for (final account in transferable)
                           AppSelectOption(account.id, account.name),
                       ],
                       onChanged: (value) =>
@@ -439,7 +345,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: AppSelect<String>(
                       value: to,
                       options: [
-                        for (final account in snapshot.accounts)
+                        for (final account in transferable)
                           AppSelectOption(account.id, account.name),
                       ],
                       onChanged: (value) =>
@@ -511,7 +417,7 @@ class _AccountRow extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                account.name.substring(0, 1),
+                account.name.isEmpty ? '?' : account.name.substring(0, 1),
                 style: AppTypography.sans(size: 12, color: c.tx),
               ),
             ),
@@ -525,7 +431,11 @@ class _AccountRow extends StatelessWidget {
                     style: AppTypography.sans(size: 14, color: c.tx),
                   ),
                   Text(
-                    account.type.label,
+                    account.type == AccountType.cash
+                        ? 'Cash'
+                        : (account.last4 == null || account.last4!.isEmpty
+                              ? 'Bank account'
+                              : 'Bank · •••• ${account.last4}'),
                     style: AppTypography.sans(size: 12, color: c.mu),
                   ),
                 ],
