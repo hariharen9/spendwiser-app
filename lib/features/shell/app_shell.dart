@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +32,14 @@ import '../subscriptions/subscriptions_screen.dart';
 import '../tools/tools_screen.dart';
 import 'app_module.dart';
 
+const _swipeCycle = <AppModule>[
+  AppModule.home,
+  AppModule.ledger,
+  AppModule.cards,
+  AppModule.debt,
+  AppModule.settings,
+];
+
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
@@ -50,6 +57,13 @@ class _AppShellState extends ConsumerState<AppShell>
   bool _showOnboarding = false;
   bool _transitionReverse = false;
   DateTime? _pausedAt;
+  final List<AppModule> _history = <AppModule>[];
+  int _cycleCursor = 0;
+  double _swipeDx = 0;
+  final ValueNotifier<double> _swipeProgress = ValueNotifier<double>(0);
+  final ValueNotifier<AppModule?> _swipeTarget = ValueNotifier<AppModule?>(
+    null,
+  );
 
   late final AnimationController _fabPulse;
 
@@ -97,18 +111,127 @@ class _AppShellState extends ConsumerState<AppShell>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _fabPulse.dispose();
+    _swipeProgress.dispose();
+    _swipeTarget.dispose();
     super.dispose();
   }
 
-  void _go(AppModule module) {
-    if (_module == module && !_launcherOpen && !_radialOpen) return;
+  bool get _canSwipe =>
+      !_launcherOpen &&
+      !_radialOpen &&
+      !_showOnboarding &&
+      !ref.read(securityProvider).isLocked;
+
+  void _go(AppModule module, {bool? reverse}) {
+    final same = _module == module;
+    if (same && !_launcherOpen && !_radialOpen) return;
     Haptics.light();
+    if (!same) {
+      _history.add(_module);
+      if (_history.length > 24) _history.removeAt(0);
+    }
+    final cycleIndex = _swipeCycle.indexOf(module);
+    if (cycleIndex >= 0) _cycleCursor = cycleIndex;
     setState(() {
-      _transitionReverse = module.index < _module.index;
+      _transitionReverse = reverse ?? module.index < _module.index;
       _module = module;
       _launcherOpen = false;
       _radialOpen = false;
     });
+  }
+
+  void _handleBack() {
+    if (_showOnboarding || ref.read(securityProvider).isLocked) return;
+    if (_launcherOpen) {
+      setState(() => _launcherOpen = false);
+      return;
+    }
+    if (_radialOpen) {
+      setState(() => _radialOpen = false);
+      return;
+    }
+    if (_swipeProgress.value > 0) {
+      _resetSwipe();
+      return;
+    }
+    if (_history.isNotEmpty) {
+      final previous = _history.removeLast();
+      final cycleIndex = _swipeCycle.indexOf(previous);
+      if (cycleIndex >= 0) _cycleCursor = cycleIndex;
+      Haptics.light();
+      setState(() {
+        _transitionReverse = true;
+        _module = previous;
+        _launcherOpen = false;
+        _radialOpen = false;
+      });
+      return;
+    }
+    if (_module != AppModule.home) {
+      _cycleCursor = 0;
+      Haptics.light();
+      setState(() {
+        _transitionReverse = true;
+        _module = AppModule.home;
+        _launcherOpen = false;
+        _radialOpen = false;
+      });
+      return;
+    }
+    SystemNavigator.pop();
+  }
+
+  void _onSwipeStart(DragStartDetails details) {
+    if (!_canSwipe) return;
+    _swipeDx = 0;
+    _swipeProgress.value = 0;
+    _swipeTarget.value = null;
+  }
+
+  void _onSwipeUpdate(DragUpdateDetails details) {
+    if (!_canSwipe) return;
+    _swipeDx += details.delta.dx;
+    final target = _swipeTargetFor(_swipeDx);
+    if (target != _swipeTarget.value) {
+      _swipeTarget.value = target;
+      if (target != null) Haptics.light();
+    }
+    _swipeProgress.value = (_swipeDx.abs() / 140).clamp(0, 1);
+  }
+
+  void _onSwipeEnd(DragEndDetails details) {
+    if (!_canSwipe) {
+      _resetSwipe();
+      return;
+    }
+    final velocity = details.primaryVelocity ?? 0;
+    final enough = _swipeDx.abs() > 58 || velocity.abs() > 500;
+    if (!enough) {
+      _resetSwipe();
+      return;
+    }
+    final forward = velocity.abs() > 420 ? velocity < 0 : _swipeDx < 0;
+    final index =
+        (_cycleCursor + (forward ? 1 : -1) + _swipeCycle.length) %
+        _swipeCycle.length;
+    final target = _swipeCycle[index];
+    Haptics.medium();
+    _resetSwipe();
+    _go(target, reverse: !forward);
+  }
+
+  AppModule? _swipeTargetFor(double dx) {
+    if (dx.abs() < 8) return null;
+    final direction = dx < 0 ? 1 : -1;
+    final index =
+        (_cycleCursor + direction + _swipeCycle.length) % _swipeCycle.length;
+    return _swipeCycle[index];
+  }
+
+  void _resetSwipe() {
+    _swipeDx = 0;
+    _swipeProgress.value = 0;
+    _swipeTarget.value = null;
   }
 
   void _toggleLauncher() {
@@ -149,176 +272,229 @@ class _AppShellState extends ConsumerState<AppShell>
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: overlayStyle.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ),
-      child: Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: AtmosphereBackground(
-                tint: _module.atmosphereTint,
-                child: const SizedBox.expand(),
-              ),
-            ),
-            Positioned.fill(
-              child: PageTransitionSwitcher(
-                duration: const Duration(milliseconds: 420),
-                reverse: _transitionReverse,
-                layoutBuilder: (entries) => Stack(
-                  fit: StackFit.expand,
-                  children: entries,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: overlayStyle.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
+        child: Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: AtmosphereBackground(
+                  tint: _module.atmosphereTint,
+                  child: const SizedBox.expand(),
                 ),
-                transitionBuilder:
-                    (child, primaryAnimation, secondaryAnimation) {
-                      return SharedAxisTransition(
-                        animation: primaryAnimation,
-                        secondaryAnimation: secondaryAnimation,
-                        transitionType: SharedAxisTransitionType.horizontal,
-                        fillColor: Colors.transparent,
-                        child: child,
+              ),
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragStart: _onSwipeStart,
+                  onHorizontalDragUpdate: _onSwipeUpdate,
+                  onHorizontalDragEnd: _onSwipeEnd,
+                  onHorizontalDragCancel: _resetSwipe,
+                  child: PageTransitionSwitcher(
+                    duration: const Duration(milliseconds: 420),
+                    reverse: _transitionReverse,
+                    layoutBuilder: (entries) =>
+                        Stack(fit: StackFit.expand, children: entries),
+                    transitionBuilder:
+                        (child, primaryAnimation, secondaryAnimation) {
+                          return SharedAxisTransition(
+                            animation: primaryAnimation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.horizontal,
+                            fillColor: Colors.transparent,
+                            child: child,
+                          );
+                        },
+                    child: KeyedSubtree(
+                      key: ValueKey(_module),
+                      child: RepaintBoundary(
+                        child: KeyedSubtree(
+                          key: ValueKey(
+                            '${settings.font.name}_${settings.theme.name}',
+                          ),
+                          child: _screenFor(_module),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 120,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          c.bg.withValues(alpha: 0),
+                          c.bg.withValues(alpha: 0.92),
+                        ],
+                        stops: const [0, 0.8],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: math.max(4, MediaQuery.paddingOf(context).bottom),
+                child: _SwipeEdgeFeedback(
+                  progress: _swipeProgress,
+                  target: _swipeTarget,
+                  current: _module,
+                ),
+              ),
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  reverseDuration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ...previous.map((w) => IgnorePointer(child: w)),
+                      ?current,
+                    ],
+                  ),
+                  child: _launcherOpen
+                      ? OrbLauncher(
+                          key: const ValueKey('orb_launcher'),
+                          current: _module,
+                          onNavigate: _go,
+                          onClose: _toggleLauncher,
+                        )
+                      : const IgnorePointer(
+                          key: ValueKey('no_launcher'),
+                          child: SizedBox.shrink(),
+                        ),
+                ),
+              ),
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  reverseDuration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ...previous.map((w) => IgnorePointer(child: w)),
+                      ?current,
+                    ],
+                  ),
+                  child: _radialOpen
+                      ? RadialOrbitOverlay(
+                          key: _radialKey,
+                          current: _module,
+                          fabBottom: _fabBottom(context),
+                          initialPointer: _radialPointer,
+                          onNavigate: (module) {
+                            _go(module);
+                          },
+                          onClose: () => setState(() => _radialOpen = false),
+                        )
+                      : const IgnorePointer(
+                          key: ValueKey('no_radial'),
+                          child: SizedBox.shrink(),
+                        ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: _fabBottom(context) + 88,
+                child: IgnorePointer(
+                  child: ValueListenableBuilder<AppModule?>(
+                    valueListenable: _swipeTarget,
+                    builder: (context, target, _) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: target == null
+                          ? const SizedBox.shrink(key: ValueKey('no-target'))
+                          : Center(
+                              key: ValueKey(target),
+                              child: _SwipeTargetPill(module: target),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: _fabBottom(context),
+                child: Center(
+                  child: ValueListenableBuilder<AppModule?>(
+                    valueListenable: _swipeTarget,
+                    builder: (context, target, _) {
+                      return ValueListenableBuilder<double>(
+                        valueListenable: _swipeProgress,
+                        builder: (context, progress, _) {
+                          return _OrbFab(
+                            module: target ?? _module,
+                            swipeProgress: progress,
+                            open: _launcherOpen,
+                            radialOpen: _radialOpen,
+                            pulse: _fabPulse,
+                            onTap: _toggleLauncher,
+                            onRadialOpen: (pos) {
+                              setState(() {
+                                _radialOpen = true;
+                                _radialPointer = pos;
+                                _launcherOpen = false;
+                              });
+                            },
+                            onRadialDrag: (pos) {
+                              _radialKey.currentState?.updatePointer(pos);
+                            },
+                            onRadialEnd: (pos) {
+                              _radialKey.currentState?.handlePointerUp(pos);
+                            },
+                          );
+                        },
                       );
                     },
-                child: KeyedSubtree(
-                  key: ValueKey(_module),
-                  child: RepaintBoundary(
-                    child: KeyedSubtree(
-                      key: ValueKey(
-                        '${settings.font.name}_${settings.theme.name}',
-                      ),
-                      child: _screenFor(_module),
-                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 120,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        c.bg.withValues(alpha: 0),
-                        c.bg.withValues(alpha: 0.92),
-                      ],
-                      stops: const [0, 0.8],
-                    ),
+              Positioned(
+                top: 56,
+                left: 20,
+                right: 20,
+                child: const _ToastOverlay(),
+              ),
+              if (ref.watch(securityProvider).isLocked)
+                Positioned.fill(
+                  child: LockScreen(
+                    onUnlocked: () =>
+                        ref.read(securityProvider.notifier).unlock(),
                   ),
                 ),
-              ),
-            ),
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                reverseDuration: const Duration(milliseconds: 240),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                layoutBuilder: (current, previous) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ...previous.map((w) => IgnorePointer(child: w)),
-                    ?current,
-                  ],
-                ),
-                child: _launcherOpen
-                    ? OrbLauncher(
-                        key: const ValueKey('orb_launcher'),
-                        current: _module,
-                        onNavigate: _go,
-                        onClose: _toggleLauncher,
-                      )
-                    : const IgnorePointer(
-                        key: ValueKey('no_launcher'),
-                        child: SizedBox.shrink(),
-                      ),
-              ),
-            ),
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                reverseDuration: const Duration(milliseconds: 240),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                layoutBuilder: (current, previous) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ...previous.map((w) => IgnorePointer(child: w)),
-                    ?current,
-                  ],
-                ),
-                child: _radialOpen
-                    ? RadialOrbitOverlay(
-                        key: _radialKey,
-                        current: _module,
-                        fabBottom: _fabBottom(context),
-                        initialPointer: _radialPointer,
-                        onNavigate: (module) {
-                          _go(module);
-                        },
-                        onClose: () => setState(() => _radialOpen = false),
-                      )
-                    : const IgnorePointer(
-                        key: ValueKey('no_radial'),
-                        child: SizedBox.shrink(),
-                      ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: _fabBottom(context),
-              child: Center(
-                child: _OrbFab(
-                  module: _module,
-                  open: _launcherOpen,
-                  radialOpen: _radialOpen,
-                  pulse: _fabPulse,
-                  onTap: _toggleLauncher,
-                  onRadialOpen: (pos) {
-                    setState(() {
-                      _radialOpen = true;
-                      _radialPointer = pos;
-                      _launcherOpen = false;
-                    });
-                  },
-                  onRadialDrag: (pos) {
-                    _radialKey.currentState?.updatePointer(pos);
-                  },
-                  onRadialEnd: (pos) {
-                    _radialKey.currentState?.handlePointerUp(pos);
+              if (_showOnboarding)
+                OnboardingOverlay(
+                  onDone: () {
+                    setState(() => _showOnboarding = false);
+                    _go(AppModule.home);
                   },
                 ),
-              ),
-            ),
-            Positioned(
-              top: 56,
-              left: 20,
-              right: 20,
-              child: const _ToastOverlay(),
-            ),
-            if (ref.watch(securityProvider).isLocked)
-              Positioned.fill(
-                child: LockScreen(
-                  onUnlocked: () => ref.read(securityProvider.notifier).unlock(),
-                ),
-              ),
-            if (_showOnboarding)
-              OnboardingOverlay(
-                onDone: () {
-                  setState(() => _showOnboarding = false);
-                  _go(AppModule.home);
-                },
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -328,9 +504,139 @@ class _AppShellState extends ConsumerState<AppShell>
       math.max(30, MediaQuery.paddingOf(context).bottom);
 }
 
+class _SwipeEdgeFeedback extends StatelessWidget {
+  const _SwipeEdgeFeedback({
+    required this.progress,
+    required this.target,
+    required this.current,
+  });
+
+  final ValueNotifier<double> progress;
+  final ValueNotifier<AppModule?> target;
+  final AppModule current;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return IgnorePointer(
+      child: ValueListenableBuilder<double>(
+        valueListenable: progress,
+        builder: (context, value, _) {
+          if (value <= 0.01) return const SizedBox.shrink();
+          return ValueListenableBuilder<AppModule?>(
+            valueListenable: target,
+            builder: (context, next, _) {
+              final accent = next?.tint ?? c.ac;
+              return Opacity(
+                opacity: Curves.easeOut.transform(value.clamp(0.0, 1.0)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 1.5,
+                      margin: const EdgeInsets.symmetric(horizontal: 22),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            accent.withValues(alpha: 0),
+                            accent.withValues(alpha: 0.75),
+                            accent.withValues(alpha: 0),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accent.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (final module in _swipeCycle)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            width: module == next ? 18 : 10,
+                            height: 2,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: module == current
+                                  ? c.tx
+                                  : module == next
+                                  ? accent
+                                  : c.mu.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SwipeTargetPill extends StatelessWidget {
+  const _SwipeTargetPill({required this.module});
+
+  final AppModule module;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: c.c1.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: module.tint.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: module.tint,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            module.label,
+            style: AppTypography.sans(
+              size: 10,
+              color: c.tx,
+              weight: FontWeight.w500,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OrbFab extends StatefulWidget {
   const _OrbFab({
     required this.module,
+    required this.swipeProgress,
     required this.open,
     required this.radialOpen,
     required this.pulse,
@@ -341,6 +647,7 @@ class _OrbFab extends StatefulWidget {
   });
 
   final AppModule module;
+  final double swipeProgress;
   final bool open;
   final bool radialOpen;
   final Animation<double> pulse;
@@ -353,20 +660,9 @@ class _OrbFab extends StatefulWidget {
   State<_OrbFab> createState() => _OrbFabState();
 }
 
-class _OrbFabState extends State<_OrbFab>
-    with SingleTickerProviderStateMixin {
+class _OrbFabState extends State<_OrbFab> {
   Timer? _holdTimer;
   bool _isHolding = false;
-  late final AnimationController _orbit;
-
-  @override
-  void initState() {
-    super.initState();
-    _orbit = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-  }
 
   void _onPointerDown(PointerDownEvent event) {
     if (widget.open) return;
@@ -406,7 +702,6 @@ class _OrbFabState extends State<_OrbFab>
   @override
   void dispose() {
     _holdTimer?.cancel();
-    _orbit.dispose();
     super.dispose();
   }
 
@@ -419,23 +714,12 @@ class _OrbFabState extends State<_OrbFab>
       onPointerUp: _onPointerUp,
       onPointerCancel: _onPointerCancel,
       child: AnimatedBuilder(
-        animation: Listenable.merge([widget.pulse, _orbit]),
+        animation: widget.pulse,
         builder: (context, _) {
           final t = Curves.easeInOut.transform(widget.pulse.value);
           final open = widget.open || widget.radialOpen;
-          final glass = Color.lerp(
-            c.c2,
-            c.ac,
-            c.dark ? 0.055 : 0.04,
-          )!;
-          final rim = Color.lerp(
-            c.ac,
-            Colors.white,
-            c.dark ? 0.18 : 0.45,
-          )!.withValues(alpha: open ? 0.62 : 0.38);
-          final scale = widget.open
-              ? 0.88
-              : (widget.radialOpen ? 0.90 : 1.0);
+          final scale = widget.open ? 0.88 : (widget.radialOpen ? 0.90 : 1.0);
+          final swipe = widget.swipeProgress.clamp(0.0, 1.0);
           return AnimatedScale(
             scale: scale,
             duration: const Duration(milliseconds: 400),
@@ -446,175 +730,116 @@ class _OrbFabState extends State<_OrbFab>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Transform.rotate(
-                    angle: _orbit.value * math.pi * 2,
-                    child: CustomPaint(
+                  if (swipe > 0.01)
+                    CustomPaint(
                       size: const Size.square(80),
-                      painter: _OrbHaloPainter(
-                        accent: c.ac,
-                        active: open,
+                      painter: _SwipeArcPainter(
+                        progress: swipe,
+                        color: widget.module.tint,
                       ),
                     ),
-                  ),
                   Container(
                     width: 62,
                     height: 62,
                     clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: rim, width: 1),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color.lerp(c.c2, Colors.white, c.dark ? 0.07 : 0.4)!,
+                          c.c1,
+                          Color.lerp(c.bg, Colors.black, c.dark ? 0.24 : 0.04)!,
+                        ],
+                        stops: const [0, 0.5, 1],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(
+                          alpha: c.dark ? 0.1 : 0.4,
+                        ),
+                        width: 1,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: c.dark ? 0.55 : 0.18,
+                            alpha: c.dark ? 0.46 : 0.14,
                           ),
-                          blurRadius: 24,
-                          spreadRadius: -2,
-                          offset: const Offset(0, 10),
+                          blurRadius: 18,
+                          spreadRadius: -3,
+                          offset: const Offset(0, 8),
                         ),
                         BoxShadow(
-                          color: c.ac.withValues(alpha: 0.03 + 0.015 * t),
-                          blurRadius: 28,
-                          spreadRadius: 1,
+                          color: c.ac.withValues(alpha: 0.025 + 0.012 * t),
+                          blurRadius: 20,
+                          spreadRadius: -4,
                         ),
                       ],
                     ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(
-                                alpha: c.dark ? 0.07 : 0.5,
-                              ),
-                              glass.withValues(alpha: c.dark ? 0.58 : 0.38),
-                              Colors.black.withValues(
-                                alpha: c.dark ? 0.3 : 0.06,
-                              ),
-                            ],
-                            stops: const [0, 0.46, 1],
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: _PuckRimPainter(
+                              accent: c.ac,
+                              active: open,
+                              breath: t,
+                            ),
                           ),
                         ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            DecoratedBox(
+                        Positioned(
+                          top: 12,
+                          left: 16,
+                          child: Transform.rotate(
+                            angle: -0.4,
+                            child: Container(
+                              width: 13,
+                              height: 2.4,
                               decoration: BoxDecoration(
-                                gradient: RadialGradient(
-                                  radius: 0.94,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withValues(
-                                      alpha: c.dark ? 0.24 : 0.08,
-                                    ),
-                                  ],
-                                  stops: const [0.55, 1],
+                                color: Colors.white.withValues(
+                                  alpha: c.dark ? 0.22 : 0.5,
                                 ),
+                                borderRadius: BorderRadius.circular(99),
                               ),
                             ),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: RadialGradient(
-                                  center: const Alignment(0, 0.95),
-                                  radius: 0.7,
-                                  colors: [
-                                    c.ac.withValues(alpha: 0.075),
-                                    c.ac.withValues(alpha: 0),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withValues(
-                                      alpha: c.dark ? 0.18 : 0.05,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 2,
-                              left: 4,
-                              right: 20,
-                              height: 20,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: RadialGradient(
-                                    center: const Alignment(-0.3, -0.6),
-                                    radius: 0.8,
-                                    colors: [
-                                      Colors.white.withValues(
-                                        alpha: c.dark ? 0.1 : 0.25,
-                                      ),
-                                      Colors.white.withValues(alpha: 0),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 9,
-                              left: 13,
-                              child: Transform.rotate(
-                                angle: -0.35,
-                                child: Container(
-                                  width: 19,
-                                  height: 4.5,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(
-                                      alpha: c.dark ? 0.28 : 0.55,
-                                    ),
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Center(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (child, animation) =>
-                                    RotationTransition(
-                                      turns: Tween<double>(
-                                        begin: 0.8,
-                                        end: 1,
-                                      ).animate(animation),
-                                      child: FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      ),
-                                    ),
-                                child: open
-                                    ? Transform.rotate(
-                                        key: const ValueKey('close'),
-                                        angle: math.pi / 4,
-                                        child: SpendIcon(
-                                          'close',
-                                          size: 26,
-                                          color: c.tx,
-                                          strokeWidth: 1.8,
-                                        ),
-                                      )
-                                    : SpendIcon(
-                                        widget.module.icon,
-                                        key: ValueKey(widget.module),
-                                        size: 26,
-                                        color: c.tx,
-                                        strokeWidth: 1.7,
-                                      ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                        Center(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            transitionBuilder: (child, animation) =>
+                                RotationTransition(
+                                  turns: Tween<double>(
+                                    begin: 0.92,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                                ),
+                            child: open
+                                ? Transform.rotate(
+                                    key: const ValueKey('close'),
+                                    angle: math.pi / 4,
+                                    child: SpendIcon(
+                                      'close',
+                                      size: 23,
+                                      color: c.tx,
+                                      strokeWidth: 1.6,
+                                    ),
+                                  )
+                                : SpendIcon(
+                                    widget.module.icon,
+                                    key: ValueKey(widget.module),
+                                    size: 23,
+                                    color: c.tx,
+                                    strokeWidth: 1.6,
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -627,57 +852,88 @@ class _OrbFabState extends State<_OrbFab>
   }
 }
 
-class _OrbHaloPainter extends CustomPainter {
-  const _OrbHaloPainter({required this.accent, required this.active});
+class _PuckRimPainter extends CustomPainter {
+  const _PuckRimPainter({
+    required this.accent,
+    required this.active,
+    required this.breath,
+  });
 
   final Color accent;
   final bool active;
+  final double breath;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = size.width / 2 - 2;
-    final rect = Rect.fromCircle(center: center, radius: radius);
+    final radius = size.width / 2 - 1.3;
+    final rect = Rect.fromCircle(center: center, radius: radius - 0.2);
 
     canvas.drawCircle(
       center,
       radius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.7
-        ..color = accent.withValues(alpha: active ? 0.09 : 0.045),
+        ..strokeWidth = 0.6
+        ..color = Colors.white.withValues(alpha: 0.055),
     );
 
-    final sweep = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        colors: [
-          accent.withValues(alpha: 0),
-          accent.withValues(alpha: active ? 0.12 : 0.06),
-          accent.withValues(alpha: active ? 0.42 : 0.2),
-          accent.withValues(alpha: 0),
-        ],
-        stops: const [0, 0.28, 0.64, 1],
-      ).createShader(rect);
-    canvas.drawArc(rect, -math.pi / 2, math.pi * 1.32, false, sweep);
+    if (active) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8
+          ..color = accent.withValues(alpha: 0.28),
+      );
+    }
 
-    final endAngle = -math.pi / 2 + math.pi * 1.32;
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15
+      ..strokeCap = StrokeCap.round
+      ..color = accent.withValues(alpha: active ? 0.82 : 0.42 + 0.12 * breath);
+    canvas.drawArc(rect, math.pi * 0.16, math.pi * 0.68, false, rim);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PuckRimPainter oldDelegate) =>
+      oldDelegate.accent != accent ||
+      oldDelegate.active != active ||
+      oldDelegate.breath != breath;
+}
+
+class _SwipeArcPainter extends CustomPainter {
+  const _SwipeArcPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2 - 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..color = color.withValues(alpha: 0.78);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress, false, paint);
+
+    final end = -math.pi / 2 + math.pi * 2 * progress;
     canvas.drawCircle(
-      center +
-          Offset(
-            math.cos(endAngle) * radius,
-            math.sin(endAngle) * radius,
-          ),
-      1,
-      Paint()..color = accent.withValues(alpha: active ? 0.45 : 0.22),
+      center + Offset(math.cos(end) * radius, math.sin(end) * radius),
+      1.8,
+      Paint()..color = color,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _OrbHaloPainter oldDelegate) =>
-      oldDelegate.accent != accent || oldDelegate.active != active;
+  bool shouldRepaint(covariant _SwipeArcPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
 class _ToastOverlay extends ConsumerWidget {

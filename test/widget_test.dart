@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,39 @@ void main() {
     expect(find.text('CURRENT BALANCE'), findsOneWidget);
     expect(find.text('CASH RUNWAY'), findsOneWidget);
     expect(find.text('Customize Home'), findsOneWidget);
+  });
+
+  testWidgets('Horizontal swipe moves through the cycle and back returns', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.build(const AppSettings()),
+          home: const AppShell(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 7));
+    if (find.text('✕').evaluate().isNotEmpty) {
+      await tester.tap(find.text('✕'));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    await tester.drag(
+      find.byType(PageTransitionSwitcher),
+      const Offset(-220, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('Ledger'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('CURRENT BALANCE'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
   });
 
   test('Font mode changes update AppTypography styles dynamically', () {

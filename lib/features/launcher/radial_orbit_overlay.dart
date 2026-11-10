@@ -78,7 +78,7 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
   }
 
   Offset _fabCenter(Size size) {
-    return Offset(size.width / 2, size.height - widget.fabBottom - 31);
+    return Offset(size.width / 2, size.height - widget.fabBottom - 40);
   }
 
   Offset _nodeCenter(AppModule module, Size size) {
@@ -159,139 +159,138 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
         final t = Curves.easeOutCubic.transform(_anim.value);
 
         return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (_sticky) widget.onClose();
-            },
-            onPanUpdate: (d) => updatePointer(d.globalPosition),
-            onPanEnd: (d) => handlePointerUp(d.velocity.pixelsPerSecond == Offset.zero ? center : Offset.zero),
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: 18 * t,
-                  sigmaY: 18 * t,
-                ),
-                child: ColoredBox(
-                  color: c.bg.withValues(alpha: 0.68 * t),
-                  child: Stack(
-                    children: [
-                      // Concentric dashed orbit rings
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_sticky) widget.onClose();
+          },
+          onPanUpdate: (d) => updatePointer(d.globalPosition),
+          onPanEnd: (d) => handlePointerUp(
+            d.velocity.pixelsPerSecond == Offset.zero ? center : Offset.zero,
+          ),
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18 * t, sigmaY: 18 * t),
+              child: ColoredBox(
+                color: c.bg.withValues(alpha: 0.68 * t),
+                child: Stack(
+                  children: [
+                    // Concentric dashed orbit rings
+                    CustomPaint(
+                      size: size,
+                      painter: _RadialRingsPainter(
+                        center: center,
+                        r1: _r1,
+                        r2: _r2,
+                        color: c.ac,
+                        opacity: t,
+                        scale: 0.3 + 0.7 * t,
+                      ),
+                    ),
+                    if (_hovered != null)
                       CustomPaint(
                         size: size,
-                        painter: _RadialRingsPainter(
+                        painter: _OrbitTetherPainter(
                           center: center,
-                          r1: _r1,
-                          r2: _r2,
-                          color: c.ac,
+                          target: _nodeCenter(_hovered!, size),
+                          color: _hovered!.tint,
                           opacity: t,
-                          scale: 0.3 + 0.7 * t,
                         ),
                       ),
-                      if (_hovered != null)
-                        CustomPaint(
-                          size: size,
-                          painter: _OrbitTetherPainter(
-                            center: center,
-                            target: _nodeCenter(_hovered!, size),
-                            color: _hovered!.tint,
+
+                    // The hint stays near the orbit.
+                    if (_hovered == null)
+                      Positioned(
+                        left: 20,
+                        right: 20,
+                        bottom: widget.fabBottom + _r2 + 72,
+                        child: IgnorePointer(
+                          child: Opacity(
                             opacity: t,
-                          ),
-                        ),
-
-                      // The hint stays near the orbit.
-                      if (_hovered == null)
-                        Positioned(
-                          left: 20,
-                          right: 20,
-                          bottom: widget.fabBottom + _r2 + 72,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: t,
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: c.c1.withValues(alpha: 0.55),
-                                    borderRadius: BorderRadius.circular(99),
-                                    border: Border.all(color: c.ln),
-                                  ),
-                                  child: Text(
-                                    'Slide to a module · release to open',
-                                    style: AppTypography.sans(
-                                      size: 12,
-                                      color: c.mu,
-                                    ),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: c.c1.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(color: c.ln),
+                                ),
+                                child: Text(
+                                  'Slide to a module · release to open',
+                                  style: AppTypography.sans(
+                                    size: 12,
+                                    color: c.mu,
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
+                      ),
 
-                      // The selected title sits in the middle of the screen.
-                      if (_hovered != null)
-                        Positioned(
-                          left: 20,
-                          right: 20,
-                          top: size.height * 0.38,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: t,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 200),
-                                transitionBuilder: (child, animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: ScaleTransition(
-                                      scale: Tween<double>(
-                                        begin: 0.94,
-                                        end: 1,
-                                      ).animate(animation),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: _OrbitSelectionTitle(
-                                  key: ValueKey(_hovered!.id),
-                                  module: _hovered!,
-                                ),
+                    // The selected title sits in the middle of the screen.
+                    if (_hovered != null)
+                      Positioned(
+                        left: 20,
+                        right: 20,
+                        top: size.height * 0.38,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: t,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(
+                                      begin: 0.94,
+                                      end: 1,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _OrbitSelectionTitle(
+                                key: ValueKey(_hovered!.id),
+                                module: _hovered!,
                               ),
                             ),
                           ),
                         ),
+                      ),
 
-                      // Inner 5 module nodes
-                      for (var i = 0; i < _innerModules.length; i++)
-                        _buildNode(
-                          module: _innerModules[i],
-                          pos: _nodeCenter(_innerModules[i], size),
-                          center: center,
-                          index: i,
-                          t: t,
-                          c: c,
-                        ),
+                    // Inner 5 module nodes
+                    for (var i = 0; i < _innerModules.length; i++)
+                      _buildNode(
+                        module: _innerModules[i],
+                        pos: _nodeCenter(_innerModules[i], size),
+                        center: center,
+                        index: i,
+                        t: t,
+                        c: c,
+                      ),
 
-                      // Outer 8 module nodes
-                      for (var i = 0; i < _outerModules.length; i++)
-                        _buildNode(
-                          module: _outerModules[i],
-                          pos: _nodeCenter(_outerModules[i], size),
-                          center: center,
-                          index: _innerModules.length + i,
-                          t: t,
-                          c: c,
-                        ),
-                    ],
-                  ),
+                    // Outer 8 module nodes
+                    for (var i = 0; i < _outerModules.length; i++)
+                      _buildNode(
+                        module: _outerModules[i],
+                        pos: _nodeCenter(_outerModules[i], size),
+                        center: center,
+                        index: _innerModules.length + i,
+                        t: t,
+                        c: c,
+                      ),
+                  ],
                 ),
               ),
             ),
-          );
-        },
-      );
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildNode({
@@ -358,9 +357,7 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
         child: SpendIcon(
           module.icon,
           size: 22,
-          color: isHot
-              ? const Color(0xFF09090B)
-              : (isCurrent ? c.ac : c.tx),
+          color: isHot ? const Color(0xFF09090B) : (isCurrent ? c.ac : c.tx),
         ),
       ),
     );
@@ -392,18 +389,12 @@ class _OrbitSelectionTitle extends StatelessWidget {
         Text(
           module.label,
           textAlign: TextAlign.center,
-          style: AppTypography.serif(
-            size: 32,
-            color: c.tx,
-            height: 1.0,
-          ).copyWith(
-            shadows: [
-              Shadow(
-                color: c.bg.withValues(alpha: 0.9),
-                blurRadius: 18,
+          style: AppTypography.serif(size: 32, color: c.tx, height: 1.0)
+              .copyWith(
+                shadows: [
+                  Shadow(color: c.bg.withValues(alpha: 0.9), blurRadius: 18),
+                ],
               ),
-            ],
-          ),
         ),
         const SizedBox(height: 5),
         Row(
@@ -581,4 +572,3 @@ class _OrbitTetherPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.opacity != opacity;
 }
-
