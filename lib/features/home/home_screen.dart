@@ -322,31 +322,79 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
       return;
     }
 
-    final account = widget.snapshot.accounts.isEmpty
+    final learned = _learn(parsed.merchant, snapshot);
+    final learnedCategory =
+        learned.category == 'Income' || learned.category == 'Transfer'
         ? null
-        : widget.snapshot.accounts.first;
-    final defaultAccountId = ref
-        .read(userProfileRepositoryProvider)
-        ?.defaultAccountId;
+        : learned.category;
     final category = resolveCategoryName(
-      parsed.category,
+      parsed.isIncome
+          ? 'Income'
+          : (parsed.categoryDetected
+                ? parsed.category
+                : (learnedCategory ?? 'Other')),
       ref.read(settingsProvider).categories.keys,
     );
 
-    await ref
-        .read(transactionRepositoryProvider)
-        .addTransaction(
-          parsed.toDraft(
-            accountId: defaultAccountId ?? account?.id,
-            category: category,
-          ),
-        );
-
     _controller.clear();
-    final label = parsed.isIncome
-        ? 'Received · ${parsed.merchant} ${rupee(parsed.amount)}'
-        : 'Logged · ${parsed.category} ${rupee(parsed.amount)}';
-    ref.read(toastProvider.notifier).show(label);
+    await showAddTransactionSheet(
+      context,
+      merchant: parsed.merchant,
+      amount: parsed.amount,
+      category: category,
+      accountId: learned.accountId,
+      cardId: learned.cardId,
+    );
+  }
+
+  String _normalizeMerchant(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  ({String? category, String? accountId, String? cardId}) _learn(
+    String merchant,
+    FinanceSnapshot snapshot,
+  ) {
+    final key = _normalizeMerchant(merchant);
+    Transaction? recent;
+    for (final transaction in snapshot.transactions) {
+      if (_normalizeMerchant(transaction.merchant) == key &&
+          (recent == null || transaction.date.isAfter(recent.date))) {
+        recent = transaction;
+      }
+    }
+
+    final defaultAccountId = ref
+        .read(userProfileRepositoryProvider)
+        ?.defaultAccountId;
+    if (defaultAccountId != null &&
+        snapshot.accounts.any((account) => account.id == defaultAccountId)) {
+      return (
+        category: recent?.category,
+        accountId: defaultAccountId,
+        cardId: null,
+      );
+    }
+    final recentCard = recent?.cardId;
+    if (recentCard != null) {
+      return (category: recent?.category, accountId: null, cardId: recentCard);
+    }
+    final recentAccount = recent?.accountId;
+    if (recentAccount != null &&
+        snapshot.accounts.any((account) => account.id == recentAccount)) {
+      return (
+        category: recent?.category,
+        accountId: recentAccount,
+        cardId: null,
+      );
+    }
+    return (
+      category: recent?.category,
+      accountId: snapshot.accounts.isEmpty ? null : snapshot.accounts.first.id,
+      cardId: null,
+    );
   }
 
   @override

@@ -218,9 +218,10 @@ class FirestoreUserProfileRepository {
     });
   }
 
-  Future<void> setDefaultAccountId(String accountId) async {
-    _defaultAccountId = accountId;
-    await refs.user.update({'defaultAccountId': accountId});
+  Future<void> setDefaultAccountId(String? accountId) async {
+    final value = accountId == null || accountId.isEmpty ? null : accountId;
+    _defaultAccountId = value;
+    await refs.user.update({'defaultAccountId': value ?? ''});
   }
 
   Future<Map<String, String>> ensureTagIds(List<String> names) async {

@@ -1,5 +1,4 @@
 import '../../../data/models/transaction.dart';
-import '../../../core/theme/app_colors.dart';
 
 class ParsedCapture {
   final String raw;
@@ -8,6 +7,10 @@ class ParsedCapture {
   final String category;
   final bool isIncome;
   final List<ReceiptItem> items;
+  final bool categoryDetected;
+
+  /// Receipt date when it can be read from the bill.
+  final DateTime? date;
 
   const ParsedCapture({
     required this.raw,
@@ -16,6 +19,8 @@ class ParsedCapture {
     required this.category,
     required this.isIncome,
     this.items = const [],
+    this.categoryDetected = true,
+    this.date,
   });
 
   TransactionDraft toDraft({String? accountId, String? category}) {
@@ -23,10 +28,24 @@ class ParsedCapture {
       merchant: merchant,
       category: category ?? this.category,
       amount: isIncome ? amount.abs() : -amount.abs(),
-      date: DateTime.now(),
+      date: date ?? DateTime.now(),
       accountId: accountId,
     );
   }
+}
+
+class ReceiptParseResult {
+  const ReceiptParseResult({
+    required this.capture,
+    required this.isReceipt,
+    required this.confidence,
+    required this.message,
+  });
+
+  final ParsedCapture? capture;
+  final bool isReceipt;
+  final double confidence;
+  final String message;
 }
 
 class ReceiptItem {
@@ -97,7 +116,9 @@ class CaptureParser {
       final numStr = digitMatch.group(1)!.replaceAll(',', '');
       extractedAmount = double.tryParse(numStr);
       if (extractedAmount != null) {
-        cleanText = text.replaceRange(digitMatch.start, digitMatch.end, '').trim();
+        cleanText = text
+            .replaceRange(digitMatch.start, digitMatch.end, '')
+            .trim();
       }
     }
 
@@ -117,7 +138,10 @@ class CaptureParser {
     // 3. Clean up merchant name
     var merchant = cleanText
         .replaceAll(
-          RegExp(r'\b(spent|paid|for|on|at|to|from|rs|inr|rupees)\b', caseSensitive: false),
+          RegExp(
+            r'\b(spent|paid|for|on|at|to|from|rs|inr|rupees)\b',
+            caseSensitive: false,
+          ),
           '',
         )
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
@@ -143,6 +167,8 @@ class CaptureParser {
       amount: extractedAmount,
       category: category,
       isIncome: isIncome,
+      categoryDetected: category != 'Other',
+      date: DateTime.now(),
     );
   }
 
@@ -257,115 +283,270 @@ class CaptureParser {
       return 'EMI';
     }
 
-    // Fallback to active app categories if available
-    return AppColors.categoryList.contains('Food') ? 'Food' : 'Expense';
+    // Do not guess a spend category. The review sheet will default to Other.
+    return 'Other';
   }
 
-  /// Parses raw text extracted from a receipt image into merchant, items, and total
-  static ParsedCapture parseReceiptText(String fullText) {
+  /// Validates OCR text and extracts a receipt only when it looks like one.
+  static ReceiptParseResult parseReceipt(String fullText) {
     final lines = fullText
         .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
         .toList();
+    final lower = fullText.toLowerCase();
 
-    String detectedMerchant = 'Receipt';
-    double detectedTotal = 0;
-    final items = <ReceiptItem>[];
+    final cues = RegExp(
+      r'\b(receipt|invoice|tax invoice|bill|gst|gstin|total|subtotal|amount payable|net payable|balance due|cash|card|upi|change|order|thank you|date|time)\b',
+      caseSensitive: false,
+    ).allMatches(lower).length;
+    final totalCue = RegExp(
+      r'\b(grand\s*total|total\s*amount|amount\s*payable|net\s*payable|balance\s*due|total)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
+    final strongCue = RegExp(
+      r'\b(receipt|invoice|tax invoice|bill|gst|gstin|order|thank you|amount payable|balance due|total)\b',
+      caseSensitive: false,
+    ).hasMatch(lower);
 
-    // Common receipt words to ignore for merchant name
+    if (lines.length < 3 || cues == 0) {
+      return const ReceiptParseResult(
+        capture: null,
+        isReceipt: false,
+        confidence: 0,
+        message: 'That doesn’t look like a receipt. Try a clear photo of the printed bill.',
+      );
+    }
+
     final ignoreMerchant = RegExp(
-      r'\b(tax|invoice|bill|receipt|gstin|gst|tel|phone|cash|welcome|date|time|order|token|table|store|pos)\b',
+      r'\b(tax invoice|invoice|receipt|bill|gstin|gst no|gst|tel|phone|mobile|date|time|order|token|table|customer|welcome|thank|upi|card|cash|change|total|subtotal|amount|qty|quantity|item)\b',
       caseSensitive: false,
     );
-
-    // 1. Identify merchant name from first 4 lines
-    for (var i = 0; i < lines.length && i < 4; i++) {
-      final line = lines[i];
-      if (line.length >= 3 &&
-          !ignoreMerchant.hasMatch(line) &&
-          !RegExp(r'^\d+$').hasMatch(line) &&
-          !RegExp(r'^[0-9\.\,\:\/\-]+$').hasMatch(line)) {
-        detectedMerchant = line;
-        break;
-      }
-    }
-
-    // Clean merchant name
-    detectedMerchant = detectedMerchant
-        .replaceAll(RegExp(r'[^a-zA-Z0-9\s\&\-]'), '')
-        .trim();
-    if (detectedMerchant.isEmpty) detectedMerchant = 'Store Purchase';
-
-    // 2. Look for Total amount
-    final totalRegex = RegExp(
-      r'(?:total|grand\s*total|net\s*amount|amount\s*payable|subtotal|balance\s*due)[\s\:\=₹Rs\.]*([0-9]+(?:,[0-9]+)*(?:\.[0-9]{1,2})?)',
-      caseSensitive: false,
-    );
-
-    for (final line in lines) {
-      final match = totalRegex.firstMatch(line);
-      if (match != null) {
-        final val = double.tryParse(match.group(1)!.replaceAll(',', ''));
-        if (val != null && val > detectedTotal) {
-          detectedTotal = val;
-        }
-      }
-    }
-
-    // 3. Look for line items (e.g. "Amul milk 2x 128", "Eggs 96.00")
-    final lineItemRegex = RegExp(
-      r'^(.+?)[\s\.\-]+(?:₹|rs\.?|inr)?\s*([0-9]+(?:\.[0-9]{1,2})?)$',
-      caseSensitive: false,
-    );
-
-    for (final line in lines) {
-      if (line.toLowerCase().contains('total') ||
-          line.toLowerCase().contains('tax') ||
-          line.toLowerCase().contains('gst') ||
-          line.toLowerCase().contains('discount')) {
+    var merchant = 'Receipt';
+    for (final line in lines.take(8)) {
+      final clean = line
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s&.\-]'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (clean.length < 3 ||
+          ignoreMerchant.hasMatch(clean) ||
+          RegExp(r'^\d').hasMatch(clean) ||
+          RegExp(r'\d{4,}').hasMatch(clean) ||
+          _receiptAmounts(clean).isNotEmpty) {
         continue;
       }
-      final match = lineItemRegex.firstMatch(line);
-      if (match != null) {
-        final name = match.group(1)!.trim();
-        final price = double.tryParse(match.group(2)!) ?? 0;
-        if (name.length > 2 && price > 0 && price < 100000) {
-          items.add(ReceiptItem(name: name, price: price));
-        }
-      }
+      merchant = clean;
+      break;
     }
 
-    // 4. Fallback if no total line was explicitly matched
-    if (detectedTotal == 0) {
-      if (items.isNotEmpty) {
-        detectedTotal = items.fold(0.0, (sum, i) => sum + i.price);
-      } else {
-        // Find largest number on the receipt
-        final allNums = RegExp(r'\b([0-9]+(?:\.[0-9]{2})?)\b')
-            .allMatches(fullText)
-            .map((m) => double.tryParse(m.group(1)!) ?? 0)
-            .where((n) => n > 10 && n < 500000)
-            .toList();
-        if (allNums.isNotEmpty) {
-          allNums.sort();
-          detectedTotal = allNums.last;
-        } else {
-          detectedTotal = 480;
-        }
-      }
-    }
-
-    final category = detectCategory(detectedMerchant, fullText.toLowerCase());
-
-    return ParsedCapture(
-      raw: fullText,
-      merchant: detectedMerchant,
-      amount: detectedTotal,
-      category: category,
-      isIncome: false,
-      items: items,
+    final items = <ReceiptItem>[];
+    final itemRegex = RegExp(
+      r'^(.{2,60}?)\s+(?:x\s*\d+\s+)?(?:₹|rs\.?|inr)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*$',
+      caseSensitive: false,
     );
+    final ignoreItem = RegExp(
+      r'\b(total|tax|gst|discount|change|cash|card|round|payment|balance|subtotal|order|date|phone|upi)\b',
+      caseSensitive: false,
+    );
+    for (final line in lines) {
+      if (ignoreItem.hasMatch(line)) continue;
+      final match = itemRegex.firstMatch(line);
+      if (match == null) continue;
+      final name = match.group(1)!.replaceAll(RegExp(r'\s+'), ' ').trim();
+      final price = double.tryParse((match.group(2) ?? '').replaceAll(',', ''));
+      if (name.length > 2 && price != null && price > 0 && price < 500000) {
+        items.add(ReceiptItem(name: name, price: price));
+      }
+    }
+
+    var total = 0.0;
+    var totalPriority = 0;
+    for (final line in lines) {
+      final text = line.toLowerCase();
+      if (!RegExp(r'\b(total|payable|balance due|grand total|net amount)\b')
+          .hasMatch(text)) {
+        continue;
+      }
+      if (RegExp(
+        r'\b(total\s*(savings|discount|items|qty|quantity)|tax\s*total)\b',
+      ).hasMatch(text)) {
+        continue;
+      }
+      final amounts = _receiptAmounts(line);
+      if (amounts.isEmpty) continue;
+      final value = amounts.last;
+      final priority =
+          RegExp(r'grand|payable|net amount|balance due').hasMatch(text)
+          ? 3
+          : RegExp(r'\btotal\b').hasMatch(text)
+          ? 2
+          : 1;
+      if (priority >= totalPriority) {
+        total = value;
+        totalPriority = priority;
+      }
+    }
+
+    if (total <= 0 && items.isNotEmpty) {
+      total = items.fold(0.0, (sum, item) => sum + item.price);
+    }
+    if (total <= 0) {
+      final numbers = <double>[];
+      for (final line in lines) {
+        numbers.addAll(_receiptAmounts(line));
+      }
+      final plausible = numbers
+          .where((value) => value >= 1 && value < 500000)
+          .toList();
+      if (plausible.isNotEmpty) {
+        total = plausible.reduce((a, b) => a > b ? a : b);
+      }
+    }
+
+    if (total <= 0) {
+      return const ReceiptParseResult(
+        capture: null,
+        isReceipt: false,
+        confidence: 0,
+        message: 'No receipt total was found. Try a sharper, well-lit photo.',
+      );
+    }
+
+    final date = _extractReceiptDate(fullText);
+    final category = detectCategory(merchant, lower);
+    final hasMoney = lines.any((line) => _receiptAmounts(line).isNotEmpty);
+    final isReceipt =
+        hasMoney &&
+        cues >= 2 &&
+        strongCue &&
+        (totalCue || items.length >= 2) &&
+        total > 0;
+    if (!isReceipt) {
+      return const ReceiptParseResult(
+        capture: null,
+        isReceipt: false,
+        confidence: 0,
+        message: 'That doesn’t look like a receipt. Try a clear photo of the printed bill.',
+      );
+    }
+
+    var confidence = 0.3;
+    if (totalCue) confidence += 0.3;
+    if (cues >= 2) confidence += 0.1;
+    if (items.isNotEmpty) confidence += 0.15;
+    if (merchant != 'Receipt') confidence += 0.15;
+    if (date != null) confidence += 0.1;
+    confidence = confidence.clamp(0.0, 0.99);
+
+    return ReceiptParseResult(
+      capture: ParsedCapture(
+        raw: fullText,
+        merchant: merchant,
+        amount: total,
+        category: category,
+        isIncome: false,
+        items: items,
+        categoryDetected: category != 'Other',
+        date: date,
+      ),
+      isReceipt: true,
+      confidence: confidence,
+      message: confidence >= 0.65
+          ? 'Receipt found'
+          : 'Receipt found — check the details before logging',
+    );
+  }
+
+  /// Backwards-compatible helper for callers that only need the capture.
+  static ParsedCapture parseReceiptText(String fullText) {
+    return parseReceipt(fullText).capture ??
+        ParsedCapture(
+          raw: fullText,
+          merchant: 'Receipt',
+          amount: 0,
+          category: 'Other',
+          isIncome: false,
+          categoryDetected: false,
+          date: DateTime.now(),
+        );
+  }
+
+  static List<double> _receiptAmounts(String line) {
+    final cleaned = line
+        .replaceAll(RegExp(r'\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b'), ' ')
+        .replaceAll(RegExp(r'\b\d{2}:\d{2}(?::\d{2})?\b'), ' ')
+        .replaceAll(RegExp(r'\b\d{10,}\b'), ' ')
+        .replaceAll(RegExp(r'\b[0-9A-Z]{15}\b'), ' ');
+    return RegExp(
+          r'(?:(?:₹|rs\.?|inr)\s*)?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)',
+          caseSensitive: false,
+        )
+        .allMatches(cleaned)
+        .map(
+          (match) =>
+              double.tryParse((match.group(1) ?? '').replaceAll(',', '')),
+        )
+        .whereType<double>()
+        .where((value) => value > 0)
+        .toList();
+  }
+
+  static DateTime? _extractReceiptDate(String text) {
+    final now = DateTime.now();
+    final numeric = RegExp(r'\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b');
+    final named = RegExp(
+      r'\b(\d{1,2})[ -]?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ -]?(\d{2,4})\b',
+      caseSensitive: false,
+    );
+
+    for (final match in numeric.allMatches(text)) {
+      final day = int.tryParse(match.group(1) ?? '');
+      final month = int.tryParse(match.group(2) ?? '');
+      var year = int.tryParse(match.group(3) ?? '');
+      if (year != null && year < 100) year += 2000;
+      final date = _safeDate(year, month, day);
+      if (date != null && _plausibleReceiptDate(date, now)) return date;
+    }
+
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    for (final match in named.allMatches(text)) {
+      final day = int.tryParse(match.group(1) ?? '');
+      final month = months.indexOf((match.group(2) ?? '').toLowerCase()) + 1;
+      var year = int.tryParse(match.group(3) ?? '');
+      if (year != null && year < 100) year += 2000;
+      final date = _safeDate(year, month, day);
+      if (date != null && _plausibleReceiptDate(date, now)) return date;
+    }
+    return null;
+  }
+
+  static DateTime? _safeDate(int? year, int? month, int? day) {
+    if (year == null || month == null || day == null) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    final date = DateTime(year, month, day, 12);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    return date;
+  }
+
+  static bool _plausibleReceiptDate(DateTime date, DateTime now) {
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final fiveYearsAgo = DateTime(now.year - 5, now.month, now.day);
+    return !date.isAfter(tomorrow) && !date.isBefore(fiveYearsAgo);
   }
 }
 

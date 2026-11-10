@@ -24,6 +24,7 @@ Future<void> showAddTransactionSheet(
   String? accountId,
   String? category,
   double? amount,
+  String? merchant,
 }) {
   return showAppSheet<void>(
     context,
@@ -32,6 +33,7 @@ Future<void> showAddTransactionSheet(
       initialAccountId: accountId,
       initialCategory: category,
       initialAmount: amount,
+      initialMerchant: merchant,
     ),
   );
 }
@@ -42,12 +44,14 @@ class _AddTransactionSheet extends ConsumerStatefulWidget {
     this.initialAccountId,
     this.initialCategory,
     this.initialAmount,
+    this.initialMerchant,
   });
 
   final String? initialCardId;
   final String? initialAccountId;
   final String? initialCategory;
   final double? initialAmount;
+  final String? initialMerchant;
 
   @override
   ConsumerState<_AddTransactionSheet> createState() =>
@@ -70,7 +74,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
     final snapshot = ref.read(financeSnapshotProvider);
     final categories = _expenseCategories();
     _income = widget.initialCategory?.toLowerCase() == 'income';
-    _name = TextEditingController();
+    _name = TextEditingController(text: widget.initialMerchant ?? '');
     _amount = TextEditingController(text: _initialAmount(widget.initialAmount));
     _note = TextEditingController();
     _category = _income
@@ -85,10 +89,13 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
     final hasDefault =
         defaultAccount != null &&
         snapshot.accounts.any((account) => account.id == defaultAccount);
-    final accountId = widget.initialAccountId ??
+    final accountId =
+        widget.initialAccountId ??
         (hasDefault
             ? defaultAccount
-            : (snapshot.accounts.isNotEmpty ? snapshot.accounts.first.id : null));
+            : (snapshot.accounts.isNotEmpty
+                  ? snapshot.accounts.first.id
+                  : null));
     _source = widget.initialCardId != null && widget.initialCardId!.isNotEmpty
         ? 'c:${widget.initialCardId}'
         : accountId != null
@@ -134,7 +141,8 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
     }
 
     final snapshot = ref.read(financeSnapshotProvider);
-    final hasSources = snapshot.accounts.isNotEmpty || snapshot.cards.isNotEmpty;
+    final hasSources =
+        snapshot.accounts.isNotEmpty || snapshot.cards.isNotEmpty;
     if (hasSources && _source.isEmpty) {
       ref.read(toastProvider.notifier).show('Choose an account');
       return;
@@ -179,11 +187,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
           ref
               .read(toastProvider.notifier)
               .show('$category envelope at ${(progress * 100).round()}%');
-          await NotificationsService.budgetAlert(
-            category,
-            progress,
-            alertAt,
-          );
+          await NotificationsService.budgetAlert(category, progress, alertAt);
         });
       }
     }
@@ -200,11 +204,8 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
         final c = context.spend;
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: c.ac,
-              surface: c.c1,
-              onSurface: c.tx,
-            ),
+            colorScheme: Theme.of(context).colorScheme
+                .copyWith(primary: c.ac, surface: c.c1, onSurface: c.tx),
           ),
           child: child ?? const SizedBox.shrink(),
         );
@@ -444,10 +445,7 @@ class _Input extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.spend;
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 13,
-        vertical: large ? 10 : 13,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 13, vertical: large ? 10 : 13),
       decoration: BoxDecoration(
         color: c.c2,
         borderRadius: BorderRadius.circular(14),

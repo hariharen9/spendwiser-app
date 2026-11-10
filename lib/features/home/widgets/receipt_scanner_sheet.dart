@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -9,12 +10,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/category_aliases.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_helpers.dart';
 import '../../../core/widgets/app_bottom_sheet.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_icons.dart';
 import '../../../core/widgets/app_pill.dart';
+import '../../../core/widgets/app_select.dart';
 import '../../../core/widgets/common.dart';
+import '../../../data/models/transaction.dart';
 import '../services/capture_parser.dart';
 
 void showReceiptScannerSheet(BuildContext context) {
@@ -25,17 +29,25 @@ class ReceiptScannerSheet extends ConsumerStatefulWidget {
   const ReceiptScannerSheet({super.key});
 
   @override
-  ConsumerState<ReceiptScannerSheet> createState() => _ReceiptScannerSheetState();
+  ConsumerState<ReceiptScannerSheet> createState() =>
+      _ReceiptScannerSheetState();
 }
 
 class _ReceiptScannerSheetState extends ConsumerState<ReceiptScannerSheet>
     with SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
+  final _merchant = TextEditingController();
+  final _amount = TextEditingController();
   late final AnimationController _scanController;
 
   bool _isProcessing = false;
   String? _imagePath;
   ParsedCapture? _detected;
+  String? _receiptError;
+  double _confidence = 0;
+  String? _category;
+  String? _source;
+  DateTime _date = DateTime.now();
   String _status = 'Align receipt within frame';
 
   @override
@@ -50,6 +62,8 @@ class _ReceiptScannerSheetState extends ConsumerState<ReceiptScannerSheet>
   @override
   void dispose() {
     _scanController.dispose();
+    _merchant.dispose();
+    _amount.dispose();
     super.dispose();
   }
 
@@ -66,40 +80,90 @@ class _ReceiptScannerSheetState extends ConsumerState<ReceiptScannerSheet>
       setState(() {
         _imagePath = image.path;
         _isProcessing = true;
-        _status = 'Running ML text recognition…';
+        _detected = null;
+        _receiptError = null;
+        _status = 'Checking the image and reading text…';
       });
 
       final inputImage = InputImage.fromFilePath(image.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
+      final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      RecognizedText recognizedText;
+      try {
+        recognizedText = await recognizer.processImage(inputImage);
+      } finally {
+        await recognizer.close();
+      }
 
-      final parsed = CaptureParser.parseReceiptText(recognizedText.text);
-
+      if (!mounted) return;
+      _applyResult(CaptureParser.parseReceipt(recognizedText.text));
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        _detected = parsed;
-        _status = 'Receipt scanned successfully';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-        _status = 'Could not read receipt image. Try another photo.';
+        _detected = null;
+        _confidence = 0;
+        _receiptError = 'Could not read that image. Use a clear, well-lit photo of the receipt.';
+        _status = _receiptError!;
       });
     }
   }
 
-  void _useDemoReceipt({String? merchant, double? total}) {
+  void _applyResult(ReceiptParseResult result) {
+    final capture = result.capture;
+    if (!result.isReceipt || capture == null) {
+      setState(() {
+        _isProcessing = false;
+        _detected = null;
+        _confidence = 0;
+        _receiptError = result.message;
+        _status = result.message;
+      });
+      return;
+    }
+
+    final snapshot = ref.read(financeSnapshotProvider);
+    final categories = ref.read(settingsProvider).categories.keys;
+    final defaultAccountId = ref
+        .read(userProfileRepositoryProvider)
+        ?.defaultAccountId;
+    var source = '';
+    if (defaultAccountId != null &&
+        snapshot.accounts.any((account) => account.id == defaultAccountId)) {
+      source = 'a:$defaultAccountId';
+    } else if (snapshot.accounts.isNotEmpty) {
+      source = 'a:${snapshot.accounts.first.id}';
+    } else if (snapshot.cards.isNotEmpty) {
+      source = 'c:${snapshot.cards.first.id}';
+    }
+
+    _merchant.text = capture.merchant;
+    _amount.text = capture.amount == capture.amount.roundToDouble()
+        ? capture.amount.round().toString()
+        : capture.amount.toStringAsFixed(2);
+
+    setState(() {
+      _isProcessing = false;
+      _detected = capture;
+      _receiptError = null;
+      _confidence = result.confidence;
+      _category = resolveCategoryName(capture.category, categories);
+      _source = source;
+      _date = capture.date ?? DateTime.now();
+      _status = result.message;
+    });
+  }
+
+  void _useDemoReceipt() {
     setState(() {
       _isProcessing = true;
+      _detected = null;
+      _receiptError = null;
       _status = 'Reading demo receipt…';
     });
 
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
-      final sampleText = '''
+      const sampleText = '''
 Blinkit Commerce Pvt Ltd
 Order #BK-948123
 Date: 09/11/2026
@@ -110,44 +174,90 @@ Delivery Fee              98.00
 Total Amount Payable    ₹842.00
 Thank you for shopping with us!
 ''';
-      final parsed = CaptureParser.parseReceiptText(sampleText);
-      setState(() {
-        _isProcessing = false;
-        _detected = parsed;
-        _status = 'Receipt scanned successfully';
-      });
+      _applyResult(CaptureParser.parseReceipt(sampleText));
     });
+  }
+
+  void _reset() {
+    setState(() {
+      _detected = null;
+      _receiptError = null;
+      _confidence = 0;
+      _imagePath = null;
+      _category = null;
+      _source = null;
+      _merchant.clear();
+      _amount.clear();
+      _status = 'Take a clear photo of the receipt';
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        final c = context.spend;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme
+                .copyWith(primary: c.ac, surface: c.c1, onSurface: c.tx),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked != null) setState(() => _date = picked);
   }
 
   Future<void> _confirmAndLog() async {
     final detected = _detected;
     if (detected == null) return;
+    final value = double.tryParse(_amount.text.replaceAll(',', '')) ?? 0;
+    final merchant = _merchant.text.trim();
+    if (merchant.isEmpty) {
+      ref.read(toastProvider.notifier).show('Add a merchant name');
+      return;
+    }
+    if (value <= 0) {
+      ref.read(toastProvider.notifier).show('Check the receipt total');
+      return;
+    }
 
-    final snapshot = ref.read(financeSnapshotProvider);
-    final defaultAccountId =
-        ref.read(userProfileRepositoryProvider)?.defaultAccountId;
-    final accountId = defaultAccountId ??
-        (snapshot.accounts.isEmpty ? null : snapshot.accounts.first.id);
-    final category = resolveCategoryName(
-      detected.category,
-      ref.read(settingsProvider).categories.keys,
-    );
+    final isCard = _source?.startsWith('c:') ?? false;
+    final sourceId = (_source?.length ?? 0) > 2 ? _source!.substring(2) : null;
+    final category = _category ?? 'Other';
+    final note = detected.items.isEmpty
+        ? 'Scanned receipt'
+        : 'Scanned receipt · ${detected.items.length} items';
 
-    await ref.read(transactionRepositoryProvider).addTransaction(
-      detected.toDraft(accountId: accountId, category: category),
-    );
+    await ref
+        .read(transactionRepositoryProvider)
+        .addTransaction(
+          TransactionDraft(
+            merchant: merchant,
+            category: category,
+            amount: -value,
+            date: DateTime(_date.year, _date.month, _date.day, 12),
+            accountId: isCard ? null : sourceId,
+            cardId: isCard ? sourceId : null,
+            note: note,
+          ),
+        );
 
     if (!mounted) return;
     Navigator.of(context).pop();
-    ref.read(toastProvider.notifier).show(
-      'Logged ${rupee(detected.amount)} · ${detected.merchant}',
-    );
+    ref.read(toastProvider.notifier).show('Logged ${rupee(value)} · $merchant');
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
     final detected = _detected;
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final categories = ref.watch(settingsProvider).categories.keys.toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -157,20 +267,12 @@ Thank you for shopping with us!
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const SheetTitle('Scan receipt'),
-            if (detected != null)
-              GestureDetector(
-                onTap: () => setState(() {
-                  _detected = null;
-                  _imagePath = null;
-                }),
-                child: AppPill(label: 'Retake', onTap: () => setState(() => _detected = null)),
-              ),
+            if (detected != null || _imagePath != null)
+              AppPill(label: 'Retake', onTap: _reset),
           ],
         ),
         const SizedBox(height: 14),
-
         if (detected == null) ...[
-          // Scanner Viewfinder
           Container(
             height: 190,
             decoration: BoxDecoration(
@@ -184,13 +286,8 @@ Thank you for shopping with us!
               children: [
                 if (_imagePath != null)
                   Positioned.fill(
-                    child: Image.file(
-                      File(_imagePath!),
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(File(_imagePath!), fit: BoxFit.cover),
                   ),
-
-                // Corner brackets
                 Positioned.fill(
                   child: Padding(
                     padding: const EdgeInsets.all(22),
@@ -199,8 +296,6 @@ Thank you for shopping with us!
                     ),
                   ),
                 ),
-
-                // Laser scan line
                 if (_isProcessing)
                   AnimatedBuilder(
                     animation: _scanController,
@@ -225,23 +320,47 @@ Thank you for shopping with us!
                       );
                     },
                   )
-                else
+                else if (_imagePath == null)
                   Center(
-                    child: SpendIcon('scan', size: 48, color: c.mu.withValues(alpha: 0.6)),
+                    child: SpendIcon(
+                      'scan',
+                      size: 48,
+                      color: c.mu.withValues(alpha: 0.6),
+                    ),
                   ),
               ],
             ),
           ),
-
           const SizedBox(height: 12),
           Text(
-            _isProcessing ? _status : 'Take a photo or upload receipt image',
+            _receiptError ??
+                (_isProcessing
+                    ? _status
+                    : 'Take a photo or upload a receipt image'),
             textAlign: TextAlign.center,
-            style: AppTypography.sans(size: 13, color: c.mu),
+            style: AppTypography.sans(
+              size: 13,
+              color: _receiptError == null ? c.mu : c.co,
+            ),
           ),
+          if (_receiptError != null) ...[
+            const SizedBox(height: 10),
+            AppCard(
+              child: Row(
+                children: [
+                  IconTile(icon: 'receipt', color: c.co, size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Make sure the full bill is visible, avoid glare, and keep the total line in frame.',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
-
-          // Action buttons: Camera, Gallery, Demo
           Row(
             children: [
               Expanded(
@@ -263,50 +382,157 @@ Thank you for shopping with us!
           ),
           const SizedBox(height: 8),
           AppButton(
-            label: 'Use Demo Receipt (Blinkit ₹842)',
+            label: 'Use demo receipt (Blinkit ₹842)',
             onTap: _useDemoReceipt,
           ),
           const SizedBox(height: 10),
         ] else ...[
-          // Detected Receipt Breakdown
-          Text(
-            'Receipt detected',
-            style: AppTypography.sans(size: 13, color: c.mu),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Receipt detected',
+                  style: AppTypography.sans(size: 13, color: c.mu),
+                ),
+              ),
+              AppPill(
+                label: '${(_confidence * 100).round()}% match',
+                active: _confidence >= 0.65,
+                textColor: _confidence < 0.65 ? c.co : null,
+                borderColor: _confidence < 0.65
+                    ? c.co.withValues(alpha: 0.5)
+                    : null,
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            rupee(detected.amount),
-            style: AppTypography.serif(size: 44, color: c.tx),
+          if (_confidence < 0.65) ...[
+            const SizedBox(height: 6),
+            Text(
+              'The scan is uncertain. Check the merchant, total and date before logging.',
+              style: AppTypography.sans(size: 12, color: c.co),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _ReceiptLabel('Merchant'),
+          _ReceiptInput(
+            controller: _merchant,
+            hint: 'Merchant name',
+            capitalization: TextCapitalization.words,
           ),
-          Text(
-            '${detected.merchant} · ${detected.category}',
-            style: AppTypography.sans(
-              size: 14,
-              color: c.tx,
-              weight: FontWeight.w600,
+          const SizedBox(height: 10),
+          const _ReceiptLabel('Total'),
+          _ReceiptInput(
+            controller: _amount,
+            hint: '0.00',
+            number: true,
+            prefix: '₹ ',
+            large: true,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ReceiptLabel('Category'),
+                    AppSelect<String>(
+                      value:
+                          _category ??
+                          (categories.contains('Other')
+                              ? 'Other'
+                              : (categories.isNotEmpty
+                                    ? categories.first
+                                    : 'Other')),
+                      options: [
+                        if (categories.isEmpty)
+                          const AppSelectOption('Other', 'Other'),
+                        for (final category in categories)
+                          AppSelectOption(category, category),
+                      ],
+                      onChanged: (value) => setState(
+                        () => _category = value == null || value.isEmpty
+                            ? 'Other'
+                            : value,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ReceiptLabel('Account'),
+                    AppSelect<String>(
+                      value: _source ?? '',
+                      options: [
+                        for (final account in snapshot.accounts)
+                          AppSelectOption(
+                            'a:${account.id}',
+                            '${account.name} (${rupee(account.balance)})',
+                          ),
+                        for (final card in snapshot.cards)
+                          AppSelectOption(
+                            'c:${card.id}',
+                            '${card.name} (${rupee(card.outstanding)} due)',
+                          ),
+                        if (snapshot.accounts.isEmpty && snapshot.cards.isEmpty)
+                          const AppSelectOption('', 'No account'),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _source = value ?? ''),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const _ReceiptLabel('Date'),
+          GestureDetector(
+            onTap: _pickDate,
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: c.c2,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      shortDate(_date),
+                      style: AppTypography.sans(size: 14, color: c.tx),
+                    ),
+                  ),
+                  SpendIcon('calendar', size: 16, color: c.mu),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-
-          // Items card
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (detected.items.isNotEmpty) ...[
-                  for (final item in detected.items)
+          if (detected.items.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const _ReceiptLabel('Items found'),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < detected.items.length; i++)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 5),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
-                              item.name,
+                              detected.items[i].name,
                               style: AppTypography.sans(size: 13, color: c.tx),
                             ),
                           ),
                           Text(
-                            rupee(item.price),
+                            rupee(detected.items[i].price),
                             style: AppTypography.sans(
                               size: 13,
                               color: c.tx,
@@ -316,37 +542,108 @@ Thank you for shopping with us!
                         ],
                       ),
                     ),
-                  Divider(color: c.ln, height: 16),
-                ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Total',
-                      style: AppTypography.sans(
-                        size: 14,
-                        color: c.mu,
-                        weight: FontWeight.w600,
+                  if (detected.items.isNotEmpty)
+                    Divider(color: c.ln, height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Scanned total',
+                        style: AppTypography.sans(
+                          size: 13,
+                          color: c.mu,
+                          weight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    Text(
-                      rupee(detected.amount),
-                      style: AppTypography.serif(size: 20, color: c.tx),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        rupee(detected.amount),
+                        style: AppTypography.serif(size: 20, color: c.tx),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-
+          ],
           const SizedBox(height: 16),
           PrimaryButton(
-            label: 'Confirm & Log ${rupee(detected.amount)}',
+            label:
+                'Log receipt · ${rupee(double.tryParse(_amount.text.replaceAll(',', '')) ?? detected.amount)}',
             onTap: _confirmAndLog,
           ),
-          const SizedBox(height: 10),
         ],
       ],
+    );
+  }
+}
+
+class _ReceiptLabel extends StatelessWidget {
+  const _ReceiptLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: AppTypography.caption(context.spend.mu),
+      ),
+    );
+  }
+}
+
+class _ReceiptInput extends StatelessWidget {
+  const _ReceiptInput({
+    required this.controller,
+    required this.hint,
+    this.number = false,
+    this.prefix,
+    this.large = false,
+    this.capitalization = TextCapitalization.sentences,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final bool number;
+  final String? prefix;
+  final bool large;
+  final TextCapitalization capitalization;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 13, vertical: large ? 10 : 13),
+      decoration: BoxDecoration(
+        color: c.c2,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: number
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : TextInputType.text,
+        textCapitalization: capitalization,
+        style: large
+            ? AppTypography.serif(
+                size: 30,
+                color: c.tx,
+                letterSpacing: -0.8,
+                height: 1.1,
+              )
+            : AppTypography.sans(size: 14, color: c.tx),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: AppTypography.sans(size: 13, color: c.mu),
+          prefixText: prefix,
+          prefixStyle: AppTypography.serif(size: 24, color: c.mu),
+        ),
+      ),
     );
   }
 }
@@ -366,21 +663,38 @@ class _ViewfinderPainter extends CustomPainter {
 
     const cornerLength = 22.0;
 
-    // Top-left
     canvas.drawLine(const Offset(0, 0), const Offset(cornerLength, 0), paint);
     canvas.drawLine(const Offset(0, 0), const Offset(0, cornerLength), paint);
-
-    // Top-right
-    canvas.drawLine(Offset(size.width, 0), Offset(size.width - cornerLength, 0), paint);
-    canvas.drawLine(Offset(size.width, 0), Offset(size.width, cornerLength), paint);
-
-    // Bottom-left
-    canvas.drawLine(Offset(0, size.height), Offset(cornerLength, size.height), paint);
-    canvas.drawLine(Offset(0, size.height), Offset(0, size.height - cornerLength), paint);
-
-    // Bottom-right
-    canvas.drawLine(Offset(size.width, size.height), Offset(size.width - cornerLength, size.height), paint);
-    canvas.drawLine(Offset(size.width, size.height), Offset(size.width, size.height - cornerLength), paint);
+    canvas.drawLine(
+      Offset(size.width, 0),
+      Offset(size.width - cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width, 0),
+      Offset(size.width, cornerLength),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(cornerLength, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(0, size.height - cornerLength),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width, size.height),
+      Offset(size.width - cornerLength, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width, size.height),
+      Offset(size.width, size.height - cornerLength),
+      paint,
+    );
   }
 
   @override

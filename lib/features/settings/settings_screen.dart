@@ -12,6 +12,7 @@ import '../../core/state/providers.dart';
 import '../../core/state/sms_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
@@ -104,6 +105,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final email = user?.email ?? 'Signed in';
     final photoUrl = user?.photoURL;
     final pendingSms = ref.watch(smsReviewProvider).length;
+    final defaultAccountId = ref
+        .watch(userProfileRepositoryProvider)
+        ?.defaultAccountId;
+    String? defaultAccountName;
+    if (defaultAccountId != null) {
+      for (final account in snapshot.accounts) {
+        if (account.id == defaultAccountId) {
+          defaultAccountName = account.name;
+          break;
+        }
+      }
+    }
     final categoryCount = settings.categories.keys
         .where((category) => category != 'Transfer')
         .length;
@@ -302,10 +315,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SettingsSectionHeader(
           icon: 'budget',
           title: 'Money',
-          subtitle: 'Categories, tags and shortcuts',
+          subtitle: 'Default account, categories and tags',
         ),
         _SettingsCard(
           children: [
+            _SettingsRow(
+              icon: 'accounts',
+              title: 'Default account',
+              subtitle: defaultAccountName ?? 'Automatic',
+              onTap: () => _showDefaultAccount(context),
+            ),
             _SettingsRow(
               icon: 'budget',
               title: 'Categories',
@@ -595,6 +614,82 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     controller.dispose();
+  }
+
+  void _showDefaultAccount(BuildContext context) {
+    final profile = ref.read(userProfileRepositoryProvider);
+    final snapshot = ref.read(financeSnapshotProvider);
+    final selected = profile?.defaultAccountId;
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Default account',
+            subtitle: 'Used for quick capture, voice and scanned receipts.',
+          ),
+          const SizedBox(height: 12),
+          if (snapshot.accounts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                'Add a bank account or cash balance first.',
+                style: AppTypography.sans(
+                  size: 13,
+                  color: sheetContext.spend.mu,
+                ),
+              ),
+            )
+          else
+            _SettingsCard(
+              children: [
+                _SettingsRow(
+                  icon: 'settings',
+                  title: 'Automatic',
+                  subtitle: 'Use the merchant’s last account, or the first one',
+                  trailing: selected == null
+                      ? const AppPill(label: 'Active', active: true)
+                      : null,
+                  onTap: () async {
+                    await profile?.setDefaultAccountId(null);
+                    if (!sheetContext.mounted) return;
+                    Navigator.of(sheetContext).pop();
+                    if (mounted) setState(() {});
+                    ref
+                        .read(toastProvider.notifier)
+                        .show('Default account set to automatic');
+                  },
+                ),
+                for (var i = 0; i < snapshot.accounts.length; i++)
+                  _SettingsRow(
+                    icon: 'accounts',
+                    title: snapshot.accounts[i].name,
+                    subtitle:
+                        '${snapshot.accounts[i].type.label} · ${rupee(snapshot.accounts[i].balance)}',
+                    trailing: selected == snapshot.accounts[i].id
+                        ? const AppPill(label: 'Active', active: true)
+                        : null,
+                    onTap: () async {
+                      await profile?.setDefaultAccountId(
+                        snapshot.accounts[i].id,
+                      );
+                      if (!sheetContext.mounted) return;
+                      Navigator.of(sheetContext).pop();
+                      if (mounted) setState(() {});
+                      ref
+                          .read(toastProvider.notifier)
+                          .show(
+                            'Default account set to ${snapshot.accounts[i].name}',
+                          );
+                    },
+                    last: i == snapshot.accounts.length - 1,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
   }
 
   void _showCategories(BuildContext context) {

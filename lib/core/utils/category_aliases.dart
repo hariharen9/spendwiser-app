@@ -13,5 +13,6 @@ String resolveCategoryName(String raw, Iterable<String> available) {
   if (names.contains(raw)) return raw;
   final mapped = categoryAliases[raw];
   if (mapped != null && names.contains(mapped)) return mapped;
+  if (names.contains('Other')) return 'Other';
   return names.isEmpty ? raw : names.first;
 }

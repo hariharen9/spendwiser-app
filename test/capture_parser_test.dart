@@ -44,6 +44,21 @@ void main() {
       expect(p.category, 'Income');
     });
 
+    test('unknown merchants are not forced into Food', () {
+      final p = CaptureParser.parse('misc 100');
+      expect(p, isNotNull);
+      expect(p!.category, 'Other');
+      expect(p.categoryDetected, false);
+    });
+
+    test('rejects text that is not a receipt', () {
+      final result = CaptureParser.parseReceipt(
+        'Had a nice walk today. Total steps 4200.',
+      );
+      expect(result.isReceipt, false);
+      expect(result.capture, isNull);
+    });
+
     test('parses receipt text with items and total', () {
       const receipt = '''
 Blinkit Commerce Pvt Ltd
@@ -61,4 +76,3 @@ Total Amount Payable    ₹842.00
     });
   });
 }
-
