@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,17 +54,26 @@ class _MonthlyReportSheet extends ConsumerWidget {
         Row(
           children: [
             Expanded(
-              child: MetricTile(label: 'In', value: compactINR(flow.income)),
+              child: MetricTile(
+                label: 'In',
+                amount: flow.income,
+                formatter: compactINR,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: MetricTile(label: 'Out', value: compactINR(flow.expense)),
+              child: MetricTile(
+                label: 'Out',
+                amount: flow.expense,
+                formatter: compactINR,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: MetricTile(
                 label: 'Saved',
-                value: '${flow.savingsRate.round()}%',
+                amount: flow.savingsRate.toDouble(),
+                formatter: (value) => '${value.round()}%',
                 valueColor: c.ac,
               ),
             ),
@@ -223,12 +233,28 @@ Future<void> showYearInReview(BuildContext context, FinanceSnapshot snapshot) {
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Year in review',
-    barrierColor: Colors.black.withValues(alpha: 0.7),
-    transitionDuration: const Duration(milliseconds: 400),
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    transitionDuration: const Duration(milliseconds: 480),
     pageBuilder: (context, animation, secondaryAnimation) =>
         _YearInReview(pages: pages),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(opacity: animation, child: child);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: 18 * curved.value,
+              sigmaY: 18 * curved.value,
+            ),
+            child: child,
+          ),
+        ),
+      );
     },
   );
 }
@@ -276,7 +302,7 @@ class _YearInReviewState extends State<_YearInReview> {
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: c.bg,
+                  color: c.bg.withValues(alpha: 0.55),
                   gradient: RadialGradient(
                     center: const Alignment(0.6, -1),
                     radius: 1.1,

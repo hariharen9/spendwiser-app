@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -18,10 +19,20 @@ abstract final class NotificationsService {
 
   static const _channelId = 'spendwiser';
   static const _channelName = 'Spendwiser reminders';
+  static const _dailyId = 50;
+  static const _weeklyId = 60;
+  static const _billIdStart = 100;
+  static const _billIdEnd = 200;
 
   static Future<void> init() async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
+    try {
+      final zone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(zone.identifier));
+    } catch (_) {
+      // Fall back to the package default if the platform cannot report a zone.
+    }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings();
     const settings = InitializationSettings(
@@ -68,31 +79,69 @@ abstract final class NotificationsService {
     await _plugin.cancelAll();
   }
 
-  /// Schedule bill reminders + weekly digest from the current snapshot.
+  /// Schedule the daily check-in, bill reminders and weekly digest.
   /// Called on app start and whenever notification settings change.
-  static Future<void> reschedule(FinanceSnapshot snapshot, AppSettings settings) async {
+  static Future<void> reschedule(
+    FinanceSnapshot snapshot,
+    AppSettings settings,
+  ) async {
     if (!_initialized) return;
-    await _plugin.cancelAll();
+    await _cancelScheduled();
     final now = tz.TZDateTime.now(tz.local);
-    var id = 100;
+    final hour = settings.reminderHour.clamp(0, 23).toInt();
+    final minute = settings.reminderMinute.clamp(0, 59).toInt();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final canExact = await android?.canScheduleExactNotifications() ?? false;
+    final scheduleMode = canExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    if (settings.dailyReminder) {
+      var when = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      );
+      if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
+      await _plugin.zonedSchedule(
+        id: _dailyId,
+        scheduledDate: when,
+        notificationDetails: _details,
+        androidScheduleMode: scheduleMode,
+        title: 'Daily check-in',
+        body: 'Log today\'s spends and keep your streak alive.',
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
 
     if (settings.billReminders) {
+      var id = _billIdStart;
       for (final bill in FinanceCalculator.bills(snapshot)) {
-        if (bill.days < 0 || bill.days > 3) continue;
-        final when = tz.TZDateTime(
+        if (bill.days < 0) continue;
+        final reminderDate = bill.dueDate.subtract(const Duration(days: 2));
+        var when = tz.TZDateTime(
           tz.local,
-          bill.dueDate.year,
-          bill.dueDate.month,
-          bill.dueDate.day,
-          9,
+          reminderDate.year,
+          reminderDate.month,
+          reminderDate.day,
+          hour,
+          minute,
         );
-        if (when.isBefore(now)) continue;
+        if (!when.isAfter(now)) {
+          if (bill.days > 2) continue;
+          when = now.add(const Duration(minutes: 1));
+        }
         await _plugin.zonedSchedule(
           id: id++,
           scheduledDate: when,
           notificationDetails: _details,
-          androidScheduleMode:
-              AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: scheduleMode,
           title: 'Bill reminder',
           body: '${bill.name} · ${rupee(bill.amount)} ${bill.relativeLabel}',
         );
@@ -100,28 +149,41 @@ abstract final class NotificationsService {
     }
 
     if (settings.weeklyDigest) {
-      var dayOffset = (7 - now.weekday) % 7; // next Sunday (weekday 7)
-      if (dayOffset == 0 && now.hour >= 20) dayOffset = 7;
+      final dayOffset = (7 - now.weekday) % 7; // next Sunday (weekday 7)
       final sunday = now.add(Duration(days: dayOffset));
-      final when = tz.TZDateTime(
+      var when = tz.TZDateTime(
         tz.local,
         sunday.year,
         sunday.month,
         sunday.day,
-        20,
+        hour,
+        minute,
       );
-      if (when.isAfter(now)) {
-        final month = monthStart(now.toLocal());
-        final flow = snapshot.flow(month);
-        await _plugin.zonedSchedule(
-          id: id++,
-          scheduledDate: when,
-          notificationDetails: _details,
-          androidScheduleMode:
-              AndroidScheduleMode.inexactAllowWhileIdle,
-          title: 'Weekly digest',
-          body: 'Spent ${rupee(flow.expense)} · Earned ${rupee(flow.income)} this month',
-        );
+      if (!when.isAfter(now)) when = when.add(const Duration(days: 7));
+      final month = monthStart(now.toLocal());
+      final flow = snapshot.flow(month);
+      await _plugin.zonedSchedule(
+        id: _weeklyId,
+        scheduledDate: when,
+        notificationDetails: _details,
+        androidScheduleMode: scheduleMode,
+        title: 'Weekly digest',
+        body: 'Spent ${rupee(flow.expense)} · Earned ${rupee(flow.income)} this month',
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+    }
+  }
+
+  /// Cancels only our scheduled reminders, keeping the native SMS-review
+  /// notification and one-off alerts intact.
+  static Future<void> _cancelScheduled() async {
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final notification in pending) {
+      final id = notification.id;
+      if (id == _dailyId ||
+          id == _weeklyId ||
+          (id >= _billIdStart && id < _billIdEnd)) {
+        await _plugin.cancel(id: id);
       }
     }
   }

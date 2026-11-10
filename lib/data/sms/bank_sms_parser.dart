@@ -85,6 +85,8 @@ abstract final class BankSmsParser {
     '1mg': 'Healthcare',
     'cult': 'Personal',
     'gym': 'Personal',
+    'tiffin': 'Food & Dining',
+    'tiffins': 'Food & Dining',
   };
 
   static final _otp = RegExp(
@@ -96,7 +98,7 @@ abstract final class BankSmsParser {
     caseSensitive: false,
   );
   static final _expense = RegExp(
-    r'\b(debited|debit|withdrawn|withdrawal|spent|paid|purchase|payment|charged|charge|made on)\b',
+    r'\b(debited|debit|withdrawn|withdrawal|spent|paid|purchase|payment|charged|charge|made on|sent|transfer(?:red)?|trf)\b',
     caseSensitive: false,
   );
   static final _reminder = RegExp(
@@ -121,10 +123,14 @@ abstract final class BankSmsParser {
       return null;
     }
 
-    final hasIncome = _income.hasMatch(body);
-    final hasExpense = _expense.hasMatch(body);
-    if (hasIncome == hasExpense) return null;
-    final isIncome = hasIncome;
+    final incomeMatch = _income.firstMatch(body);
+    final expenseMatch = _expense.firstMatch(body);
+    if (incomeMatch == null && expenseMatch == null) return null;
+    // UPI messages often say "debited ...; <beneficiary> credited". The first
+    // direction word belongs to the account owner, so it wins.
+    final isIncome =
+        incomeMatch != null &&
+        (expenseMatch == null || incomeMatch.start < expenseMatch.start);
 
     final amount = _extractAmount(body);
     if (amount == null || amount <= 0) return null;
@@ -204,10 +210,14 @@ abstract final class BankSmsParser {
       r'\b(?:trf|transfer)\s+to\s+([A-Za-z0-9&*._/\- ]{2,60}?)(?=\s+(?:on|dated|via)\b|[.,]|$)',
       caseSensitive: false,
     );
+    final counterparty = RegExp(
+      r'(?:^|[;.]\s*)([A-Za-z0-9&*._/\- ]{2,60}?)\s+credited\b',
+      caseSensitive: false,
+    );
 
     final patterns = isIncome
-        ? [from, info, at]
-        : [at, to, trf, info, from];
+        ? [from, info, at, counterparty]
+        : [at, to, trf, info, from, counterparty];
     for (final pattern in patterns) {
       final cleaned = _cleanMerchant(pattern.firstMatch(body)?.group(1));
       if (cleaned != null) return cleaned;
@@ -231,6 +241,7 @@ abstract final class BankSmsParser {
       return null;
     }
     if (RegExp(r'xx+\s*\d{2,4}').hasMatch(lower)) return null;
+    if (RegExp(r'^\d{6,}$').hasMatch(value)) return null;
     if (value.contains('/')) value = value.split('/').last.trim();
     if (value.isEmpty) return null;
     return _titleCase(value);

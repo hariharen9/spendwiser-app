@@ -610,7 +610,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showNotifications(BuildContext context) {
     var bill = ref.read(settingsProvider).billReminders;
     var alerts = ref.read(settingsProvider).budgetAlerts;
+    var daily = ref.read(settingsProvider).dailyReminder;
     var digest = ref.read(settingsProvider).weeklyDigest;
+    var hour = ref.read(settingsProvider).reminderHour;
+    var minute = ref.read(settingsProvider).reminderMinute;
     showAppSheet<void>(
       context,
       (sheetContext) => StatefulBuilder(
@@ -637,6 +640,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onChanged: (value) => setSheetState(() => alerts = value),
                     ),
                     _ToggleRow(
+                      label: 'Daily check-in',
+                      detail: 'A nudge to log today\'s spends',
+                      value: daily,
+                      onChanged: (value) => setSheetState(() => daily = value),
+                    ),
+                    _ToggleRow(
                       label: 'Weekly digest',
                       detail: 'Sunday summary of your week',
                       value: digest,
@@ -647,29 +656,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               Text(
-                'Daily reminder time',
+                'Reminder time',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 13,
-                ),
-                decoration: BoxDecoration(
-                  color: c.c2,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '20:00',
-                      style: AppTypography.sans(size: 14, color: c.tx),
+              Pressable(
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: sheetContext,
+                    initialTime: TimeOfDay(hour: hour, minute: minute),
+                    builder: (context, child) => MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(alwaysUse24HourFormat: true),
+                      child: child ?? const SizedBox.shrink(),
                     ),
-                    const Spacer(),
-                    SpendIcon('chevronDown', size: 16, color: c.mu),
-                  ],
+                  );
+                  if (picked == null) return;
+                  setSheetState(() {
+                    hour = picked.hour;
+                    minute = picked.minute;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    color: c.c2,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
+                        style: AppTypography.sans(size: 14, color: c.tx),
+                      ),
+                      const Spacer(),
+                      SpendIcon('chevronDown', size: 16, color: c.mu),
+                    ],
+                  ),
                 ),
+              ),
+              Text(
+                'Used for daily check-ins, bill reminders and the weekly digest.',
+                style: AppTypography.sans(size: 11, color: c.mu),
+              ),
+              AppButton(
+                label: 'Send test notification',
+                onTap: () async {
+                  await NotificationsService.requestPermissions();
+                  await NotificationsService.showNow(
+                    'Spendwiser test',
+                    'Notifications are working on this device.',
+                    id: 42,
+                  );
+                },
               ),
               PrimaryButton(
                 label: 'Save',
@@ -680,7 +723,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       .patch(
                         billReminders: bill,
                         budgetAlerts: alerts,
+                        dailyReminder: daily,
                         weeklyDigest: digest,
+                        reminderHour: hour,
+                        reminderMinute: minute,
                       );
                   final snapshot = ref.read(financeSnapshotProvider);
                   final updated = ref.read(settingsProvider);

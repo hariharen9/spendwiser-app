@@ -145,6 +145,7 @@ class _NetWorthHero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.spend;
+    final flow = snapshot.flow(monthStart(DateTime.now()));
     final balance = snapshot.accounts
         .where(
           (account) =>
@@ -153,42 +154,86 @@ class _NetWorthHero extends ConsumerWidget {
         )
         .fold<double>(0, (sum, account) => sum + account.balance);
 
-    return GlowCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GlowCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'CURRENT BALANCE',
-                style: AppTypography.sans(
-                  size: 11,
-                  color: c.mu,
-                  letterSpacing: 1.32,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'CURRENT BALANCE',
+                    style: AppTypography.sans(
+                      size: 11,
+                      color: c.mu,
+                      letterSpacing: 1.32,
+                    ),
+                  ),
+                  const Spacer(),
+                  Pressable(
+                    onTap: onInsights,
+                    child: Text(
+                      'Insights →',
+                      style: AppTypography.sans(size: 12, color: c.ac),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Pressable(
-                onTap: onInsights,
-                child: Text(
-                  'Insights →',
-                  style: AppTypography.sans(size: 12, color: c.ac),
+              AnimatedAmount(
+                value: balance,
+                formatter: (value) => formatINR(value),
+                style: AppTypography.serif(
+                  size: 50,
+                  color: c.tx,
+                  letterSpacing: -1,
+                  height: 1.05,
                 ),
               ),
             ],
           ),
-          AnimatedAmount(
-            value: balance,
-            formatter: (value) => formatINR(value),
-            style: AppTypography.serif(
-              size: 50,
-              color: c.tx,
-              letterSpacing: -1,
-              height: 1.05,
-            ),
+        ),
+        _Trio(flow: flow),
+      ],
+    );
+  }
+}
+
+class _Trio extends StatelessWidget {
+  const _Trio({required this.flow});
+
+  final MonthFlow flow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: MetricTile(
+            label: 'Income',
+            amount: flow.income,
+            formatter: compactINR,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: MetricTile(
+            label: 'Spent',
+            amount: flow.expense,
+            formatter: compactINR,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: MetricTile(
+            label: 'Saved',
+            amount: flow.savingsRate.toDouble(),
+            formatter: (value) => '${value.round()}%',
+            valueColor: context.spend.ac,
+          ),
+        ),
+      ],
     );
   }
 }

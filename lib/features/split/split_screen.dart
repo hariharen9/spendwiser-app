@@ -90,8 +90,10 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              MoneyText(
-                '${yourBalance < 0 ? '−' : ''}${rupee(yourBalance)}',
+              AnimatedAmount(
+                value: yourBalance,
+                formatter: (value) =>
+                    '${value < 0 ? '−' : ''}${rupee(value)}',
                 style: AppTypography.serif(
                   size: 36,
                   color: yourBalance < 0 ? c.co : c.tx,

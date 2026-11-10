@@ -14,7 +14,7 @@ object SmsFilter {
         "(?i)\\b(otp|one[- ]time password|verification code|do not share|never share)\\b",
     )
     private val transaction = Regex(
-        "(?i)\\b(debit(ed)?|credit(ed)?|withdraw(n|al)?|spent|paid|purchase|deposit(ed)?|received|refund)\\b",
+        "(?i)\\b(debit(ed)?|credit(ed)?|withdraw(n|al)?|spent|paid|purchase|deposit(ed)?|received|refund|sent|transfer(red)?|trf)\\b",
     )
     private val amount = Regex(
         "(?i)(?:inr|rs\\.?|₹)\\s*[\\d,]+(?:\\.\\d{1,2})?",

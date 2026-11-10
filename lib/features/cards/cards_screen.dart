@@ -270,8 +270,8 @@ class _Overview extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Text(
-                      rupee(due.amount),
+                    AnimatedAmount(
+                      value: due.amount,
                       style: AppTypography.serif(
                         size: 46,
                         color: c.tx,
@@ -338,8 +338,8 @@ class _Overview extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        rupee(latest.amount),
+                      child: AnimatedAmount(
+                        value: latest.amount,
                         style: AppTypography.serif(size: 28, color: c.tx),
                       ),
                     ),
@@ -565,14 +565,16 @@ class _Statements extends StatelessWidget {
             Expanded(
               child: MetricTile(
                 label: 'Billed · 6 mo',
-                value: compactINR(billed),
+                amount: billed,
+                formatter: compactINR,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: MetricTile(
                 label: 'Avg / month',
-                value: compactINR(listed.isEmpty ? 0 : billed / listed.length),
+                amount: listed.isEmpty ? 0 : billed / listed.length,
+                formatter: compactINR,
               ),
             ),
             const SizedBox(width: 8),

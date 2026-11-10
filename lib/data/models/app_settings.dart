@@ -38,7 +38,10 @@ class AppSettings {
     this.homeWidgets = HomeWidget.values,
     this.hiddenWidgets = const <HomeWidget>{},
     this.billReminders = true,
+    this.dailyReminder = true,
     this.weeklyDigest = false,
+    this.reminderHour = 20,
+    this.reminderMinute = 0,
     this.categories = AppColors.categories,
   });
 
@@ -55,10 +58,16 @@ class AppSettings {
   final List<HomeWidget> homeWidgets;
   final Set<HomeWidget> hiddenWidgets;
   final bool billReminders;
+  final bool dailyReminder;
   final bool weeklyDigest;
+  final int reminderHour;
+  final int reminderMinute;
   final Map<String, Color> categories;
 
   bool get isDark => theme == AppThemeMode.dark;
+
+  String get reminderLabel =>
+      '${reminderHour.toString().padLeft(2, '0')}:${reminderMinute.toString().padLeft(2, '0')}';
 
   String get initials {
     final parts = userName.trim().split(RegExp(r'\s+'));
@@ -86,7 +95,10 @@ class AppSettings {
     List<HomeWidget>? homeWidgets,
     Set<HomeWidget>? hiddenWidgets,
     bool? billReminders,
+    bool? dailyReminder,
     bool? weeklyDigest,
+    int? reminderHour,
+    int? reminderMinute,
     Map<String, Color>? categories,
   }) {
     return AppSettings(
@@ -103,7 +115,10 @@ class AppSettings {
       homeWidgets: homeWidgets ?? this.homeWidgets,
       hiddenWidgets: hiddenWidgets ?? this.hiddenWidgets,
       billReminders: billReminders ?? this.billReminders,
+      dailyReminder: dailyReminder ?? this.dailyReminder,
       weeklyDigest: weeklyDigest ?? this.weeklyDigest,
+      reminderHour: reminderHour ?? this.reminderHour,
+      reminderMinute: reminderMinute ?? this.reminderMinute,
       categories: categories ?? this.categories,
     );
   }
@@ -122,7 +137,10 @@ class AppSettings {
     'homeWidgets': homeWidgets.map((e) => e.name).toList(),
     'hiddenWidgets': hiddenWidgets.map((e) => e.name).toList(),
     'billReminders': billReminders,
+    'dailyReminder': dailyReminder,
     'weeklyDigest': weeklyDigest,
+    'reminderHour': reminderHour,
+    'reminderMinute': reminderMinute,
     'categories': categories.map((k, v) => MapEntry(k, v.toARGB32())),
   };
 
@@ -150,7 +168,12 @@ class AppSettings {
         .map((e) => HomeWidget.values.firstWhere((w) => w.name == e, orElse: () => HomeWidget.netWorth))
         .toSet(),
     billReminders: j['billReminders'] as bool? ?? true,
+    dailyReminder: j['dailyReminder'] as bool? ?? true,
     weeklyDigest: j['weeklyDigest'] as bool? ?? false,
+    reminderHour: ((j['reminderHour'] as num?)?.toInt() ?? 20).clamp(0, 23).toInt(),
+    reminderMinute: ((j['reminderMinute'] as num?)?.toInt() ?? 0)
+        .clamp(0, 59)
+        .toInt(),
     categories: ((j['categories'] as Map?) ?? {})
         .map((k, v) => MapEntry(k as String, Color((v as num).toInt()))),
   );

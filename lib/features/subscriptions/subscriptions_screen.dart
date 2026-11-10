@@ -79,8 +79,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   'Yearly cost',
                   style: AppTypography.sans(size: 12, color: c.aci),
                 ),
-                Text(
-                  rupee(monthly * 12),
+                AnimatedAmount(
+                  value: monthly * 12,
                   style: AppTypography.serif(
                     size: 46,
                     color: c.aci,
@@ -135,7 +135,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               Expanded(
                 child: MetricTile(
                   label: 'In / month',
-                  value: compactINR(monthlyIn),
+                  amount: monthlyIn,
+                  formatter: compactINR,
                   valueColor: c.ac,
                 ),
               ),
@@ -143,7 +144,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               Expanded(
                 child: MetricTile(
                   label: 'Out / month',
-                  value: compactINR(monthlyOut),
+                  amount: monthlyOut,
+                  formatter: compactINR,
                 ),
               ),
             ],

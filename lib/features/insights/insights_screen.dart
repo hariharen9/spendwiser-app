@@ -195,8 +195,9 @@ class _SpendTab extends StatelessWidget {
                             letterSpacing: 1.2,
                           ),
                         ),
-                        MoneyText(
-                          compactINR(total),
+                        AnimatedAmount(
+                          value: total,
+                          formatter: compactINR,
                           style: AppTypography.serif(size: 22, color: c.tx),
                         ),
                       ],

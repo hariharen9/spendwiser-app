@@ -105,8 +105,8 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  MoneyText(
-                    rupee(snapshot.totalBudgetLimit),
+                  AnimatedAmount(
+                    value: snapshot.totalBudgetLimit,
                     style: AppTypography.sans(
                       size: 16,
                       color: c.tx,
@@ -135,8 +135,8 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                       left < 0 ? 'Over budget by' : 'Left this month',
                       style: AppTypography.sans(size: 12, color: c.mu),
                     ),
-                    MoneyText(
-                      rupee(left.abs()),
+                    AnimatedAmount(
+                      value: left.abs(),
                       style: AppTypography.serif(
                         size: 42,
                         color: left < 0 ? c.co : c.tx,
@@ -176,8 +176,8 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     style: AppTypography.sans(size: 14, color: c.mu),
                   ),
                   const Spacer(),
-                  MoneyText(
-                    rupee(income),
+                  AnimatedAmount(
+                    value: income,
                     style: AppTypography.sans(
                       size: 14,
                       color: c.tx,

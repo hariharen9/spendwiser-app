@@ -474,7 +474,10 @@ class SettingsNotifier extends Notifier<AppSettings> {
     List<HomeWidget>? homeWidgets,
     Set<HomeWidget>? hiddenWidgets,
     bool? billReminders,
+    bool? dailyReminder,
     bool? weeklyDigest,
+    int? reminderHour,
+    int? reminderMinute,
     Map<String, Color>? categories,
   }) {
     update(
@@ -492,7 +495,10 @@ class SettingsNotifier extends Notifier<AppSettings> {
         homeWidgets: homeWidgets,
         hiddenWidgets: hiddenWidgets,
         billReminders: billReminders,
+        dailyReminder: dailyReminder,
         weeklyDigest: weeklyDigest,
+        reminderHour: reminderHour,
+        reminderMinute: reminderMinute,
         categories: categories,
       ),
     );

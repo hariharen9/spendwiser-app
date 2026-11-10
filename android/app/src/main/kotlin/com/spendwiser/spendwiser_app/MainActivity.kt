@@ -56,6 +56,10 @@ class MainActivity : FlutterFragmentActivity() {
                 SmsInboxStore(this).clear()
                 result.success(null)
             }
+            "notifyTest" -> {
+                val count = SmsInboxStore(this).count()
+                result.success(SmsNotifier.notify(this, count, test = true))
+            }
             else -> result.notImplemented()
         }
     }

@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/health_score_gauge.dart';
+import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../data/models/goal.dart';
 import '../../data/services/finance_calculator.dart';
@@ -330,9 +331,13 @@ class _GoalCard extends StatelessWidget {
                     weight: FontWeight.w500,
                   ),
                 ),
-                Text(
-                  '${rupee(goal.saved)} of ${rupee(goal.target)}',
+                AnimatedAmount(
+                  value: goal.saved,
                   style: AppTypography.sans(size: 12, color: c.mu),
+                  suffix: Text(
+                    ' of ${rupee(goal.target)}',
+                    style: AppTypography.sans(size: 12, color: c.mu),
+                  ),
                 ),
                 Text(
                   goal.isReached

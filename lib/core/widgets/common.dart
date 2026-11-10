@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import '../utils/currency_formatter.dart';
 import 'app_button.dart';
 import 'app_card.dart';
+import 'money_text.dart';
 
 class ScreenScroll extends StatelessWidget {
   const ScreenScroll({
@@ -155,13 +157,17 @@ class MetricTile extends StatelessWidget {
   const MetricTile({
     super.key,
     required this.label,
-    required this.value,
+    this.value,
+    this.amount,
+    this.formatter,
     this.valueColor,
     this.padding = const EdgeInsets.all(12),
-  });
+  }) : assert(value != null || amount != null);
 
   final String label;
-  final String value;
+  final String? value;
+  final double? amount;
+  final String Function(double)? formatter;
   final Color? valueColor;
   final EdgeInsetsGeometry padding;
 
@@ -193,14 +199,24 @@ class MetricTile extends StatelessWidget {
           FittedBox(
             alignment: Alignment.centerLeft,
             fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: AppTypography.serif(
-                size: 22,
-                color: valueColor ?? c.tx,
-                height: 1.1,
-              ),
-            ),
+            child: amount == null
+                ? Text(
+                    value!,
+                    style: AppTypography.serif(
+                      size: 22,
+                      color: valueColor ?? c.tx,
+                      height: 1.1,
+                    ),
+                  )
+                : AnimatedAmount(
+                    value: amount!,
+                    formatter: formatter ?? rupee,
+                    style: AppTypography.serif(
+                      size: 22,
+                      color: valueColor ?? c.tx,
+                      height: 1.1,
+                    ),
+                  ),
           ),
         ],
       ),

@@ -153,7 +153,12 @@ class FirestoreUserProfileRepository {
       hiddenWidgets: _homeWidgets(mobilePrefs['hiddenWidgets'], const [])
           .toSet(),
       billReminders: asBool(mobilePrefs['billReminders'], true),
+      dailyReminder: asBool(mobilePrefs['dailyReminder'], true),
       weeklyDigest: asBool(mobilePrefs['weeklyDigest']),
+      reminderHour: asInt(mobilePrefs['reminderHour'], 20).clamp(0, 23).toInt(),
+      reminderMinute: asInt(mobilePrefs['reminderMinute'], 0)
+          .clamp(0, 59)
+          .toInt(),
       categories: categoryMap,
     );
     _controller.add(_settings);
@@ -193,7 +198,10 @@ class FirestoreUserProfileRepository {
         'homeWidgets': settings.homeWidgets.map((w) => w.name).toList(),
         'hiddenWidgets': settings.hiddenWidgets.map((w) => w.name).toList(),
         'billReminders': settings.billReminders,
+        'dailyReminder': settings.dailyReminder,
         'weeklyDigest': settings.weeklyDigest,
+        'reminderHour': settings.reminderHour,
+        'reminderMinute': settings.reminderMinute,
         'categoryColors': settings.categories.map(
           (key, value) => MapEntry(key, value.toARGB32()),
         ),

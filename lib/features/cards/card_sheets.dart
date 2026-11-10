@@ -552,9 +552,9 @@ class _StatementDetailSheet extends ConsumerWidget {
           children: [
             MetricTile(
               label: openCycle ? 'Unbilled' : 'Billed',
-              value: rupee(
-                openCycle ? (cycle?.amount ?? 0) : (statement?.amount ?? 0),
-              ),
+              amount: openCycle
+                  ? (cycle?.amount ?? 0)
+                  : (statement?.amount ?? 0),
             ),
             MetricTile(
               label: openCycle ? 'Bills on' : 'Due date',

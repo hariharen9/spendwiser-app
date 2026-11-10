@@ -127,6 +127,63 @@ void main() {
       expect(parsed.last4, '1234');
     });
 
+    test('parses an ICICI UPI debit where the counterparty is credited', () {
+      final parsed = BankSmsParser.parse(
+        message(
+          'AD-ICICIB',
+          'ICICI Bank Acct XX855 debited for Rs 1000.00 on 10-Nov-26; '
+              'S RAMANI credited. UPI:631434570155. '
+              'Call 18002662 for dispute. SMS BLOCK 855 to 9215676766.',
+        ),
+      );
+
+      expect(parsed, isNotNull);
+      expect(parsed!.amount, 1000);
+      expect(parsed.isIncome, false);
+      expect(parsed.merchant, 'S Ramani');
+      expect(parsed.date, DateTime(2026, 11, 10, 12));
+    });
+
+    test('parses a second ICICI UPI debit with a different counterparty', () {
+      final parsed = BankSmsParser.parse(
+        message(
+          'AD-ICICIB',
+          'ICICI Bank Acct XX855 debited for Rs 500.00 on 10-Nov-26; '
+              'Nithishkumar Ya credited. UPI:631430177547. '
+              'Call 18002662 for dispute. SMS BLOCK 855 to 9215676766.',
+        ),
+      );
+
+      expect(parsed, isNotNull);
+      expect(parsed!.amount, 500);
+      expect(parsed.isIncome, false);
+      expect(parsed.merchant, contains('Nithishkumar'));
+      expect(parsed.date, DateTime(2026, 11, 10, 12));
+    });
+
+    test('parses an HDFC Sent UPI transfer', () {
+      final parsed = BankSmsParser.parse(
+        message(
+          'AD-HDFCBK',
+          'Sent Rs.375.00\n'
+              'From HDFC Bank A/C *6539\n'
+              'To Babai Tiffins VTR-1\n'
+              'On 30/07/26\n'
+              'Ref 127517458170\n'
+              'Not You?\n'
+              'Call 18002586161/SMS BLOCK UPI to 7308080808',
+        ),
+      );
+
+      expect(parsed, isNotNull);
+      expect(parsed!.amount, 375);
+      expect(parsed.isIncome, false);
+      expect(parsed.merchant, contains('Babai Tiffins'));
+      expect(parsed.last4, '6539');
+      expect(parsed.date, DateTime(2026, 7, 30, 12));
+      expect(parsed.category, 'Food & Dining');
+    });
+
     test('rejects OTP messages', () {
       expect(
         BankSmsParser.parse(

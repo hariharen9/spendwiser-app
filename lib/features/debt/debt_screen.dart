@@ -219,23 +219,26 @@ class _LoanList extends ConsumerWidget {
           children: [
             MetricTile(
               label: 'Monthly EMIs',
-              value: rupee(totalEmi),
+              amount: totalEmi,
               padding: const EdgeInsets.all(16),
             ),
             MetricTile(
               label: 'Debt-to-income',
-              value: '${(totalEmi / income * 100).round()}%',
+              amount: totalEmi / income * 100,
+              formatter: (value) => '${value.round()}%',
               valueColor: totalEmi / income > 0.4 ? c.co : null,
               padding: const EdgeInsets.all(16),
             ),
             MetricTile(
               label: 'Avg interest rate',
-              value: '${weightedRate.toStringAsFixed(1)}%',
+              amount: weightedRate,
+              formatter: (value) => '${value.toStringAsFixed(1)}%',
               padding: const EdgeInsets.all(16),
             ),
             MetricTile(
               label: 'Interest to pay',
-              value: compactINR(totalInterest),
+              amount: totalInterest,
+              formatter: compactINR,
               padding: const EdgeInsets.all(16),
             ),
           ],
@@ -1106,17 +1109,26 @@ class _Payments extends ConsumerWidget {
         Row(
           children: [
             Expanded(
-              child: MetricTile(label: 'Paid', value: compactINR(paid)),
+              child: MetricTile(
+                label: 'Paid',
+                amount: paid,
+                formatter: compactINR,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: MetricTile(label: 'Interest', value: compactINR(interest)),
+              child: MetricTile(
+                label: 'Interest',
+                amount: interest,
+                formatter: compactINR,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: MetricTile(
                 label: 'Principal',
-                value: compactINR(principal),
+                amount: principal,
+                formatter: compactINR,
               ),
             ),
           ],

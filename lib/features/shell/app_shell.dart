@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Offset? _radialPointer;
   final _radialKey = GlobalKey<RadialOrbitOverlayState>();
   bool _showOnboarding = false;
+  bool _transitionReverse = false;
   bool _hintVisible = false;
   bool _hintShown = false;
   DateTime? _pausedAt;
@@ -123,6 +125,7 @@ class _AppShellState extends ConsumerState<AppShell>
     if (_module == module && !_launcherOpen && !_radialOpen) return;
     Haptics.light();
     setState(() {
+      _transitionReverse = module.index < _module.index;
       _module = module;
       _launcherOpen = false;
       _radialOpen = false;
@@ -185,24 +188,32 @@ class _AppShellState extends ConsumerState<AppShell>
               ),
             ),
             Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 650),
-                reverseDuration: const Duration(milliseconds: 300),
-                layoutBuilder: (current, previous) => Stack(
+              child: PageTransitionSwitcher(
+                duration: const Duration(milliseconds: 420),
+                reverse: _transitionReverse,
+                layoutBuilder: (entries) => Stack(
                   fit: StackFit.expand,
-                  children: [...previous, ?current],
+                  children: entries,
                 ),
-                transitionBuilder: (child, animation) {
-                  return _SpendwiserPageTransition(
-                    animation: animation,
-                    child: child,
-                  );
-                },
+                transitionBuilder:
+                    (child, primaryAnimation, secondaryAnimation) {
+                      return SharedAxisTransition(
+                        animation: primaryAnimation,
+                        secondaryAnimation: secondaryAnimation,
+                        transitionType: SharedAxisTransitionType.horizontal,
+                        fillColor: Colors.transparent,
+                        child: child,
+                      );
+                    },
                 child: KeyedSubtree(
                   key: ValueKey(_module),
-                  child: KeyedSubtree(
-                    key: ValueKey('${settings.font.name}_${settings.theme.name}'),
-                    child: _screenFor(_module),
+                  child: RepaintBoundary(
+                    child: KeyedSubtree(
+                      key: ValueKey(
+                        '${settings.font.name}_${settings.theme.name}',
+                      ),
+                      child: _screenFor(_module),
+                    ),
                   ),
                 ),
               ),
@@ -506,71 +517,6 @@ class _OrbFabState extends State<_OrbFab> {
           );
         },
       ),
-    );
-  }
-}
-
-class _SpendwiserPageTransition extends StatelessWidget {
-  const _SpendwiserPageTransition({
-    required this.animation,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) {
-        if (animation.status == AnimationStatus.completed) {
-          return child;
-        }
-
-        final isIncoming = animation.status == AnimationStatus.forward;
-
-        if (isIncoming) {
-          final t = animation.value.clamp(0.0, 1.0);
-          // Prototype spec: rise .7s cubic-bezier(.2,.9,.2,1) both
-          // from { opacity: 0; transform: translateY(24px) scale(.97); }
-          const curve = Cubic(0.2, 0.9, 0.2, 1.0);
-          final curved = curve.transform(t);
-
-          // Progressive opacity fade: starts at 0, smoothly blooms to 1.0
-          final opacity = Curves.easeOut.transform(t);
-
-          // Smooth rise from 36px below
-          final translateY = 36.0 * (1.0 - curved);
-
-          // Subtle bloom scale from 0.965 to 1.0
-          final scale = 0.965 + (0.035 * curved);
-
-          return Opacity(
-            opacity: opacity,
-            child: Transform.translate(
-              offset: Offset(0, translateY),
-              child: Transform.scale(
-                scale: scale,
-                child: child,
-              ),
-            ),
-          );
-        } else {
-          // Outgoing screen: gracefully dissolves in place without moving down
-          final t = animation.value.clamp(0.0, 1.0);
-          final opacity = Curves.easeInOut.transform(t);
-          final scale = 0.985 + (0.015 * t);
-
-          return Opacity(
-            opacity: opacity,
-            child: Transform.scale(
-              scale: scale,
-              child: child,
-            ),
-          );
-        }
-      },
     );
   }
 }

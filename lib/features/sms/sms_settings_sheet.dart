@@ -11,6 +11,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/section_caption.dart';
+import '../../data/services/notifications_service.dart';
 import '../../data/sms/sms_inbox.dart';
 import 'sms_review_sheet.dart';
 
@@ -111,6 +112,22 @@ class _SmsSettingsSheetState extends ConsumerState<_SmsSettingsSheet> {
           label: 'Paste a test message',
           centered: true,
           onTap: () => showSmsReviewSheet(context),
+        ),
+        AppButton(
+          label: 'Send test notification',
+          centered: true,
+          onTap: () async {
+            await NotificationsService.requestPermissions();
+            final sent = await SmsInbox.notifyTest();
+            if (!mounted) return;
+            ref
+                .read(toastProvider.notifier)
+                .show(
+                  sent
+                      ? 'Test SMS notification sent'
+                      : 'Enable notifications in Android settings',
+                );
+          },
         ),
         const SectionCaption('How it works'),
         AppCard(

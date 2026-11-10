@@ -186,24 +186,26 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             children: [
               KeyValueRow(
                 label: 'Bills still due',
-                value: MoneyText(
-                  rupee(due),
+                value: AnimatedAmount(
+                  value: due,
                   style: AppTypography.sans(size: 14, color: c.tx),
                 ),
                 padding: const EdgeInsets.only(bottom: 10),
               ),
               KeyValueRow(
                 label: 'Typical monthly income',
-                value: MoneyText(
-                  '+${rupee(income)}',
+                value: AnimatedAmount(
+                  value: income,
+                  formatter: (value) => '+${rupee(value)}',
                   style: AppTypography.sans(size: 14, color: c.ac),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
               KeyValueRow(
                 label: 'Projected cash after bills',
-                value: MoneyText(
-                  rupee(snapshot.liquidAssets + income - due),
+                value: AnimatedAmount(
+                  value: snapshot.liquidAssets + income - due,
+                  formatter: (value) => formatINR(value),
                   style: AppTypography.serif(size: 22, color: c.tx),
                 ),
                 padding: const EdgeInsets.only(top: 10),

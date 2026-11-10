@@ -62,8 +62,8 @@ class AccountsScreen extends ConsumerWidget {
                 'Available across banks & cash',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
-              MoneyText(
-                rupee(available),
+              AnimatedAmount(
+                value: available,
                 style: AppTypography.serif(
                   size: 42,
                   color: c.tx,
@@ -77,14 +77,14 @@ class AccountsScreen extends ConsumerWidget {
                   Expanded(
                     child: MetricTile(
                       label: 'In banks',
-                      value: rupee(bankTotal),
+                      amount: bankTotal,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: MetricTile(
                       label: 'Cash in hand',
-                      value: rupee(cashTotal),
+                      amount: cashTotal,
                     ),
                   ),
                 ],
@@ -162,8 +162,8 @@ class AccountsScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SheetTitle(account.name),
-              MoneyText(
-                rupee(account.balance),
+              AnimatedAmount(
+                value: account.balance,
                 style: AppTypography.serif(size: 50, color: c.tx),
               ),
               const SizedBox(height: 10),

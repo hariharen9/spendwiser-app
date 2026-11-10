@@ -103,6 +103,18 @@ abstract final class SmsInbox {
     }
   }
 
+  /// Posts the native SMS-review notification without waiting for a real SMS.
+  static Future<bool> notifyTest() async {
+    if (!isSupported) return false;
+    try {
+      return await _channel.invokeMethod<bool>('notifyTest') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   /// Debug/testing helper: inject an SMS into the local queue.
   static Future<SmsMessage?> addRaw({
     required String sender,

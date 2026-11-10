@@ -13,12 +13,12 @@ object SmsNotifier {
     private const val CHANNEL_ID = "sms_capture"
     private const val NOTIFICATION_ID = 7100
 
-    fun notify(context: Context, count: Int) {
+    fun notify(context: Context, count: Int, test: Boolean = false): Boolean {
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            return
+            return false
         }
         val manager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -34,7 +34,7 @@ object SmsNotifier {
             )
         }
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: return
+            ?: return false
         launch.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         launch.putExtra("open_sms_review", true)
         val pendingIntent = PendingIntent.getActivity(
@@ -51,14 +51,15 @@ object SmsNotifier {
         }
         builder
             .setSmallIcon(R.drawable.ic_sms)
-            .setContentTitle("Spendwiser")
+            .setContentTitle(if (test) "Spendwiser test" else "Spendwiser")
             .setContentText(
-                if (count == 1) "1 bank message to review"
+                if (test) "Bank SMS notifications are working"
+                else if (count == 1) "1 bank message to review"
                 else "$count bank messages to review",
             )
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
         manager.notify(NOTIFICATION_ID, builder.build())
+        return true
     }
 }

@@ -79,8 +79,8 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
                       'In',
                       style: AppTypography.sans(size: 12, color: c.mu),
                     ),
-                    MoneyText(
-                      rupee(flow.income),
+                    AnimatedAmount(
+                      value: flow.income,
                       style: AppTypography.serif(
                         size: 26,
                         color: c.ac,
@@ -102,8 +102,8 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
                       'Out',
                       style: AppTypography.sans(size: 12, color: c.mu),
                     ),
-                    MoneyText(
-                      rupee(flow.expense),
+                    AnimatedAmount(
+                      value: flow.expense,
                       style: AppTypography.serif(
                         size: 26,
                         color: c.tx,
