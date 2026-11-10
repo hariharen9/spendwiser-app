@@ -29,7 +29,25 @@ abstract final class AppColors {
     Color(0xFF6EE7FF), // Cyan
     Color(0xFFC084FC), // Purple
     Color(0xFFFFD23F), // Gold
+    Color(0xFFFF6B9D), // Rose
+    Color(0xFF60A5FA), // Sky
+    Color(0xFF7BE495), // Mint
   ];
+
+  /// Curated second stop for accent gradients.
+  static final accentPairs = <Color, Color>{
+    Color(0xFFD4FF3A): Color(0xFF7DFF8A), // Lime → mint
+    Color(0xFFFF6B4A): Color(0xFFFF3D81), // Coral → pink
+    Color(0xFF6EE7FF): Color(0xFF2DD4BF), // Cyan → teal
+    Color(0xFFC084FC): Color(0xFFA78BFA), // Purple → lavender
+    Color(0xFFFFD23F): Color(0xFFFF9F43), // Gold → amber
+    Color(0xFFFF6B9D): Color(0xFFFF4D6D), // Rose → red
+    Color(0xFF60A5FA): Color(0xFF38BDF8), // Sky → cyan
+    Color(0xFF7BE495): Color(0xFF34D399), // Mint → emerald
+  };
+
+  static Color accentSecondary(Color primary) =>
+      accentPairs[primary] ?? Color.lerp(primary, Colors.white, 0.24)!;
 
   static const categoryPalette = <Color>[
     Color(0xFFFF9F43), // Orange
@@ -103,6 +121,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
     required this.mu,
     required this.ln,
     required this.ac,
+    required this.ac2,
     required this.aci,
     required this.co,
     required this.out,
@@ -116,6 +135,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
   final Color mu;
   final Color ln;
   final Color ac;
+  final Color ac2;
   final Color aci;
   final Color co;
   final Color out;
@@ -129,6 +149,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
     mu: AppColors.mu,
     ln: AppColors.ln,
     ac: accent,
+    ac2: AppColors.accentSecondary(accent),
     aci: AppColors.aci,
     co: AppColors.co,
     out: AppColors.out,
@@ -143,6 +164,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
     mu: AppColors.lightMu,
     ln: AppColors.lightLn,
     ac: accent,
+    ac2: AppColors.accentSecondary(accent),
     aci: AppColors.aci,
     co: AppColors.co,
     out: AppColors.lightOut,
@@ -167,6 +189,18 @@ class SpendColors extends ThemeExtension<SpendColors> {
     colors: [glassTop, glassBottom],
   );
 
+  LinearGradient get accentGradient => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [ac, ac2],
+  );
+
+  LinearGradient accentGradientFor(Color tint) => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [tint, AppColors.accentSecondary(tint)],
+  );
+
   Color tint(Color color, double alpha) => color.withValues(alpha: alpha);
 
   @override
@@ -178,6 +212,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
     Color? mu,
     Color? ln,
     Color? ac,
+    Color? ac2,
     Color? aci,
     Color? co,
     Color? out,
@@ -191,6 +226,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
       mu: mu ?? this.mu,
       ln: ln ?? this.ln,
       ac: ac ?? this.ac,
+      ac2: ac2 ?? this.ac2,
       aci: aci ?? this.aci,
       co: co ?? this.co,
       out: out ?? this.out,
@@ -209,6 +245,7 @@ class SpendColors extends ThemeExtension<SpendColors> {
       mu: Color.lerp(mu, other.mu, t)!,
       ln: Color.lerp(ln, other.ln, t)!,
       ac: Color.lerp(ac, other.ac, t)!,
+      ac2: Color.lerp(ac2, other.ac2, t)!,
       aci: Color.lerp(aci, other.aci, t)!,
       co: Color.lerp(co, other.co, t)!,
       out: Color.lerp(out, other.out, t)!,

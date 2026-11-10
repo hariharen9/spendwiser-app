@@ -85,10 +85,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             gradient: RadialGradient(
               center: const Alignment(0, -1),
               radius: 1.15,
-              colors: [
-                Color.lerp(c.bg, _accent, 0.30)!,
-                c.bg,
-              ],
+              colors: [Color.lerp(c.bg, _accent, 0.30)!, c.bg],
               stops: const [0, 0.7],
             ),
           ),
@@ -220,26 +217,29 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         const SizedBox(height: 18),
         Text('Accent', style: AppTypography.sans(size: 12, color: c.mu)),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
             for (final accent in AppColors.accents)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _accent = accent);
-                    ref.read(settingsProvider.notifier).patch(accent: accent);
-                  },
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      shape: BoxShape.circle,
-                      border: _accent == accent
-                          ? Border.all(color: c.tx, width: 2)
-                          : Border.all(color: c.ln),
+              GestureDetector(
+                onTap: () {
+                  setState(() => _accent = accent);
+                  ref.read(settingsProvider.notifier).patch(accent: accent);
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [accent, AppColors.accentSecondary(accent)],
                     ),
+                    shape: BoxShape.circle,
+                    border: _accent == accent
+                        ? Border.all(color: c.tx, width: 2)
+                        : Border.all(color: c.ln),
                   ),
                 ),
               ),

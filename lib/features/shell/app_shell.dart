@@ -527,6 +527,9 @@ class _SwipeEdgeFeedback extends StatelessWidget {
             valueListenable: target,
             builder: (context, next, _) {
               final accent = next?.tint ?? c.ac;
+              final secondary = next == null
+                  ? c.ac2
+                  : Color.lerp(next.tint, Colors.white, 0.25)!;
               return Opacity(
                 opacity: Curves.easeOut.transform(value.clamp(0.0, 1.0)),
                 child: Column(
@@ -540,6 +543,7 @@ class _SwipeEdgeFeedback extends StatelessWidget {
                           colors: [
                             accent.withValues(alpha: 0),
                             accent.withValues(alpha: 0.75),
+                            secondary.withValues(alpha: 0.64),
                             accent.withValues(alpha: 0),
                           ],
                         ),
@@ -736,6 +740,11 @@ class _OrbFabState extends State<_OrbFab> {
                       painter: _SwipeArcPainter(
                         progress: swipe,
                         color: widget.module.tint,
+                        color2: Color.lerp(
+                          widget.module.tint,
+                          Colors.white,
+                          0.25,
+                        )!,
                       ),
                     ),
                   Container(
@@ -783,6 +792,7 @@ class _OrbFabState extends State<_OrbFab> {
                           child: CustomPaint(
                             painter: _PuckRimPainter(
                               accent: c.ac,
+                              accent2: c.ac2,
                               active: open,
                               breath: t,
                             ),
@@ -855,11 +865,13 @@ class _OrbFabState extends State<_OrbFab> {
 class _PuckRimPainter extends CustomPainter {
   const _PuckRimPainter({
     required this.accent,
+    required this.accent2,
     required this.active,
     required this.breath,
   });
 
   final Color accent;
+  final Color accent2;
   final bool active;
   final double breath;
 
@@ -868,6 +880,15 @@ class _PuckRimPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final radius = size.width / 2 - 1.3;
     final rect = Rect.fromCircle(center: center, radius: radius - 0.2);
+    final rimAlpha = active ? 0.82 : 0.42 + 0.12 * breath;
+    final rimShader = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        accent.withValues(alpha: rimAlpha),
+        accent2.withValues(alpha: rimAlpha),
+      ],
+    ).createShader(rect);
 
     canvas.drawCircle(
       center,
@@ -879,13 +900,21 @@ class _PuckRimPainter extends CustomPainter {
     );
 
     if (active) {
+      final activeShader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          accent.withValues(alpha: 0.28),
+          accent2.withValues(alpha: 0.28),
+        ],
+      ).createShader(rect);
       canvas.drawCircle(
         center,
         radius,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.8
-          ..color = accent.withValues(alpha: 0.28),
+          ..shader = activeShader,
       );
     }
 
@@ -893,22 +922,28 @@ class _PuckRimPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.15
       ..strokeCap = StrokeCap.round
-      ..color = accent.withValues(alpha: active ? 0.82 : 0.42 + 0.12 * breath);
+      ..shader = rimShader;
     canvas.drawArc(rect, math.pi * 0.16, math.pi * 0.68, false, rim);
   }
 
   @override
   bool shouldRepaint(covariant _PuckRimPainter oldDelegate) =>
       oldDelegate.accent != accent ||
+      oldDelegate.accent2 != accent2 ||
       oldDelegate.active != active ||
       oldDelegate.breath != breath;
 }
 
 class _SwipeArcPainter extends CustomPainter {
-  const _SwipeArcPainter({required this.progress, required this.color});
+  const _SwipeArcPainter({
+    required this.progress,
+    required this.color,
+    required this.color2,
+  });
 
   final double progress;
   final Color color;
+  final Color color2;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -920,20 +955,26 @@ class _SwipeArcPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
-      ..color = color.withValues(alpha: 0.78);
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [color.withValues(alpha: 0.78), color2.withValues(alpha: 0.9)],
+      ).createShader(rect);
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress, false, paint);
 
     final end = -math.pi / 2 + math.pi * 2 * progress;
     canvas.drawCircle(
       center + Offset(math.cos(end) * radius, math.sin(end) * radius),
       1.8,
-      Paint()..color = color,
+      Paint()..color = color2,
     );
   }
 
   @override
   bool shouldRepaint(covariant _SwipeArcPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.color2 != color2;
 }
 
 class _ToastOverlay extends ConsumerWidget {

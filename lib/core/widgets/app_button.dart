@@ -39,6 +39,10 @@ class AppButton extends StatelessWidget {
     final c = context.spend;
     final isCentered = centered ?? primary;
     final fg = primary ? c.aci : (color ?? c.tx);
+    final primaryColor = color ?? c.ac;
+    final primarySecondary = color == null
+        ? c.ac2
+        : AppColors.accentSecondary(color!);
 
     final content = Container(
       width: double.infinity,
@@ -46,17 +50,23 @@ class AppButton extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: primary
-            ? (color ?? c.ac)
-            : (color != null ? color!.withValues(alpha: 0.08) : c.c1),
-        gradient: primary || color != null
             ? null
-            : (c.dark
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [c.glassTop, c.glassBottom],
-                    )
-                  : null),
+            : (color != null ? color!.withValues(alpha: 0.08) : c.c1),
+        gradient: primary
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [primaryColor, primarySecondary],
+              )
+            : (color != null
+                  ? null
+                  : (c.dark
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [c.glassTop, c.glassBottom],
+                          )
+                        : null)),
         borderRadius: BorderRadius.circular(radius),
         border: primary
             ? null
@@ -64,7 +74,7 @@ class AppButton extends StatelessWidget {
         boxShadow: primary
             ? [
                 BoxShadow(
-                  color: (color ?? c.ac).withValues(alpha: 0.35),
+                  color: primaryColor.withValues(alpha: 0.32),
                   blurRadius: 30,
                   spreadRadius: -12,
                   offset: const Offset(0, 12),

@@ -22,8 +22,19 @@ class AppToggle extends StatelessWidget {
         height: 28,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: value ? c.ac : c.c2,
+          gradient: value
+              ? c.accentGradient
+              : LinearGradient(colors: [c.c2, c.c2]),
           borderRadius: BorderRadius.circular(99),
+          boxShadow: value
+              ? [
+                  BoxShadow(
+                    color: c.ac.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    spreadRadius: -2,
+                  ),
+                ]
+              : null,
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 280),

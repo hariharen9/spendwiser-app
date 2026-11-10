@@ -30,7 +30,7 @@ abstract final class AppTheme {
         brightness: dark ? Brightness.dark : Brightness.light,
         primary: accent,
         onPrimary: spend.aci,
-        secondary: accent,
+        secondary: spend.ac2,
         onSecondary: spend.aci,
         error: spend.co,
         onError: Colors.white,

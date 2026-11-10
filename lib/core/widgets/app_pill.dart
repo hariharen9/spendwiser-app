@@ -41,21 +41,42 @@ class AppPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final activeColor = color ?? c.ac;
+    final activeGradient = active && background == null
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              activeColor,
+              color == null ? c.ac2 : AppColors.accentSecondary(activeColor),
+            ],
+          )
+        : null;
     final bg =
         background ??
         (active
-            ? (color ?? c.ac)
+            ? null
             : (color != null ? color!.withValues(alpha: 0.12) : c.c1));
     final fg = textColor ?? (active ? c.aci : (color ?? c.mu));
-    final border = borderColor ?? (active ? (color ?? c.ac) : (color ?? c.ln));
+    final border = borderColor ?? (active ? activeColor : (color ?? c.ln));
 
     final content = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       padding: padding,
       decoration: BoxDecoration(
         color: bg,
+        gradient: activeGradient,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: border, width: 1),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: activeColor.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  spreadRadius: -2,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -353,7 +353,11 @@ class _AddGoalSheetState extends ConsumerState<_AddGoalSheet> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: color,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [color, AppColors.accentSecondary(color)],
+                    ),
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: _color == color ? c.tx : Colors.transparent,

@@ -866,8 +866,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showAppSheet<void>(
       context,
       (sheetContext) => Consumer(
-        builder: (context, ref, _) {
-          final security = ref.watch(securityProvider);
+        builder: (_, sheetRef, _) {
+          final security = sheetRef.watch(securityProvider);
           final hasPin = security.hasPin;
           final biometrics = security.biometricsEnabled;
 
@@ -898,6 +898,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               await ref
                                   .read(securityProvider.notifier)
                                   .removePin();
+                              if (!mounted) return;
                               ref
                                   .read(toastProvider.notifier)
                                   .show('App PIN removed');
@@ -930,10 +931,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 reason: 'Verify fingerprint or face to enable biometric unlock',
                                 isSetup: true,
                               );
+                          if (!mounted) return;
                           if (verified) {
                             await ref
                                 .read(securityProvider.notifier)
                                 .setBiometricsEnabled(true);
+                            if (!mounted) return;
                             ref
                                 .read(toastProvider.notifier)
                                 .show('Biometrics enabled');
@@ -946,6 +949,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           await ref
                               .read(securityProvider.notifier)
                               .setBiometricsEnabled(false);
+                          if (!mounted) return;
                           ref
                               .read(toastProvider.notifier)
                               .show('Biometrics disabled');
@@ -1506,7 +1510,11 @@ class _AccentDot extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: color,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color, AppColors.accentSecondary(color)],
+          ),
           shape: BoxShape.circle,
           border: Border.all(
             color: selected ? c.tx : c.ln,

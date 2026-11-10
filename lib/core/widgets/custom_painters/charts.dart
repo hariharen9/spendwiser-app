@@ -141,6 +141,7 @@ class SimpleBarChart extends StatelessWidget {
           labels: labels,
           colors: colors,
           accent: c.ac,
+          accent2: c.ac2,
           coral: c.co,
           track: c.c2,
           labelColor: c.mu,
@@ -160,6 +161,7 @@ class SimpleBarPainter extends CustomPainter {
     required this.values,
     required this.labels,
     required this.accent,
+    required this.accent2,
     required this.coral,
     required this.track,
     required this.labelColor,
@@ -175,6 +177,7 @@ class SimpleBarPainter extends CustomPainter {
   final List<String> labels;
   final List<Color>? colors;
   final Color accent;
+  final Color accent2;
   final Color coral;
   final Color track;
   final Color labelColor;
@@ -200,17 +203,27 @@ class SimpleBarPainter extends CustomPainter {
       final x = i * slot + (slot - barWidth) / 2;
       final y = chartHeight - barHeight;
       final isHighlight = highlightIndex == i;
-      final color = colors != null && i < colors!.length
+      final hasCustomColor = colors != null && i < colors!.length;
+      final color = hasCustomColor
           ? colors![i]
           : (isHighlight ? (highlightColor ?? coral) : accent);
+      final rect = Rect.fromLTWH(x, y, barWidth, barHeight);
+      final paint = Paint()..style = PaintingStyle.fill;
+      if (!hasCustomColor && !isHighlight) {
+        paint.shader = LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            accent.withValues(alpha: 0.52),
+            accent2.withValues(alpha: 0.92),
+          ],
+        ).createShader(rect);
+      } else {
+        paint.color = color.withValues(alpha: isHighlight ? 1 : 0.58);
+      }
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, barWidth, barHeight),
-          const Radius.circular(6),
-        ),
-        Paint()
-          ..color = color.withValues(alpha: isHighlight ? 1 : 0.58)
-          ..style = PaintingStyle.fill,
+        RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+        paint,
       );
       if (labels.length > i) {
         final text = TextPainter(
@@ -274,7 +287,9 @@ class GroupedBarChart extends StatelessWidget {
           expense: expense,
           labels: labels,
           accent: c.ac,
+          accent2: c.ac2,
           coral: c.co,
+          coral2: AppColors.accentSecondary(c.co),
           labelColor: c.mu,
           budgetValue: budgetValue,
           budgetColor: c.co,
@@ -290,7 +305,9 @@ class _GroupedBarPainter extends CustomPainter {
     required this.expense,
     required this.labels,
     required this.accent,
+    required this.accent2,
     required this.coral,
+    required this.coral2,
     required this.labelColor,
     required this.budgetValue,
     required this.budgetColor,
@@ -300,7 +317,9 @@ class _GroupedBarPainter extends CustomPainter {
   final List<double> expense;
   final List<String> labels;
   final Color accent;
+  final Color accent2;
   final Color coral;
+  final Color coral2;
   final Color labelColor;
   final double? budgetValue;
   final Color budgetColor;
@@ -321,29 +340,35 @@ class _GroupedBarPainter extends CustomPainter {
       final barWidth = math.min(16.0, (slot - 14) / 2);
       final incomeHeight = income[i] / maxValue * (chartHeight - 6);
       final expenseHeight = expense[i] / maxValue * (chartHeight - 6);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            groupX,
-            chartHeight - incomeHeight,
-            barWidth,
-            incomeHeight,
-          ),
-          const Radius.circular(4),
-        ),
-        Paint()..color = accent,
+      final incomeRect = Rect.fromLTWH(
+        groupX,
+        chartHeight - incomeHeight,
+        barWidth,
+        incomeHeight,
+      );
+      final expenseRect = Rect.fromLTWH(
+        groupX + barWidth + 3,
+        chartHeight - expenseHeight,
+        barWidth,
+        expenseHeight,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            groupX + barWidth + 3,
-            chartHeight - expenseHeight,
-            barWidth,
-            expenseHeight,
-          ),
-          const Radius.circular(4),
-        ),
-        Paint()..color = coral,
+        RRect.fromRectAndRadius(incomeRect, const Radius.circular(4)),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [accent, accent2],
+          ).createShader(incomeRect),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(expenseRect, const Radius.circular(4)),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [coral, coral2],
+          ).createShader(expenseRect),
       );
       if (labels.length > i) {
         final text = TextPainter(
