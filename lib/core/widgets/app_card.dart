@@ -143,12 +143,14 @@ class GlowCard extends StatelessWidget {
     this.color,
     this.padding = const EdgeInsets.all(20),
     this.margin = const EdgeInsets.only(top: 16, bottom: 8),
+    this.glowStrength = 1,
   });
 
   final Widget child;
   final Color? color;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry margin;
+  final double glowStrength;
 
   @override
   Widget build(BuildContext context) {
@@ -179,8 +181,10 @@ class GlowCard extends StatelessWidget {
                   center: const Alignment(1, -1),
                   radius: 1.35,
                   colors: [
-                    glow.withValues(alpha: c.dark ? 0.15 : 0.12),
-                    glow.withValues(alpha: 0.01),
+                    glow.withValues(
+                      alpha: (c.dark ? 0.15 : 0.12) * glowStrength,
+                    ),
+                    glow.withValues(alpha: 0.01 * glowStrength),
                   ],
                   stops: const [0, 0.72],
                 ),

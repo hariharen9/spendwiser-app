@@ -262,25 +262,48 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (var i = 0; i < modules.length; i++)
-                            _buildTile(
-                              context,
-                              module: modules[i],
-                              index: i,
-                              width: modules[i].fullWidth
-                                  ? width
-                                  : modules[i].wide
-                                  ? column * 2 + 8
-                                  : column,
-                              snapshot: snapshot,
-                              settingsLabel: settings.themeLabel,
-                            ),
+                      if (_query.isEmpty) ...[
+                        _buildBento(
+                          context,
+                          width: width,
+                          column: column,
+                          modules: modules
+                              .where((m) => m != AppModule.settings)
+                              .toList(),
+                          snapshot: snapshot,
+                          settingsLabel: settings.themeLabel,
+                        ),
+                        if (modules.contains(AppModule.settings)) ...[
+                          const SizedBox(height: 8),
+                          _buildTile(
+                            context,
+                            module: AppModule.settings,
+                            index: modules.length - 1,
+                            width: width,
+                            snapshot: snapshot,
+                            settingsLabel: settings.themeLabel,
+                          ),
                         ],
-                      ),
+                      ] else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (var i = 0; i < modules.length; i++)
+                              _buildTile(
+                                context,
+                                module: modules[i],
+                                index: i,
+                                width: modules[i].fullWidth
+                                    ? width
+                                    : modules[i].wide
+                                    ? column * 2 + 8
+                                    : column,
+                                snapshot: snapshot,
+                                settingsLabel: settings.themeLabel,
+                              ),
+                          ],
+                        ),
                     ],
                   );
                 },
@@ -292,37 +315,194 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
     );
   }
 
+  Widget _buildBento(
+    BuildContext context, {
+    required double width,
+    required double column,
+    required List<AppModule> modules,
+    required FinanceSnapshot snapshot,
+    required String settingsLabel,
+  }) {
+    final available = {for (final module in modules) module: module};
+    var index = 0;
+
+    Widget tile(
+      AppModule module, {
+      required double width,
+      required double height,
+      bool wide = false,
+      bool prominent = false,
+      bool dense = false,
+    }) {
+      final resolved = available[module];
+      if (resolved == null) return const SizedBox.shrink();
+      return _buildTile(
+        context,
+        module: resolved,
+        index: index++,
+        width: width,
+        height: height,
+        wideLayout: wide,
+        prominent: prominent,
+        dense: dense,
+        snapshot: snapshot,
+        settingsLabel: settingsLabel,
+      );
+    }
+
+    final smallColumn = (width - 24) / 4;
+    Widget small(AppModule module) =>
+        tile(module, width: smallColumn, height: 96, dense: true);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            tile(
+              AppModule.home,
+              width: column * 2 + 8,
+              height: 160,
+              wide: true,
+              prominent: true,
+            ),
+            const SizedBox(width: 8),
+            tile(
+              AppModule.ledger,
+              width: column,
+              height: 160,
+              prominent: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            tile(
+              AppModule.cards,
+              width: column * 2 + 8,
+              height: 144,
+              wide: true,
+              prominent: true,
+            ),
+            const SizedBox(width: 8),
+            tile(
+              AppModule.debt,
+              width: column,
+              height: 144,
+              prominent: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            small(AppModule.accounts),
+            const SizedBox(width: 8),
+            small(AppModule.budgets),
+            const SizedBox(width: 8),
+            small(AppModule.subscriptions),
+            const SizedBox(width: 8),
+            small(AppModule.split),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            small(AppModule.goals),
+            const SizedBox(width: 8),
+            small(AppModule.calendar),
+            const SizedBox(width: 8),
+            small(AppModule.insights),
+            const SizedBox(width: 8),
+            small(AppModule.tools),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildTile(
     BuildContext context, {
     required AppModule module,
     required int index,
     required double width,
+    double? height,
+    bool? wideLayout,
+    bool prominent = false,
+    bool dense = false,
     required FinanceSnapshot snapshot,
     required String settingsLabel,
   }) {
     final c = context.spend;
     final current = module == widget.current;
     final fullWidth = module.fullWidth;
-    final height = fullWidth ? 56.0 : 96.0;
-    final isWide = module.wide;
+    final tileHeight = height ?? (fullWidth ? 56.0 : 96.0);
+    final isWide = wideLayout ?? module.wide;
+    final featured = prominent || tileHeight >= 150;
+    final huge = tileHeight >= 150;
+    final compact = dense || (!featured && tileHeight < 92);
     final alert = _hasAlert(module, snapshot);
     final fg = current ? c.aci : c.tx;
     final subColor = current ? c.aci.withValues(alpha: 0.7) : c.mu;
+    final iconSize = huge
+        ? 38.0
+        : (featured ? 34.0 : (compact ? 26.0 : 30.0));
+    final radius = fullWidth
+        ? 20.0
+        : (huge ? 28.0 : (featured ? 26.0 : (compact ? 20.0 : 24.0)));
+
+    final labelStyle = isWide || featured
+        ? AppTypography.sans(
+            size: huge ? 14 : (featured ? 13 : 12),
+            color: subColor,
+            weight: FontWeight.w500,
+          )
+        : AppTypography.sans(
+            size: compact ? 13 : 14,
+            color: fg,
+            weight: FontWeight.w500,
+          );
+
+    final metricStyle = featured
+        ? AppTypography.serif(
+            size: isWide ? (huge ? 24 : 21) : (huge ? 19 : 17),
+            color: fg,
+            height: 1.05,
+          )
+        : isWide
+        ? AppTypography.serif(
+            size: compact ? 17 : 19,
+            color: fg,
+            height: 1.05,
+          )
+        : AppTypography.sans(
+            size: compact ? 9.5 : 11,
+            color: subColor,
+          );
 
     final tile = Container(
       width: width,
-      height: height,
-      padding: EdgeInsets.symmetric(
-        horizontal: fullWidth ? 14 : 12,
-        vertical: fullWidth ? 0 : 10,
-      ),
+      height: tileHeight,
+      padding: fullWidth
+          ? const EdgeInsets.symmetric(horizontal: 14)
+          : EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: huge
+                  ? 16
+                  : (featured ? 14 : (compact ? 8 : 10)),
+            ),
       decoration: BoxDecoration(
         color: current
             ? c.ac
             : (c.dark
                   ? c.c1.withValues(alpha: 0.88)
                   : c.c1.withValues(alpha: 0.9)),
-        borderRadius: BorderRadius.circular(fullWidth ? 20 : 24),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: current ? c.ac : c.ln),
       ),
       child: fullWidth
@@ -361,7 +541,7 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                     IconTile(
                       icon: module.icon,
                       color: current ? c.aci : module.tint,
-                      size: 30,
+                      size: iconSize,
                       backgroundOpacity: current ? 0.14 : 0.16,
                     ),
                     const Spacer(),
@@ -391,30 +571,28 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                       module.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: isWide
-                          ? AppTypography.sans(
-                              size: 12,
-                              color: subColor,
-                              weight: FontWeight.w500,
-                            )
-                          : AppTypography.sans(
-                              size: 14,
-                              color: fg,
-                              weight: FontWeight.w500,
-                            ),
+                      style: labelStyle,
                     ),
+                    if (huge) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        module.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.sans(
+                          size: 10,
+                          color: subColor.withValues(alpha: 0.78),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       _metric(module, snapshot),
-                      maxLines: 1,
+                      maxLines: compact
+                          ? 2
+                          : (featured && !isWide ? 2 : 1),
                       overflow: TextOverflow.ellipsis,
-                      style: isWide
-                          ? AppTypography.serif(
-                              size: 19,
-                              color: fg,
-                              height: 1.05,
-                            )
-                          : AppTypography.sans(size: 11, color: subColor),
+                      style: metricStyle,
                     ),
                   ],
                 ),

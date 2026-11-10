@@ -157,7 +157,6 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
       animation: _anim,
       builder: (context, _) {
         final t = Curves.easeOutCubic.transform(_anim.value);
-        final topPadding = MediaQuery.paddingOf(context).top;
 
         return GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -183,60 +182,86 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
                           center: center,
                           r1: _r1,
                           r2: _r2,
-                          color: c.tx.withValues(alpha: 0.16 * t),
+                          color: c.ac,
+                          opacity: t,
                           scale: 0.3 + 0.7 * t,
                         ),
                       ),
-
-                      // Top instruction or hovered module title
-                      Positioned(
-                        top: math.max(68.0, topPadding + 28),
-                        left: 20,
-                        right: 20,
-                        child: IgnorePointer(
-                          child: Opacity(
+                      if (_hovered != null)
+                        CustomPaint(
+                          size: size,
+                          painter: _OrbitTetherPainter(
+                            center: center,
+                            target: _nodeCenter(_hovered!, size),
+                            color: _hovered!.tint,
                             opacity: t,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: _hovered == null
-                                  ? Container(
-                                      key: const ValueKey('hint'),
-                                      alignment: Alignment.center,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: Text(
-                                        'Slide to a module · release to open',
-                                        style: AppTypography.sans(
-                                          size: 14,
-                                          color: c.mu,
-                                        ),
-                                      ),
-                                    )
-                                  : Column(
-                                      key: ValueKey(_hovered!.id),
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _hovered!.label,
-                                          style: AppTypography.serif(
-                                            size: 46,
-                                            color: c.tx,
-                                            height: 1.05,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _hovered!.subtitle,
-                                          style: AppTypography.sans(
-                                            size: 12,
-                                            color: c.mu,
-                                          ),
-                                        ),
-                                      ],
+                          ),
+                        ),
+
+                      // The hint stays near the orbit.
+                      if (_hovered == null)
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          bottom: widget.fabBottom + _r2 + 72,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: t,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: c.c1.withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(99),
+                                    border: Border.all(color: c.ln),
+                                  ),
+                                  child: Text(
+                                    'Slide to a module · release to open',
+                                    style: AppTypography.sans(
+                                      size: 12,
+                                      color: c.mu,
                                     ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+
+                      // The selected title sits in the middle of the screen.
+                      if (_hovered != null)
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: size.height * 0.38,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: t,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: Tween<double>(
+                                        begin: 0.94,
+                                        end: 1,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _OrbitSelectionTitle(
+                                  key: ValueKey(_hovered!.id),
+                                  module: _hovered!,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
 
                       // Inner 5 module nodes
                       for (var i = 0; i < _innerModules.length; i++)
@@ -293,34 +318,49 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: isHot
-              ? c.ac
-              : (isCurrent ? c.c2 : c.c1),
+          gradient: isHot
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    module.tint,
+                    Color.lerp(module.tint, Colors.black, 0.35)!,
+                  ],
+                )
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [c.c1, Color.lerp(c.c1, c.c2, 0.55)!],
+                ),
           borderRadius: BorderRadius.circular(17),
           border: Border.all(
-            color: isHot ? c.ac : (isCurrent ? c.ac : c.ln),
-            width: isCurrent && !isHot ? 1.5 : 1,
+            color: isHot
+                ? Colors.white.withValues(alpha: 0.28)
+                : (isCurrent ? c.ac : c.ln),
+            width: isHot ? 1.2 : (isCurrent ? 1.5 : 1),
           ),
           boxShadow: [
             if (isHot)
               BoxShadow(
-                color: c.ac.withValues(alpha: 0.55),
-                blurRadius: 36,
-                spreadRadius: 4,
-              )
-            else
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                color: module.tint.withValues(alpha: 0.5),
+                blurRadius: 32,
+                spreadRadius: 3,
+                offset: const Offset(0, 4),
               ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         alignment: Alignment.center,
         child: SpendIcon(
           module.icon,
           size: 22,
-          color: isHot ? c.aci : (isCurrent ? c.ac : c.tx),
+          color: isHot
+              ? const Color(0xFF09090B)
+              : (isCurrent ? c.ac : c.tx),
         ),
       ),
     );
@@ -331,9 +371,61 @@ class RadialOrbitOverlayState extends State<RadialOrbitOverlay>
       child: AnimatedScale(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutBack,
-        scale: isHot ? 1.45 : 1.0,
+        scale: isHot ? 1.38 : 1.0,
         child: node,
       ),
+    );
+  }
+}
+
+class _OrbitSelectionTitle extends StatelessWidget {
+  const _OrbitSelectionTitle({super.key, required this.module});
+
+  final AppModule module;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          module.label,
+          textAlign: TextAlign.center,
+          style: AppTypography.serif(
+            size: 32,
+            color: c.tx,
+            height: 1.0,
+          ).copyWith(
+            shadows: [
+              Shadow(
+                color: c.bg.withValues(alpha: 0.9),
+                blurRadius: 18,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 5),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 18,
+              height: 1,
+              color: module.tint.withValues(alpha: 0.8),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                module.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.sans(size: 11, color: c.mu),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -344,6 +436,7 @@ class _RadialRingsPainter extends CustomPainter {
     required this.r1,
     required this.r2,
     required this.color,
+    required this.opacity,
     required this.scale,
   });
 
@@ -351,17 +444,51 @@ class _RadialRingsPainter extends CustomPainter {
   final double r1;
   final double r2;
   final Color color;
+  final double opacity;
   final double scale;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final glowRect = Rect.fromCircle(center: center, radius: r2 * scale);
+    canvas.drawCircle(
+      center,
+      r2 * scale,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            color.withValues(alpha: 0.06 * opacity),
+            color.withValues(alpha: 0),
+          ],
+        ).createShader(glowRect),
+    );
+
     final paint = Paint()
-      ..color = color
+      ..color = color.withValues(alpha: 0.18 * opacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
     _drawDashedCircle(canvas, center, r1 * scale, paint);
     _drawDashedCircle(canvas, center, r2 * scale, paint);
+
+    final arcPaint = Paint()
+      ..color = color.withValues(alpha: 0.3 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: r1 * scale),
+      -0.65,
+      0.9,
+      false,
+      arcPaint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: r2 * scale),
+      2.3,
+      0.55,
+      false,
+      arcPaint,
+    );
   }
 
   void _drawDashedCircle(
@@ -396,6 +523,62 @@ class _RadialRingsPainter extends CustomPainter {
       oldDelegate.r1 != r1 ||
       oldDelegate.r2 != r2 ||
       oldDelegate.color != color ||
+      oldDelegate.opacity != opacity ||
       oldDelegate.scale != scale;
+}
+
+class _OrbitTetherPainter extends CustomPainter {
+  const _OrbitTetherPainter({
+    required this.center,
+    required this.target,
+    required this.color,
+    required this.opacity,
+  });
+
+  final Offset center;
+  final Offset target;
+  final Color color;
+  final double opacity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromPoints(center, target);
+    final glow = LinearGradient(
+      colors: [
+        color.withValues(alpha: 0),
+        color.withValues(alpha: 0.1 * opacity),
+      ],
+    ).createShader(rect);
+    final line = LinearGradient(
+      colors: [
+        color.withValues(alpha: 0),
+        color.withValues(alpha: 0.5 * opacity),
+      ],
+    ).createShader(rect);
+
+    canvas.drawLine(
+      center,
+      target,
+      Paint()
+        ..shader = glow
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      center,
+      target,
+      Paint()
+        ..shader = line
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitTetherPainter oldDelegate) =>
+      oldDelegate.center != center ||
+      oldDelegate.target != target ||
+      oldDelegate.color != color ||
+      oldDelegate.opacity != opacity;
 }
 

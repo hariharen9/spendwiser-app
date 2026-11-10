@@ -9,6 +9,10 @@ abstract final class IconPaths {
   static const ledger = 'M5 4h14v16H5zM9 9h6M9 13h6';
   static const accounts =
       'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18';
+  static const cash =
+      'M3 7h18v10H3zM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4M6 10v4M18 10v4';
+  static const transfer =
+      'M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4';
   static const card = 'M3 6h18v12H3zM3 10h18M6 15h4';
   static const budget = 'M12 3a9 9 0 1 0 9 9h-9z';
   static const subscription = 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4';
@@ -71,6 +75,8 @@ class SpendIcon extends StatelessWidget {
     'ledger': IconPaths.ledger,
     'accounts': IconPaths.accounts,
     'acc': IconPaths.accounts,
+    'cash': IconPaths.cash,
+    'transfer': IconPaths.transfer,
     'cards': IconPaths.card,
     'cc': IconPaths.card,
     'budgets': IconPaths.budget,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -164,50 +165,103 @@ class _NetWorthHero extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.spend;
     final flow = snapshot.flow(monthStart(DateTime.now()));
-    final balance = snapshot.accounts
+    final balanceAccounts = snapshot.accounts
         .where(
           (account) =>
               account.type == AccountType.savings ||
               account.type == AccountType.cash,
         )
-        .fold<double>(0, (sum, account) => sum + account.balance);
+        .toList();
+    final balance = balanceAccounts.fold<double>(
+      0,
+      (sum, account) => sum + account.balance,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GlowCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          glowStrength: 0.4,
+          child: Stack(
             children: [
-              Row(
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(child: _BalanceFinish()),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'CURRENT BALANCE',
-                    style: AppTypography.sans(
-                      size: 11,
-                      color: c.mu,
-                      letterSpacing: 1.32,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: c.ac,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: c.ac.withValues(alpha: 0.45),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'CURRENT BALANCE',
+                        style: AppTypography.sans(
+                          size: 11,
+                          color: c.mu,
+                          letterSpacing: 1.32,
+                        ),
+                      ),
+                      const Spacer(),
+                      Pressable(
+                        onTap: onInsights,
+                        child: Text(
+                          'Insights →',
+                          style: AppTypography.sans(size: 12, color: c.ac),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Pressable(
-                    onTap: onInsights,
-                    child: Text(
-                      'Insights →',
-                      style: AppTypography.sans(size: 12, color: c.ac),
-                    ),
+                  AnimatedAmount(
+                    value: balance,
+                    formatter: (value) => formatINR(value),
+                    style:
+                        AppTypography.serif(
+                          size: 50,
+                          color: c.tx,
+                          letterSpacing: -1,
+                          height: 1.05,
+                        ).copyWith(
+                          shadows: [
+                            Shadow(
+                              color: c.ac.withValues(
+                                alpha: c.dark ? 0.22 : 0.12,
+                              ),
+                              blurRadius: 20,
+                            ),
+                          ],
+                        ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      SpendIcon('accounts', size: 12, color: c.mu),
+                      const SizedBox(width: 5),
+                      Text(
+                        balanceAccounts.isEmpty
+                            ? 'Bank + cash · no accounts yet'
+                            : 'Bank + cash · ${balanceAccounts.length} account${balanceAccounts.length == 1 ? '' : 's'}',
+                        style: AppTypography.sans(size: 11, color: c.mu),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              AnimatedAmount(
-                value: balance,
-                formatter: (value) => formatINR(value),
-                style: AppTypography.serif(
-                  size: 50,
-                  color: c.tx,
-                  letterSpacing: -1,
-                  height: 1.05,
-                ),
               ),
             ],
           ),
@@ -216,6 +270,144 @@ class _NetWorthHero extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _BalanceFinish extends StatefulWidget {
+  const _BalanceFinish();
+
+  @override
+  State<_BalanceFinish> createState() => _BalanceFinishState();
+}
+
+class _BalanceFinishState extends State<_BalanceFinish>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 22),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => CustomPaint(
+        painter: _BalanceFinishPainter(
+          progress: _controller.value,
+          accent: c.ac,
+          dark: c.dark,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _BalanceFinishPainter extends CustomPainter {
+  const _BalanceFinishPainter({
+    required this.progress,
+    required this.accent,
+    required this.dark,
+  });
+
+  final double progress;
+  final Color accent;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final t = progress * math.pi * 2;
+
+    canvas.save();
+    canvas.clipRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(28)),
+    );
+
+    final field = Offset.zero & size;
+    canvas.drawRect(
+      field,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            accent.withValues(alpha: dark ? 0.045 : 0.03),
+            accent.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.78],
+        ).createShader(field),
+    );
+
+    final rim = Rect.fromLTWH(w * 0.14, 0, w * 0.72, 1);
+    canvas.drawRect(
+      rim,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            accent.withValues(alpha: 0),
+            accent.withValues(alpha: dark ? 0.34 : 0.22),
+            accent.withValues(alpha: 0),
+          ],
+        ).createShader(rim),
+    );
+
+    final under = Rect.fromLTWH(w * 0.28, h - 1, w * 0.44, 1);
+    canvas.drawRect(
+      under,
+      Paint()..color = Colors.white.withValues(alpha: dark ? 0.035 : 0.02),
+    );
+
+    canvas.save();
+    canvas.rotate(-0.28);
+    final sweepX = -w * 0.6 + ((progress * 1.0) % 1) * (w * 2.2);
+    final sweep = Rect.fromLTWH(sweepX, -h * 0.6, w * 0.12, h * 2.2);
+    canvas.drawRect(
+      sweep,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0),
+            Colors.white.withValues(alpha: dark ? 0.022 : 0.012),
+            Colors.white.withValues(alpha: 0),
+          ],
+        ).createShader(sweep),
+    );
+    canvas.restore();
+
+    final glint = Offset(
+      w * 0.76 + 3 * math.sin(t),
+      h * 0.34 + 2 * math.cos(t),
+    );
+    canvas.drawCircle(
+      glint,
+      1.1,
+      Paint()..color = Colors.white.withValues(alpha: dark ? 0.12 : 0.08),
+    );
+    canvas.drawCircle(
+      Offset(w * 0.9, h * 0.72),
+      1,
+      Paint()..color = accent.withValues(alpha: dark ? 0.12 : 0.08),
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _BalanceFinishPainter oldDelegate) => true;
 }
 
 class _Trio extends StatelessWidget {

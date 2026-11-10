@@ -8,6 +8,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
@@ -58,10 +59,39 @@ class AccountsScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Available across banks & cash',
-                style: AppTypography.sans(size: 12, color: c.mu),
+              Row(
+                children: [
+                  IconTile(
+                    icon: 'accounts',
+                    color: c.ac,
+                    size: 36,
+                    backgroundOpacity: 0.1,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available across banks & cash',
+                          style: AppTypography.sans(size: 12, color: c.mu),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          accountCount == 0
+                              ? 'No accounts linked'
+                              : '$accountCount linked account${accountCount == 1 ? '' : 's'}',
+                          style: AppTypography.sans(
+                            size: 10,
+                            color: c.mu.withValues(alpha: 0.72),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 8),
               AnimatedAmount(
                 value: available,
                 style: AppTypography.serif(
@@ -78,6 +108,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: MetricTile(
                       label: 'In banks',
                       amount: bankTotal,
+                      icon: 'accounts',
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -85,6 +116,7 @@ class AccountsScreen extends ConsumerWidget {
                     child: MetricTile(
                       label: 'Cash in hand',
                       amount: cashTotal,
+                      icon: 'cash',
                     ),
                   ),
                 ],
@@ -100,7 +132,11 @@ class AccountsScreen extends ConsumerWidget {
             onAction: () => _showAddAccount(context, ref),
           ),
         if (bankAccounts.isNotEmpty) ...[
-          const SectionCaption('Bank accounts'),
+          _AccountsSectionHeader(
+            icon: 'accounts',
+            label: 'Bank accounts',
+            amount: bankTotal,
+          ),
           AppCard(
             child: Column(
               children: [
@@ -115,7 +151,11 @@ class AccountsScreen extends ConsumerWidget {
           ),
         ],
         if (cashAccounts.isNotEmpty) ...[
-          const SectionCaption('Cash'),
+          _AccountsSectionHeader(
+            icon: 'cash',
+            label: 'Cash',
+            amount: cashTotal,
+          ),
           AppCard(
             child: Column(
               children: [
@@ -130,12 +170,14 @@ class AccountsScreen extends ConsumerWidget {
           ),
         ],
         AppButton(
-          label: '+ Add account',
+          label: 'Add account',
+          leading: SpendIcon('plus', size: 14, color: c.tx),
           onTap: () => _showAddAccount(context, ref),
         ),
         if (accountCount >= 2)
           AppButton(
             label: 'Transfer between accounts',
+            leading: SpendIcon('transfer', size: 14, color: c.tx),
             onTap: () => _showTransfer(context, ref, snapshot),
           ),
       ],
@@ -385,6 +427,35 @@ class AccountsScreen extends ConsumerWidget {
   }
 }
 
+class _AccountsSectionHeader extends StatelessWidget {
+  const _AccountsSectionHeader({
+    required this.icon,
+    required this.label,
+    required this.amount,
+  });
+
+  final String icon;
+  final String label;
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Padding(
+      padding: const EdgeInsets.only(top: 22, bottom: 8),
+      child: Row(
+        children: [
+          SpendIcon(icon, size: 13, color: c.mu, strokeWidth: 1.7),
+          const SizedBox(width: 6),
+          Text(label.toUpperCase(), style: AppTypography.caption(c.mu)),
+          const Spacer(),
+          Text(rupee(amount), style: AppTypography.sans(size: 12, color: c.mu)),
+        ],
+      ),
+    );
+  }
+}
+
 class _AccountRow extends StatelessWidget {
   const _AccountRow({
     required this.account,
@@ -399,6 +470,7 @@ class _AccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final isCash = account.type == AccountType.cash;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -408,18 +480,48 @@ class _AccountRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: c.c2,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                account.name.isEmpty ? '?' : account.name.substring(0, 1),
-                style: AppTypography.sans(size: 12, color: c.tx),
-              ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: c.c2,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: c.ln),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    account.name.isEmpty ? '?' : account.name.substring(0, 1),
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: c.tx,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: -3,
+                  bottom: -3,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: c.c1,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.ln),
+                    ),
+                    alignment: Alignment.center,
+                    child: SpendIcon(
+                      isCash ? 'cash' : 'accounts',
+                      size: 9,
+                      color: c.mu,
+                      strokeWidth: 1.8,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -428,14 +530,18 @@ class _AccountRow extends StatelessWidget {
                 children: [
                   Text(
                     account.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTypography.sans(size: 14, color: c.tx),
                   ),
                   Text(
-                    account.type == AccountType.cash
+                    isCash
                         ? 'Cash'
                         : (account.last4 == null || account.last4!.isEmpty
                               ? 'Bank account'
                               : 'Bank · •••• ${account.last4}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTypography.sans(size: 12, color: c.mu),
                   ),
                 ],
@@ -445,6 +551,8 @@ class _AccountRow extends StatelessWidget {
               rupee(account.balance),
               style: AppTypography.sans(size: 14, color: c.tx),
             ),
+            const SizedBox(width: 8),
+            SpendIcon('chevronRight', size: 14, color: c.mu),
           ],
         ),
       ),

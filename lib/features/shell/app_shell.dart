@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
@@ -48,14 +49,9 @@ class _AppShellState extends ConsumerState<AppShell>
   final _radialKey = GlobalKey<RadialOrbitOverlayState>();
   bool _showOnboarding = false;
   bool _transitionReverse = false;
-  bool _hintVisible = false;
-  bool _hintShown = false;
   DateTime? _pausedAt;
 
   late final AnimationController _fabPulse;
-  late final AnimationController _hintFade;
-  Timer? _hintShowTimer;
-  Timer? _hintHideTimer;
 
   @override
   void initState() {
@@ -66,20 +62,6 @@ class _AppShellState extends ConsumerState<AppShell>
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     )..repeat(reverse: true);
-    _hintFade = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _hintShowTimer = Timer(const Duration(milliseconds: 1800), () {
-      if (!mounted || _hintShown) return;
-      _hintShown = true;
-      setState(() => _hintVisible = true);
-      _hintFade.forward();
-      _hintHideTimer = Timer(const Duration(milliseconds: 5200), () {
-        if (!mounted) return;
-        setState(() => _hintVisible = false);
-      });
-    });
   }
 
   @override
@@ -114,10 +96,7 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _hintShowTimer?.cancel();
-    _hintHideTimer?.cancel();
     _fabPulse.dispose();
-    _hintFade.dispose();
     super.dispose();
   }
 
@@ -129,7 +108,6 @@ class _AppShellState extends ConsumerState<AppShell>
       _module = module;
       _launcherOpen = false;
       _radialOpen = false;
-      _hintVisible = false;
     });
   }
 
@@ -138,7 +116,6 @@ class _AppShellState extends ConsumerState<AppShell>
     setState(() {
       _launcherOpen = !_launcherOpen;
       _radialOpen = false;
-      _hintVisible = false;
     });
   }
 
@@ -295,33 +272,6 @@ class _AppShellState extends ConsumerState<AppShell>
                       ),
               ),
             ),
-            if (_hintVisible && !_launcherOpen && !_radialOpen)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _fabBottom(context) + 76,
-                child: IgnorePointer(
-                  child: FadeTransition(
-                    opacity: _hintFade,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.tx,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          'Tap for all modules · hold and slide to jump',
-                          style: AppTypography.sans(size: 12, color: c.bg),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             Positioned(
               left: 0,
               right: 0,
@@ -338,7 +288,6 @@ class _AppShellState extends ConsumerState<AppShell>
                       _radialOpen = true;
                       _radialPointer = pos;
                       _launcherOpen = false;
-                      _hintVisible = false;
                     });
                   },
                   onRadialDrag: (pos) {
@@ -404,9 +353,20 @@ class _OrbFab extends StatefulWidget {
   State<_OrbFab> createState() => _OrbFabState();
 }
 
-class _OrbFabState extends State<_OrbFab> {
+class _OrbFabState extends State<_OrbFab>
+    with SingleTickerProviderStateMixin {
   Timer? _holdTimer;
   bool _isHolding = false;
+  late final AnimationController _orbit;
+
+  @override
+  void initState() {
+    super.initState();
+    _orbit = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    )..repeat();
+  }
 
   void _onPointerDown(PointerDownEvent event) {
     if (widget.open) return;
@@ -446,6 +406,7 @@ class _OrbFabState extends State<_OrbFab> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    _orbit.dispose();
     super.dispose();
   }
 
@@ -458,9 +419,20 @@ class _OrbFabState extends State<_OrbFab> {
       onPointerUp: _onPointerUp,
       onPointerCancel: _onPointerCancel,
       child: AnimatedBuilder(
-        animation: widget.pulse,
+        animation: Listenable.merge([widget.pulse, _orbit]),
         builder: (context, _) {
           final t = Curves.easeInOut.transform(widget.pulse.value);
+          final open = widget.open || widget.radialOpen;
+          final glass = Color.lerp(
+            c.c2,
+            c.ac,
+            c.dark ? 0.055 : 0.04,
+          )!;
+          final rim = Color.lerp(
+            c.ac,
+            Colors.white,
+            c.dark ? 0.18 : 0.45,
+          )!.withValues(alpha: open ? 0.62 : 0.38);
           final scale = widget.open
               ? 0.88
               : (widget.radialOpen ? 0.90 : 1.0);
@@ -468,50 +440,184 @@ class _OrbFabState extends State<_OrbFab> {
             scale: scale,
             duration: const Duration(milliseconds: 400),
             curve: const Cubic(0.3, 1.5, 0.5, 1),
-            child: Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                color: c.ac,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: c.ac.withValues(alpha: 0.16 - 0.08 * t),
-                    blurRadius: 0,
-                    spreadRadius: 7 + 7 * t,
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Transform.rotate(
+                    angle: _orbit.value * math.pi * 2,
+                    child: CustomPaint(
+                      size: const Size.square(80),
+                      painter: _OrbHaloPainter(
+                        accent: c.ac,
+                        active: open,
+                      ),
+                    ),
                   ),
-                  BoxShadow(
-                    color: c.ac.withValues(alpha: 0.40 + 0.15 * t),
-                    blurRadius: 40 + 14 * t,
-                    offset: const Offset(0, 12),
+                  Container(
+                    width: 62,
+                    height: 62,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: rim, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: c.dark ? 0.55 : 0.18,
+                          ),
+                          blurRadius: 24,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 10),
+                        ),
+                        BoxShadow(
+                          color: c.ac.withValues(alpha: 0.03 + 0.015 * t),
+                          blurRadius: 28,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(
+                                alpha: c.dark ? 0.07 : 0.5,
+                              ),
+                              glass.withValues(alpha: c.dark ? 0.58 : 0.38),
+                              Colors.black.withValues(
+                                alpha: c.dark ? 0.3 : 0.06,
+                              ),
+                            ],
+                            stops: const [0, 0.46, 1],
+                          ),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(
+                                  radius: 0.94,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(
+                                      alpha: c.dark ? 0.24 : 0.08,
+                                    ),
+                                  ],
+                                  stops: const [0.55, 1],
+                                ),
+                              ),
+                            ),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(
+                                  center: const Alignment(0, 0.95),
+                                  radius: 0.7,
+                                  colors: [
+                                    c.ac.withValues(alpha: 0.075),
+                                    c.ac.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(
+                                      alpha: c.dark ? 0.18 : 0.05,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 2,
+                              left: 4,
+                              right: 20,
+                              height: 20,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: RadialGradient(
+                                    center: const Alignment(-0.3, -0.6),
+                                    radius: 0.8,
+                                    colors: [
+                                      Colors.white.withValues(
+                                        alpha: c.dark ? 0.1 : 0.25,
+                                      ),
+                                      Colors.white.withValues(alpha: 0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 9,
+                              left: 13,
+                              child: Transform.rotate(
+                                angle: -0.35,
+                                child: Container(
+                                  width: 19,
+                                  height: 4.5,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(
+                                      alpha: c.dark ? 0.28 : 0.55,
+                                    ),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Center(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                transitionBuilder: (child, animation) =>
+                                    RotationTransition(
+                                      turns: Tween<double>(
+                                        begin: 0.8,
+                                        end: 1,
+                                      ).animate(animation),
+                                      child: FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      ),
+                                    ),
+                                child: open
+                                    ? Transform.rotate(
+                                        key: const ValueKey('close'),
+                                        angle: math.pi / 4,
+                                        child: SpendIcon(
+                                          'close',
+                                          size: 26,
+                                          color: c.tx,
+                                          strokeWidth: 1.8,
+                                        ),
+                                      )
+                                    : SpendIcon(
+                                        widget.module.icon,
+                                        key: ValueKey(widget.module),
+                                        size: 26,
+                                        color: c.tx,
+                                        strokeWidth: 1.7,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-              alignment: Alignment.center,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, animation) => RotationTransition(
-                  turns: Tween<double>(begin: 0.8, end: 1).animate(animation),
-                  child: FadeTransition(opacity: animation, child: child),
-                ),
-                child: widget.open || widget.radialOpen
-                    ? Transform.rotate(
-                        key: const ValueKey('close'),
-                        angle: math.pi / 4,
-                        child: SpendIcon(
-                          'close',
-                          size: 26,
-                          color: c.aci,
-                          strokeWidth: 1.8,
-                        ),
-                      )
-                    : SpendIcon(
-                        widget.module.icon,
-                        key: ValueKey(widget.module),
-                        size: 26,
-                        color: c.aci,
-                        strokeWidth: 1.7,
-                      ),
               ),
             ),
           );
@@ -519,6 +625,59 @@ class _OrbFabState extends State<_OrbFab> {
       ),
     );
   }
+}
+
+class _OrbHaloPainter extends CustomPainter {
+  const _OrbHaloPainter({required this.accent, required this.active});
+
+  final Color accent;
+  final bool active;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2 - 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7
+        ..color = accent.withValues(alpha: active ? 0.09 : 0.045),
+    );
+
+    final sweep = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        colors: [
+          accent.withValues(alpha: 0),
+          accent.withValues(alpha: active ? 0.12 : 0.06),
+          accent.withValues(alpha: active ? 0.42 : 0.2),
+          accent.withValues(alpha: 0),
+        ],
+        stops: const [0, 0.28, 0.64, 1],
+      ).createShader(rect);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 1.32, false, sweep);
+
+    final endAngle = -math.pi / 2 + math.pi * 1.32;
+    canvas.drawCircle(
+      center +
+          Offset(
+            math.cos(endAngle) * radius,
+            math.sin(endAngle) * radius,
+          ),
+      1,
+      Paint()..color = accent.withValues(alpha: active ? 0.45 : 0.22),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbHaloPainter oldDelegate) =>
+      oldDelegate.accent != accent || oldDelegate.active != active;
 }
 
 class _ToastOverlay extends ConsumerWidget {

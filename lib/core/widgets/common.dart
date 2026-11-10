@@ -5,6 +5,7 @@ import '../theme/app_typography.dart';
 import '../utils/currency_formatter.dart';
 import 'app_button.dart';
 import 'app_card.dart';
+import 'app_icons.dart';
 import 'money_text.dart';
 
 class ScreenScroll extends StatelessWidget {
@@ -161,6 +162,7 @@ class MetricTile extends StatelessWidget {
     this.amount,
     this.formatter,
     this.valueColor,
+    this.icon,
     this.padding = const EdgeInsets.all(12),
   }) : assert(value != null || amount != null);
 
@@ -169,6 +171,7 @@ class MetricTile extends StatelessWidget {
   final double? amount;
   final String Function(double)? formatter;
   final Color? valueColor;
+  final String? icon;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -185,15 +188,25 @@ class MetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.sans(
-              size: 10,
-              color: c.mu,
-              letterSpacing: 1.0,
-            ),
+          Row(
+            children: [
+              if (icon != null) ...[
+                SpendIcon(icon!, size: 12, color: c.mu, strokeWidth: 1.7),
+                const SizedBox(width: 5),
+              ],
+              Flexible(
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.sans(
+                    size: 10,
+                    color: c.mu,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 3),
           FittedBox(
