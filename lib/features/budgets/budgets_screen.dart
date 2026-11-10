@@ -12,6 +12,7 @@ import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
+import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/charts.dart';
@@ -42,17 +43,25 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     final snapshot = ref.watch(financeSnapshotProvider);
     final month = _month;
     final budgets = snapshot.budgets;
-    final limit = budgets.fold<double>(0, (sum, b) => sum + b.limit);
-    final spent = budgets.fold<double>(
+    final categoryLimit = budgets.fold<double>(
       0,
-      (sum, b) => sum + snapshot.spentIn(b.category, month),
+      (sum, b) => sum + b.limit,
     );
+    final limit = snapshot.totalBudgetLimit;
+    final spent = snapshot.hasTotalBudget
+        ? snapshot.expensesIn(month)
+        : budgets.fold<double>(
+            0,
+            (sum, b) => sum + snapshot.spentIn(b.category, month),
+          );
     final left = limit - spent;
     final income = snapshot.flow(month).income;
     final daysLeft = daysLeftInMonth(month);
     final history = [
       for (var k = 5; k >= 0; k--)
-        snapshot.flow(DateTime(month.year, month.month - k, 1)).expense,
+        snapshot.hasTotalBudget
+            ? snapshot.expensesIn(DateTime(month.year, month.month - k, 1))
+            : snapshot.flow(DateTime(month.year, month.month - k, 1)).expense,
     ];
     final historyLabels = [
       for (var k = 5; k >= 0; k--)
@@ -72,6 +81,47 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               ? null
               : () => setState(() => _monthOffset--),
           canGoNext: _monthOffset > 0,
+        ),
+        AppCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Monthly total',
+                      style: AppTypography.sans(size: 14, color: c.tx),
+                    ),
+                    Text(
+                      snapshot.hasTotalBudget
+                          ? 'Set in the app or on the web'
+                          : 'Using the sum of your envelopes',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  MoneyText(
+                    rupee(snapshot.totalBudgetLimit),
+                    style: AppTypography.sans(
+                      size: 16,
+                      color: c.tx,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AppPill(
+                    label: snapshot.hasTotalBudget ? 'Edit' : 'Set',
+                    onTap: () => _showTotalBudget(context, snapshot),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         AppCard(
           child: Row(
@@ -155,9 +205,9 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                               color: AppColors.category(budget.category),
                             ),
                           ),
-                      if (income > 0 && limit < income)
+                      if (income > 0 && categoryLimit < income)
                         Expanded(
-                          flex: (((income - limit) / income) * 1000)
+                          flex: (((income - categoryLimit) / income) * 1000)
                               .round()
                               .clamp(1, 100000)
                               .toInt(),
@@ -171,17 +221,17 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               Row(
                 children: [
                   Text(
-                    'Allocated ${rupee(limit)}',
+                    'Allocated ${rupee(categoryLimit)}',
                     style: AppTypography.sans(size: 12, color: c.mu),
                   ),
                   const Spacer(),
                   Text(
-                    income >= limit
-                        ? '${rupee(income - limit)} free → savings'
-                        : '${rupee(limit - income)} over income',
+                    income >= categoryLimit
+                        ? '${rupee(income - categoryLimit)} free → savings'
+                        : '${rupee(categoryLimit - income)} over income',
                     style: AppTypography.sans(
                       size: 12,
-                      color: income >= limit ? c.ac : c.co,
+                      color: income >= categoryLimit ? c.ac : c.co,
                     ),
                   ),
                 ],
@@ -392,6 +442,53 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showTotalBudget(BuildContext context, FinanceSnapshot snapshot) {
+    final controller = TextEditingController(
+      text: (snapshot.totalBudgetOverride ?? snapshot.totalBudgetLimit)
+          .round()
+          .toString(),
+    );
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Monthly total budget',
+            subtitle: 'Compared with every expense in the month.',
+          ),
+          const SizedBox(height: 12),
+          _Field(controller: controller, hint: 'Monthly limit', number: true),
+          PrimaryButton(
+            label: 'Save total budget',
+            onTap: () async {
+              final value = double.tryParse(controller.text) ?? 0;
+              if (value <= 0) {
+                ref.read(toastProvider.notifier).show('Enter a limit');
+                return;
+              }
+              await ref.read(budgetRepositoryProvider).setTotalBudget(value);
+              if (!sheetContext.mounted) return;
+              Navigator.of(sheetContext).pop();
+              ref.read(toastProvider.notifier).show('Total budget saved');
+            },
+          ),
+          if (snapshot.hasTotalBudget)
+            AppButton(
+              label: 'Use envelope total instead',
+              centered: true,
+              onTap: () async {
+                await ref.read(budgetRepositoryProvider).removeTotalBudget();
+                if (!sheetContext.mounted) return;
+                Navigator.of(sheetContext).pop();
+                ref.read(toastProvider.notifier).show('Total budget cleared');
+              },
+            ),
+        ],
       ),
     );
   }

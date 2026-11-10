@@ -61,6 +61,7 @@ class MockFinanceStore
 
 
   DateTime? _now;
+  double? _totalBudgetLimit;
   final _controller = StreamController<FinanceSnapshot>.broadcast();
   FinanceSnapshot _snapshot = FinanceSnapshot.empty();
   var _revision = 0;
@@ -107,6 +108,7 @@ class MockFinanceStore
     _recurring.clear();
     _groups.clear();
     _investments.clear();
+    _totalBudgetLimit = null;
     _txCounter = 0;
     _idCounter = 0;
     _randomSeed.reset(42);
@@ -723,6 +725,7 @@ class MockFinanceStore
       tags: List.unmodifiable(_tags),
       revision: _revision,
       generatedAt: _now ?? DateTime.now(),
+      totalBudgetOverride: _totalBudgetLimit,
     );
     if (!_controller.isClosed) _controller.add(_snapshot);
     _saveState?.call(_exportState());
@@ -745,6 +748,7 @@ class MockFinanceStore
     'groups': _groups.map((e) => e.toJson()).toList(),
     'investments': _investments.map((e) => e.toJson()).toList(),
     'tags': _tags,
+    'totalBudgetLimit': _totalBudgetLimit,
   };
 
   void _importState(Map<String, dynamic> j) {
@@ -755,6 +759,7 @@ class MockFinanceStore
     _revision = (j['revision'] as num? ?? 0).toInt();
     _txCounter = (j['txCounter'] as num? ?? 0).toInt();
     _idCounter = (j['idCounter'] as num? ?? 0).toInt();
+    _totalBudgetLimit = (j['totalBudgetLimit'] as num?)?.toDouble();
     _transactions
       ..clear()
       ..addAll(
@@ -1281,6 +1286,18 @@ class MockFinanceStore
     _commit();
   }
 
+  @override
+  Future<void> setTotalBudget(double limit) async {
+    _totalBudgetLimit = limit > 0 ? limit : null;
+    _commit();
+  }
+
+  @override
+  Future<void> removeTotalBudget() async {
+    _totalBudgetLimit = null;
+    _commit();
+  }
+
   // -------------------------------------------------------------- goals ---
 
   @override
@@ -1558,6 +1575,7 @@ class MockFinanceStore
     _cards.clear();
     _loans.clear();
     _goals.clear();
+    _totalBudgetLimit = null;
     _subscriptions.clear();
     _recurring.clear();
     _groups.clear();
@@ -1603,6 +1621,11 @@ class MockFinanceStore
     }
     _recalc();
     _commit();
+  }
+
+  @override
+  Future<void> clearMockData() async {
+    await startFresh();
   }
 
   Future<void> dispose() async {

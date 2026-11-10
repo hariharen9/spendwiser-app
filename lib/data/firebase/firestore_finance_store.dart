@@ -77,6 +77,7 @@ class FirestoreFinanceStore
   final Map<String, Map<String, Map<String, dynamic>>> _settledByGroup = {};
   final Map<String, List<StreamSubscription<dynamic>>> _groupSubscriptions = {};
   final Map<String, List<SplitHistoryEntry>> _groupHistory = {};
+  Map<String, dynamic>? _totalBudgetDoc;
   Map<String, String> _participantNames = const {'1': 'You'};
   Map<String, String> _participantIdByName = const {'You': '1'};
 
@@ -152,6 +153,7 @@ class FirestoreFinanceStore
     _subscriptions.add(
       refs.totalBudget.snapshots().listen(
         (snapshot) {
+          _totalBudgetDoc = snapshot.data();
           _mark('totalBudget');
         },
         onError: (Object error) => _fail('totalBudget', error),
@@ -436,6 +438,21 @@ class FirestoreFinanceStore
       (total, account) => total + account.balance,
     );
 
+    final totalLimit = _totalBudgetDoc == null
+        ? null
+        : asDouble(_totalBudgetDoc!['limit']);
+    final totalBudgetOverride = totalLimit != null && totalLimit > 0
+        ? totalLimit
+        : null;
+    final hasMockData =
+        _transactionDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        _accountDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        _budgetDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        _goalDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        _loanDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        _recurringDocs.values.any((doc) => asBool(doc['isMock'])) ||
+        asBool(_totalBudgetDoc?['isMock']);
+
     _revision++;
     _snapshot = FinanceSnapshot(
       transactions: List.unmodifiable(transactions),
@@ -452,6 +469,8 @@ class FirestoreFinanceStore
       revision: _revision,
       generatedAt: now,
       netWorthOverride: accountsTotal - loansOriginal,
+      totalBudgetOverride: totalBudgetOverride,
+      hasMockData: hasMockData,
     );
     _controller.add(_snapshot);
   }
@@ -877,6 +896,31 @@ class FirestoreFinanceStore
       if (docId != null) await refs.budgets.doc(docId).delete();
     } catch (error) {
       _error('Could not remove budget: $error');
+    }
+  }
+
+  @override
+  Future<void> setTotalBudget(double limit) async {
+    try {
+      final now = DateTime.now();
+      final month =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+      await refs.totalBudget.set({
+        'limit': limit,
+        'month': month,
+        'isMock': false,
+      });
+    } catch (error) {
+      _error('Could not save total budget: $error');
+    }
+  }
+
+  @override
+  Future<void> removeTotalBudget() async {
+    try {
+      await refs.totalBudget.delete();
+    } catch (error) {
+      _error('Could not remove total budget: $error');
     }
   }
 
@@ -1433,6 +1477,45 @@ class FirestoreFinanceStore
 
   @override
   Future<void> resetDemo() async {}
+
+  @override
+  Future<void> clearMockData() async {
+    try {
+      for (final collection in [
+        refs.transactions,
+        refs.accounts,
+        refs.budgets,
+        refs.goals,
+        refs.loans,
+        refs.recurring,
+      ]) {
+        await _deleteWhere(
+          collection.where('isMock', isEqualTo: true),
+        );
+      }
+      if (asBool(_totalBudgetDoc?['isMock'])) {
+        await refs.totalBudget.delete();
+      }
+    } catch (error) {
+      _error('Could not clear mock data: $error');
+    }
+  }
+
+  Future<void> _deleteWhere(Query<Map<String, dynamic>> query) async {
+    final snapshot = await query.get();
+    var batch = refs.db.batch();
+    var pending = 0;
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+      pending++;
+      if (pending >= 450) {
+        await batch.commit();
+        batch = refs.db.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) await batch.commit();
+  }
 
   @override
   Future<void> startFresh() async {

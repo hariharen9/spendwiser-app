@@ -67,7 +67,7 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
       AppModule.cards =>
         '${compactINR(s.cardDues)} due${s.cards.isEmpty ? '' : ' · ${math.max(0, FinanceCalculator.earliestCardDue(s)?.days ?? 0)}d'}',
       AppModule.budgets =>
-        '${compactINR((s.totalBudgetLimit - s.totalBudgetSpent).clamp(0, double.infinity))} left',
+        '${compactINR((s.totalBudgetLimit - (s.hasTotalBudget ? s.expensesIn(now) : s.totalBudgetSpent)).clamp(0, double.infinity))} left',
       AppModule.subscriptions => '${compactINR(s.monthlySubscriptionCost)}/mo',
       AppModule.debt => '${compactINR(s.monthlyEmis)} EMI/mo',
       AppModule.split => 'Owed ${compactINR(s.youAreOwed.abs())}',

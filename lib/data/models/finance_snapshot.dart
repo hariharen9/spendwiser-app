@@ -30,6 +30,8 @@ class FinanceSnapshot {
     required this.revision,
     required this.generatedAt,
     this.netWorthOverride,
+    this.totalBudgetOverride,
+    this.hasMockData = false,
   });
 
   final List<Transaction> transactions;
@@ -49,6 +51,12 @@ class FinanceSnapshot {
   /// Cloud snapshots use the web app's net-worth formula instead of the
   /// prototype's hard-coded property value.
   final double? netWorthOverride;
+
+  /// The web app's `totalBudget/current` limit, when one is set.
+  final double? totalBudgetOverride;
+
+  /// True when any core document in the account is tagged `isMock`.
+  final bool hasMockData;
 
   static const double propertyValue = 2800000;
 
@@ -104,10 +112,23 @@ class FinanceSnapshot {
       cards.fold(0, (sum, card) => sum + card.available);
 
   double get totalBudgetLimit =>
-      budgets.fold(0, (sum, budget) => sum + budget.limit);
+      totalBudgetOverride ?? budgets.fold(0, (sum, budget) => sum + budget.limit);
+
+  bool get hasTotalBudget => totalBudgetOverride != null;
 
   double get totalBudgetSpent =>
       budgets.fold(0, (sum, budget) => sum + budget.spent);
+
+  /// All outgoing money in [month], including categories without an envelope.
+  /// This matches the web app's `monthlyExpenses` figure against the total
+  /// budget. `flow()` excludes transfers for the income/expense tiles.
+  double expensesIn(DateTime month) {
+    var total = 0.0;
+    for (final transaction in inMonth(month)) {
+      if (transaction.amount < 0) total -= transaction.amount;
+    }
+    return total;
+  }
 
   double get totalSaved => goals.fold(0, (sum, goal) => sum + goal.saved);
 

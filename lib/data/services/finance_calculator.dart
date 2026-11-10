@@ -414,7 +414,9 @@ abstract final class FinanceCalculator {
   static SafeToSpend safeToSpend(FinanceSnapshot snapshot, {DateTime? now}) {
     final n = now ?? DateTime.now();
     final limit = snapshot.totalBudgetLimit;
-    final spent = snapshot.totalBudgetSpent;
+    final spent = snapshot.hasTotalBudget
+        ? snapshot.expensesIn(n)
+        : snapshot.totalBudgetSpent;
     final left = math.max(0.0, limit - spent);
     final days = daysLeftInMonth(n);
     return SafeToSpend(

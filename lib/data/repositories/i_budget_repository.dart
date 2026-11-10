@@ -9,4 +9,8 @@ abstract interface class IBudgetRepository {
   });
 
   Future<void> removeBudget(String category);
+
+  Future<void> setTotalBudget(double limit);
+
+  Future<void> removeTotalBudget();
 }

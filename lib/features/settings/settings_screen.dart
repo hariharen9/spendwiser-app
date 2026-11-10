@@ -323,6 +323,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
         ),
+        if (ref.watch(financeSnapshotProvider).hasMockData)
+          AppButton(
+            label: 'Clear mock data',
+            color: c.co,
+            centered: true,
+            onTap: () => _clearMockData(context),
+          ),
         AppButton(
           label: ref.watch(securityProvider).hasPin
               ? 'PIN & biometrics'
@@ -949,6 +956,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () async {
               Navigator.of(sheetContext).pop();
               await _importBackup();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearMockData(BuildContext context) {
+    showAppSheet<void>(
+      context,
+      (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetTitle(
+            'Clear mock data?',
+            subtitle: 'Only documents tagged isMock are removed.',
+          ),
+          Text(
+            'Your real transactions, accounts, budgets, goals and loans stay untouched.',
+            style: AppTypography.sans(size: 14, color: sheetContext.spend.mu),
+          ),
+          PrimaryButton(
+            label: 'Clear mock data',
+            onTap: () async {
+              await ref.read(financeRepositoryProvider).clearMockData();
+              if (!sheetContext.mounted) return;
+              Navigator.of(sheetContext).pop();
+              ref.read(toastProvider.notifier).show('Mock data cleared');
             },
           ),
         ],
