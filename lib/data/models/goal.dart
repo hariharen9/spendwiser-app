@@ -8,6 +8,8 @@ class Goal {
     required this.saved,
     required this.monthlyContribution,
     required this.color,
+    this.targetDate,
+    this.emoji = '🎯',
   });
 
   final String id;
@@ -16,6 +18,8 @@ class Goal {
   double saved;
   double monthlyContribution;
   final Color color;
+  final DateTime? targetDate;
+  final String emoji;
 
   double get progress => target <= 0 ? 0 : (saved / target).clamp(0, 1);
   double get remaining => (target - saved).clamp(0, target);
@@ -26,6 +30,8 @@ class Goal {
     double? target,
     double? saved,
     double? monthlyContribution,
+    DateTime? targetDate,
+    String? emoji,
   }) => Goal(
     id: id,
     name: name ?? this.name,
@@ -33,6 +39,8 @@ class Goal {
     saved: saved ?? this.saved,
     monthlyContribution: monthlyContribution ?? this.monthlyContribution,
     color: color,
+    targetDate: targetDate ?? this.targetDate,
+    emoji: emoji ?? this.emoji,
   );
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +50,8 @@ class Goal {
     'saved': saved,
     'monthlyContribution': monthlyContribution,
     'color': color.toARGB32(),
+    'targetDate': targetDate?.toIso8601String(),
+    'emoji': emoji,
   };
 
   factory Goal.fromJson(Map<String, dynamic> j) => Goal(
@@ -51,5 +61,9 @@ class Goal {
     saved: (j['saved'] as num? ?? 0).toDouble(),
     monthlyContribution: (j['monthlyContribution'] as num? ?? 0).toDouble(),
     color: Color(((j['color'] as num?) ?? 0xFFFFD23F).toInt()),
+    targetDate: j['targetDate'] == null
+        ? null
+        : DateTime.tryParse(j['targetDate'] as String),
+    emoji: j['emoji'] as String? ?? '🎯',
   );
 }

@@ -48,11 +48,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     widget.onDone();
   }
 
-  void _finish({required bool demo}) async {
+  void _finish() {
     final settings = ref.read(settingsProvider);
-    if (!demo) {
-      await ref.read(financeRepositoryProvider).startFresh();
-    }
     ref
         .read(settingsProvider.notifier)
         .update(
@@ -65,7 +62,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             onboardingSeen: true,
           ),
         );
-    if (!mounted) return;
     widget.onDone();
   }
 
@@ -161,7 +157,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         SizedBox(
           width: 270,
           child: Text(
-            'Track, plan and understand every rupee. Everything stays on your device.',
+            'Track, plan and understand every rupee. Everything syncs to your Spendwiser account.',
             textAlign: TextAlign.center,
             style: AppTypography.sans(size: 14, color: c.mu),
           ),
@@ -266,21 +262,21 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'How do you want to start?',
+          'You’re all set',
           style: AppTypography.serif(size: 34, color: c.tx),
         ),
         Text(
-          'You can import a CSV or reset any time.',
+          'Your ledger, cards and budgets will load from your Spendwiser account.',
           style: AppTypography.sans(size: 14, color: c.mu),
         ),
         const SizedBox(height: 18),
         AppCard(
-          onTap: () => _finish(demo: true),
+          onTap: _finish,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Explore with demo data',
+                'Open Spendwiser',
                 style: AppTypography.sans(
                   size: 15,
                   color: c.tx,
@@ -288,27 +284,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                 ),
               ),
               Text(
-                'Six months of sample activity',
-                style: AppTypography.sans(size: 12, color: c.mu),
-              ),
-            ],
-          ),
-        ),
-        AppCard(
-          onTap: () => _finish(demo: false),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Start fresh',
-                style: AppTypography.sans(
-                  size: 15,
-                  color: c.tx,
-                  weight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                'An empty slate with sensible envelopes',
+                'Changes sync with the web app in real time',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
             ],

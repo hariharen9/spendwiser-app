@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/providers.dart';
+import '../../core/utils/category_aliases.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -295,9 +296,18 @@ class _CaptureBarState extends ConsumerState<_CaptureBar> {
     final account = widget.snapshot.accounts.isEmpty
         ? null
         : widget.snapshot.accounts.first;
+    final defaultAccountId =
+        ref.read(userProfileRepositoryProvider)?.defaultAccountId;
+    final category = resolveCategoryName(
+      parsed.category,
+      ref.read(settingsProvider).categories.keys,
+    );
 
     await ref.read(transactionRepositoryProvider).addTransaction(
-      parsed.toDraft(accountId: account?.id),
+      parsed.toDraft(
+        accountId: defaultAccountId ?? account?.id,
+        category: category,
+      ),
     );
 
     _controller.clear();

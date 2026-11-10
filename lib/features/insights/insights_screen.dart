@@ -833,7 +833,10 @@ class _NetWorthTab extends StatelessWidget {
             ).month -
             1],
     ];
-    final liabilities = snapshot.loanOutstanding + snapshot.cardDues;
+    final liabilities = snapshot.loans.fold<double>(
+      0,
+      (total, loan) => total + loan.original,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -888,15 +891,7 @@ class _NetWorthTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
               KeyValueRow(
-                label: 'Property (est.)',
-                value: MoneyText(
-                  rupee(FinanceSnapshot.propertyValue),
-                  style: AppTypography.sans(size: 14, color: c.tx),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              KeyValueRow(
-                label: 'Loans + card dues',
+                label: 'Loan principal',
                 value: MoneyText(
                   '−${rupee(liabilities)}',
                   style: AppTypography.sans(size: 14, color: c.co),

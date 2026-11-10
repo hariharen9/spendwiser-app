@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "734001412886-olcq0nb1qb5kpjvjhft5rdb7c58b8t30.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spendwiser.spendwiser_app",
+            "certificate_hash": "c7d2c7172c5f99372200d480137fe02619fb3e2d"
+          }
+        },
+        {
           "client_id": "734001412886-oqn9khpebq5pp3b9skd9ag0476qmnrrg.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +37,13 @@
             {
               "client_id": "734001412886-oqn9khpebq5pp3b9skd9ag0476qmnrrg.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "734001412886-5oo9l5e8akfs9fklahskq3o7dig6sc3t.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.spendwiser.spendwiserApp"
+              }
             }
           ]
         }

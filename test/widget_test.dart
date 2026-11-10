@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spendwiser_app/app.dart';
 import 'package:spendwiser_app/core/state/providers.dart';
 import 'package:spendwiser_app/core/theme/app_colors.dart';
+import 'package:spendwiser_app/core/theme/app_theme.dart';
 import 'package:spendwiser_app/core/theme/app_typography.dart';
 import 'package:spendwiser_app/data/models/app_settings.dart';
+import 'package:spendwiser_app/features/shell/app_shell.dart';
 
 void main() {
   testWidgets('Home renders the Spendwiser shell', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const ProviderScope(child: SpendwiserApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.build(const AppSettings()),
+          home: const AppShell(),
+        ),
+      ),
+    );
     await tester.pump(const Duration(seconds: 7));
 
     expect(find.textContaining('Good '), findsOneWidget);

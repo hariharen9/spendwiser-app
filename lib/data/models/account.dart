@@ -22,6 +22,7 @@ class Account {
     required this.type,
     required this.balance,
     this.last4,
+    this.remoteType,
     this.gradient = const [Color(0xFF1D3A6B), Color(0xFF0B1530)],
   });
 
@@ -30,17 +31,27 @@ class Account {
   final AccountType type;
   final double balance;
   final String? last4;
+
+  /// Original Firestore `type` string (Bank / Cash / Wallet / Investment),
+  /// preserved so edits don't downgrade Wallet to Cash.
+  final String? remoteType;
   final List<Color> gradient;
 
-  Account copyWith({String? name, AccountType? type, double? balance}) =>
-      Account(
-        id: id,
-        name: name ?? this.name,
-        type: type ?? this.type,
-        balance: balance ?? this.balance,
-        last4: last4,
-        gradient: gradient,
-      );
+  Account copyWith({
+    String? name,
+    AccountType? type,
+    double? balance,
+    String? remoteType,
+    String? last4,
+  }) => Account(
+    id: id,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    balance: balance ?? this.balance,
+    last4: last4 ?? this.last4,
+    remoteType: remoteType ?? this.remoteType,
+    gradient: gradient,
+  );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -48,6 +59,7 @@ class Account {
     'type': type.label,
     'balance': balance,
     'last4': last4,
+    'remoteType': remoteType,
     'gradient': gradient.map((c) => c.toARGB32()).toList(),
   };
 
@@ -57,6 +69,7 @@ class Account {
     type: AccountType.fromLabel(j['type'] as String? ?? 'Savings'),
     balance: (j['balance'] as num? ?? 0).toDouble(),
     last4: j['last4'] as String?,
+    remoteType: j['remoteType'] as String?,
     gradient: ((j['gradient'] as List?) ?? [])
         .map((e) => Color((e as num).toInt()))
         .toList(),

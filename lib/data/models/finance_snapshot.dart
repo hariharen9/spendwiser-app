@@ -29,6 +29,7 @@ class FinanceSnapshot {
     required this.tags,
     required this.revision,
     required this.generatedAt,
+    this.netWorthOverride,
   });
 
   final List<Transaction> transactions;
@@ -44,6 +45,10 @@ class FinanceSnapshot {
   final List<String> tags;
   final int revision;
   final DateTime generatedAt;
+
+  /// Cloud snapshots use the web app's net-worth formula instead of the
+  /// prototype's hard-coded property value.
+  final double? netWorthOverride;
 
   static const double propertyValue = 2800000;
 
@@ -75,11 +80,12 @@ class FinanceSnapshot {
       loans.fold(0, (sum, loan) => sum + loan.outstanding);
 
   double get netWorth =>
-      accountsTotal +
-      investmentsValue +
-      propertyValue -
-      cardDues -
-      loanOutstanding;
+      netWorthOverride ??
+      (accountsTotal +
+          investmentsValue +
+          propertyValue -
+          cardDues -
+          loanOutstanding);
 
   double get liquidAssets => accounts
       .where((a) => a.type != AccountType.investments)

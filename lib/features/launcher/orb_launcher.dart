@@ -72,10 +72,10 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
       AppModule.goals => '${s.goalsProgress.round()}% funded',
       AppModule.calendar =>
         '${FinanceCalculator.bills(s, now: now).where((b) => b.days <= 7).length} bills this week',
-      AppModule.insights => 'Health 78',
+      AppModule.insights => 'Health ${FinanceCalculator.health(s, now: now).score}',
       AppModule.tools => 'Calc · SIP',
       AppModule.settings =>
-        '${ref.read(settingsProvider).themeLabel} · INR · Local',
+        '${ref.read(settingsProvider).themeLabel} · INR · Synced',
     };
   }
 

@@ -6,6 +6,8 @@ class Subscription {
     required this.renewsInDays,
     this.active = true,
     this.note,
+    this.category = 'Other',
+    this.recurringId,
   });
 
   final String id;
@@ -14,6 +16,10 @@ class Subscription {
   int renewsInDays;
   bool active;
   String? note;
+  final String category;
+
+  /// Firestore `recurring_transactions` document id backing this view.
+  final String? recurringId;
 
   Subscription copyWith({
     String? name,
@@ -21,6 +27,8 @@ class Subscription {
     int? renewsInDays,
     bool? active,
     String? note,
+    String? category,
+    String? recurringId,
   }) => Subscription(
     id: id,
     name: name ?? this.name,
@@ -28,6 +36,8 @@ class Subscription {
     renewsInDays: renewsInDays ?? this.renewsInDays,
     active: active ?? this.active,
     note: note ?? this.note,
+    category: category ?? this.category,
+    recurringId: recurringId ?? this.recurringId,
   );
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +47,8 @@ class Subscription {
     'renewsInDays': renewsInDays,
     'active': active,
     'note': note,
+    'category': category,
+    'recurringId': recurringId,
   };
 
   factory Subscription.fromJson(Map<String, dynamic> j) => Subscription(
@@ -46,6 +58,8 @@ class Subscription {
     renewsInDays: (j['renewsInDays'] as num? ?? 0).toInt(),
     active: j['active'] as bool? ?? true,
     note: j['note'] as String?,
+    category: j['category'] as String? ?? 'Other',
+    recurringId: j['recurringId'] as String?,
   );
 }
 
@@ -73,6 +87,12 @@ class RecurringTransaction {
     required this.amount,
     required this.frequency,
     required this.isIncome,
+    this.category = 'Other',
+    this.startDate,
+    this.endDate,
+    this.lastProcessedDate,
+    this.accountId,
+    this.note,
     this.active = true,
   });
 
@@ -81,6 +101,12 @@ class RecurringTransaction {
   double amount;
   RecurringFrequency frequency;
   bool isIncome;
+  final String category;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final DateTime? lastProcessedDate;
+  final String? accountId;
+  final String? note;
   bool active;
 
   double get monthlyAmount => amount * frequency.monthlyFactor;
@@ -90,6 +116,12 @@ class RecurringTransaction {
     double? amount,
     RecurringFrequency? frequency,
     bool? isIncome,
+    String? category,
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? lastProcessedDate,
+    String? accountId,
+    String? note,
     bool? active,
   }) => RecurringTransaction(
     id: id,
@@ -97,6 +129,12 @@ class RecurringTransaction {
     amount: amount ?? this.amount,
     frequency: frequency ?? this.frequency,
     isIncome: isIncome ?? this.isIncome,
+    category: category ?? this.category,
+    startDate: startDate ?? this.startDate,
+    endDate: endDate ?? this.endDate,
+    lastProcessedDate: lastProcessedDate ?? this.lastProcessedDate,
+    accountId: accountId ?? this.accountId,
+    note: note ?? this.note,
     active: active ?? this.active,
   );
 
@@ -106,6 +144,12 @@ class RecurringTransaction {
     'amount': amount,
     'frequency': frequency.label,
     'isIncome': isIncome,
+    'category': category,
+    'startDate': startDate?.toIso8601String(),
+    'endDate': endDate?.toIso8601String(),
+    'lastProcessedDate': lastProcessedDate?.toIso8601String(),
+    'accountId': accountId,
+    'note': note,
     'active': active,
   };
 
@@ -116,6 +160,18 @@ class RecurringTransaction {
         amount: (j['amount'] as num? ?? 0).toDouble(),
         frequency: RecurringFrequency.fromLabel(j['frequency'] as String? ?? 'monthly'),
         isIncome: j['isIncome'] as bool? ?? false,
+        category: j['category'] as String? ?? 'Other',
+        startDate: j['startDate'] == null
+            ? null
+            : DateTime.tryParse(j['startDate'] as String),
+        endDate: j['endDate'] == null
+            ? null
+            : DateTime.tryParse(j['endDate'] as String),
+        lastProcessedDate: j['lastProcessedDate'] == null
+            ? null
+            : DateTime.tryParse(j['lastProcessedDate'] as String),
+        accountId: j['accountId'] as String?,
+        note: j['note'] as String?,
         active: j['active'] as bool? ?? true,
       );
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/state/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/category_aliases.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
@@ -64,10 +65,18 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
         ? '0'
         : widget.initialAmount!.round().toString();
     _income = false;
-    _category = widget.initialCategory ?? 'Food';
+    final snapshot = ref.read(financeSnapshotProvider);
+    final fallbackAccount = ref.read(userProfileRepositoryProvider)?.defaultAccountId ??
+        (snapshot.accounts.isNotEmpty ? snapshot.accounts.first.id : '');
+    final availableCategories = ref.read(settingsProvider).categories.keys;
+    _category = widget.initialCategory != null
+        ? resolveCategoryName(widget.initialCategory!, availableCategories)
+        : (availableCategories.isNotEmpty
+            ? availableCategories.first
+            : 'Other');
     _source = widget.initialCardId != null
         ? 'c:${widget.initialCardId}'
-        : 'a:${widget.initialAccountId ?? 'hdfc'}';
+        : 'a:${widget.initialAccountId ?? fallbackAccount}';
     _date = DateTime.now();
   }
 
@@ -123,7 +132,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
         ? (_income ? 'Income' : category)
         : _note.text.trim();
     final isCard = _source.startsWith('c:');
-    final sourceId = _source.substring(2);
+    final sourceId = _source.length > 2 ? _source.substring(2) : null;
     await ref
         .read(transactionRepositoryProvider)
         .addTransaction(

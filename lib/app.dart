@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/state/auth_provider.dart';
 import 'core/state/providers.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
-import 'features/shell/app_shell.dart';
+import 'data/models/finance_snapshot.dart';
+import 'features/auth/auth_gate.dart';
 import 'data/services/notifications_service.dart';
 
 class SpendwiserApp extends ConsumerWidget {
@@ -16,8 +18,11 @@ class SpendwiserApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     AppTypography.fontMode = settings.font;
-    final snapshot = ref.watch(financeSnapshotProvider);
-    NotificationsService.reschedule(snapshot, settings);
+    final uid = ref.watch(authUidProvider);
+    final snapshot = uid == null
+        ? FinanceSnapshot.empty()
+        : ref.watch(financeSnapshotProvider);
+    if (uid != null) NotificationsService.reschedule(snapshot, settings);
     AppColors.dynamicCategories = Map.of(settings.categories);
     Haptics.enabled = settings.haptics;
     SystemChrome.setSystemUIOverlayStyle(
@@ -40,7 +45,7 @@ class SpendwiserApp extends ConsumerWidget {
       title: 'Spendwiser',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.build(settings),
-      home: const AppShell(),
+      home: const AuthGate(),
       builder: (context, child) {
         final media = MediaQuery.of(context);
         return MediaQuery(

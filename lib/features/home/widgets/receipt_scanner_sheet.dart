@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/state/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/category_aliases.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/app_bottom_sheet.dart';
 import '../../../core/widgets/app_button.dart';
@@ -123,10 +124,17 @@ Thank you for shopping with us!
     if (detected == null) return;
 
     final snapshot = ref.read(financeSnapshotProvider);
-    final accountId = snapshot.accounts.isEmpty ? null : snapshot.accounts.first.id;
+    final defaultAccountId =
+        ref.read(userProfileRepositoryProvider)?.defaultAccountId;
+    final accountId = defaultAccountId ??
+        (snapshot.accounts.isEmpty ? null : snapshot.accounts.first.id);
+    final category = resolveCategoryName(
+      detected.category,
+      ref.read(settingsProvider).categories.keys,
+    );
 
     await ref.read(transactionRepositoryProvider).addTransaction(
-      detected.toDraft(accountId: accountId),
+      detected.toDraft(accountId: accountId, category: category),
     );
 
     if (!mounted) return;

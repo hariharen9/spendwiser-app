@@ -14,4 +14,8 @@ abstract interface class ITransactionRepository {
   Future<void> deleteTag(String tag);
 
   Future<void> renameTag(String oldTag, String newTag);
+
+  Future<void> renameCategory(String oldCategory, String newCategory);
+
+  Future<void> deleteCategory(String category);
 }

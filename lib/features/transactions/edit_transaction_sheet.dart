@@ -128,6 +128,10 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
   Widget build(BuildContext context) {
     final c = context.spend;
     final snapshot = ref.watch(financeSnapshotProvider);
+    final categories = <String>{
+      ...ref.watch(settingsProvider).categories.keys,
+      if (_category.isNotEmpty) _category,
+    }.toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,7 +166,7 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
               child: AppSelect<String>(
                 value: _category,
                 options: [
-                  for (final category in AppColors.categoryList)
+                  for (final category in categories)
                     AppSelectOption(category, category),
                 ],
                 onChanged: (value) =>

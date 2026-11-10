@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:hive/hive.dart';
 
+import '../../core/state/auth_provider.dart';
 import '../../core/state/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -23,7 +24,6 @@ import '../../data/models/app_settings.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../../data/persistence/pin_vault.dart';
 import '../../data/services/notifications_service.dart';
-import '../../data/models/transaction.dart';
 import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
 
@@ -283,10 +283,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           label: 'Tags · ${ref.watch(financeSnapshotProvider).tags.length}',
           onTap: () => _showTags(context),
         ),
-        AppButton(
-          label: 'Shortcuts · 5 keywords',
-          onTap: () => _showShortcuts(context),
-        ),
         SectionCaption(
           'Automation',
           margin: const EdgeInsets.only(top: 22, bottom: 8),
@@ -313,11 +309,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Stored on this device only',
+                      'Synced to your Spendwiser account',
                       style: AppTypography.sans(size: 14, color: c.tx),
                     ),
                     Text(
-                      'AES-256 · no account · no tracking',
+                      'Firestore · private to your uid',
                       style: AppTypography.sans(size: 12, color: c.mu),
                     ),
                   ],
@@ -337,24 +333,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Storage used',
+                'Sync',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
               const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: LinearProgressIndicator(
-                  value: 0.06,
-                  minHeight: 6,
-                  backgroundColor: c.c2,
-                  valueColor: AlwaysStoppedAnimation(c.ac),
-                ),
+              Text(
+                'Cloud-backed · Firestore',
+                style: AppTypography.sans(size: 13, color: c.tx),
               ),
               const SizedBox(height: 6),
               Text(
                 _history.isEmpty || _history.first[0] == 'No backups yet'
-                    ? 'Stored locally · no backups yet'
-                    : 'Stored locally · last: ${_history.first[0]}',
+                    ? 'No backups yet'
+                    : 'Last backup: ${_history.first[0]}',
                 style: AppTypography.sans(size: 12, color: c.mu),
               ),
             ],
@@ -377,7 +368,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'Ledger · CSV',
           'Annual summary · PDF',
           'Statements · XLSX',
-          'Full backup · encrypted',
+          'Full backup · JSON',
         ])
           AppButton(label: label, onTap: () => _export(label)),
         const SectionCaption(
@@ -389,7 +380,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () => _importBackup(),
         ),
         AppButton(
-          label: 'Encrypted backup & restore',
+          label: 'Backup & restore',
           onTap: () => _showBackup(context),
         ),
         const SectionCaption(
@@ -437,11 +428,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         AppButton(label: 'Lock app', onTap: widget.onLock),
         AppButton(label: 'Replay welcome', onTap: widget.onReplayWelcome),
+        SectionCaption(
+          'Account',
+          margin: const EdgeInsets.only(top: 22, bottom: 8),
+        ),
+        AppCard(
+          child: Row(
+            children: [
+              IconTile(icon: 'vault', color: c.ac, size: 38),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ref.watch(authStateProvider).value?.email ?? 'Signed in',
+                      style: AppTypography.sans(size: 14, color: c.tx),
+                    ),
+                    Text(
+                      'Email & password · Google',
+                      style: AppTypography.sans(size: 12, color: c.mu),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         AppButton(
-          label: 'Reset demo data',
-          color: c.co,
-          centered: true,
-          onTap: () => _reset(context),
+          label: 'Sign out',
+          onTap: () => ref.read(authServiceProvider).signOut(),
         ),
         const SizedBox(height: 14),
         Text(
@@ -485,7 +501,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final contents = await file.readAsString();
       final payload = BackupService.parseBackup(contents);
       await importBackupPayload(payload);
-      ref.invalidate(mockFinanceStoreProvider);
+      ref.invalidate(firestoreFinanceStoreProvider);
+      ref.invalidate(userProfileRepositoryProvider);
       ref.invalidate(settingsProvider);
       _logHistory('Restored backup');
       ref.read(toastProvider.notifier).show('Backup restored');
@@ -556,45 +573,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showAppSheet<void>(
       context,
       (sheetContext) => const _TagsSheet(),
-    );
-  }
-
-  void _showShortcuts(BuildContext context) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle(
-            'Shortcuts',
-            subtitle: 'Type a keyword in the capture bar and it files itself.',
-          ),
-          const SizedBox(height: 12),
-          AppCard(
-            child: Column(
-              children: [
-                for (final entry in const [
-                  ('chai', 'Food'),
-                  ('uber', 'Travel'),
-                  ('netflix', 'Fun'),
-                  ('rent', 'Bills'),
-                  ('amazon', 'Shop'),
-                ])
-                  KeyValueRow(
-                    label: entry.$1,
-                    value: Text(
-                      '→ ${entry.$2}',
-                      style: AppTypography.sans(
-                        size: 13,
-                        color: sheetContext.spend.mu,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -758,72 +736,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showSms(BuildContext context) {
-    var listener = false;
     showAppSheet<void>(
       context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final c = context.spend;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SheetTitle(
-                'SMS listener',
-                subtitle: 'Pair the Android companion so bank SMS become pending transactions.',
-              ),
-              AppCard(
-                child: Column(
-                  children: [
-                    Text(
-                      'Pairing code',
-                      style: AppTypography.sans(size: 12, color: c.mu),
+      (sheetContext) {
+        final c = sheetContext.spend;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SheetTitle(
+              'SMS listener',
+              subtitle: 'Bank SMS become pending transactions you can review.',
+            ),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pair on the web app',
+                    style: AppTypography.sans(
+                      size: 15,
+                      color: c.tx,
+                      weight: FontWeight.w500,
                     ),
-                    Text(
-                      '438921',
-                      style: AppTypography.serif(
-                        size: 48,
-                        color: c.tx,
-                        letterSpacing: 5,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Open Settings → SMS in the Spendwiser web app to generate your listener key. '
+                    'Incoming SMS are staged in the same account and appear here automatically.',
+                    style: AppTypography.sans(size: 12, color: c.mu),
+                  ),
+                ],
               ),
-              _ToggleRow(
-                label: 'Listener ${listener ? 'connected' : 'not paired'}',
-                detail: 'Bank SMS are parsed on-device',
-                value: listener,
-                onChanged: (value) => setSheetState(() => listener = value),
-                last: true,
-              ),
-              PrimaryButton(
-                label: 'Send a test SMS',
-                onTap: () async {
-                  final accounts = ref.read(financeSnapshotProvider).accounts;
-                  await ref
-                      .read(transactionRepositoryProvider)
-                      .addTransaction(
-                        TransactionDraft(
-                          merchant: 'Swiggy',
-                          category: 'Food',
-                          amount: -849,
-                          date: DateTime.now(),
-                          accountId: accounts.isEmpty
-                              ? null
-                              : accounts.first.id,
-                        ),
-                      );
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref
-                      .read(toastProvider.notifier)
-                      .show('SMS parsed · Swiggy ₹849');
-                },
-              ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1051,12 +998,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           const SheetTitle('Erase everything?'),
           Text(
-            'This removes all transactions, accounts and settings from this device. Export a backup first.',
+            'This removes every transaction, account, card, budget, goal, loan and recurring rule from your Spendwiser account. Export a backup first.',
             style: AppTypography.sans(size: 14, color: sheetContext.spend.mu),
           ),
           PrimaryButton(
             label: 'Back up first',
-            onTap: () => _export('Full backup · encrypted'),
+            onTap: () => _export('Full backup · JSON'),
           ),
           AppButton(
             label: 'Erase',
@@ -1077,31 +1024,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _reset(BuildContext context) {
-    showAppSheet<void>(
-      context,
-      (sheetContext) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetTitle('Reset demo data?'),
-          Text(
-            'Restores Arjun’s seeded accounts, cards, loans and six months of transactions.',
-            style: AppTypography.sans(size: 14, color: sheetContext.spend.mu),
-          ),
-          PrimaryButton(
-            label: 'Reset demo data',
-            onTap: () async {
-              await ref.read(financeRepositoryProvider).resetDemo();
-              if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              widget.onReset();
-              ref.read(toastProvider.notifier).show('Demo data restored');
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ToggleRow extends StatelessWidget {
@@ -1451,7 +1373,7 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     final newName = _controller.text.trim();
     if (newName.isEmpty) {
       ref.read(toastProvider.notifier).show('Category name cannot be empty');
@@ -1463,16 +1385,25 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
         ref.read(toastProvider.notifier).show('Category "$newName" already exists');
         return;
       }
-      ref.read(settingsProvider.notifier).editCategory(widget.name, newName, _color);
-      ref.read(mockFinanceStoreProvider).renameCategory(widget.name, newName);
+      await ref
+          .read(transactionRepositoryProvider)
+          .renameCategory(widget.name, newName);
+      ref
+          .read(settingsProvider.notifier)
+          .editCategory(widget.name, newName, _color);
     } else {
-      ref.read(settingsProvider.notifier).editCategory(widget.name, widget.name, _color);
+      ref
+          .read(settingsProvider.notifier)
+          .editCategory(widget.name, widget.name, _color);
     }
+    if (!mounted) return;
     ref.read(toastProvider.notifier).show('Saved category');
     Navigator.of(context).pop();
   }
 
-  void _delete() {
+  Future<void> _delete() async {
+    await ref.read(transactionRepositoryProvider).deleteCategory(widget.name);
+    if (!mounted) return;
     ref.read(settingsProvider.notifier).deleteCategory(widget.name);
     ref.read(toastProvider.notifier).show('Deleted "${widget.name}"');
     Navigator.of(context).pop();

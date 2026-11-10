@@ -18,10 +18,10 @@ class ParsedCapture {
     this.items = const [],
   });
 
-  TransactionDraft toDraft({String? accountId}) {
+  TransactionDraft toDraft({String? accountId, String? category}) {
     return TransactionDraft(
       merchant: merchant,
-      category: category,
+      category: category ?? this.category,
       amount: isIncome ? amount.abs() : -amount.abs(),
       date: DateTime.now(),
       accountId: accountId,

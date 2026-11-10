@@ -1578,7 +1578,8 @@ class MockFinanceStore
     _commit();
   }
 
-  void renameCategory(String from, String to) {
+  @override
+  Future<void> renameCategory(String from, String to) async {
     for (var i = 0; i < _transactions.length; i++) {
       if (_transactions[i].category == from) {
         _transactions[i] = _transactions[i].copyWith(category: to);
@@ -1587,6 +1588,17 @@ class MockFinanceStore
     for (var i = 0; i < _budgets.length; i++) {
       if (_budgets[i].category == from) {
         _budgets[i] = _budgets[i].copyWith(category: to);
+      }
+    }
+    _recalc();
+    _commit();
+  }
+
+  @override
+  Future<void> deleteCategory(String category) async {
+    for (var i = 0; i < _transactions.length; i++) {
+      if (_transactions[i].category == category) {
+        _transactions[i] = _transactions[i].copyWith(category: 'Other');
       }
     }
     _recalc();
