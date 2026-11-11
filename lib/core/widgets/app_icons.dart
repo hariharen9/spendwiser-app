@@ -161,15 +161,52 @@ class MerchantAvatar extends StatelessWidget {
   final String category;
   final double size;
 
+  static const _foodPath = 'M6 3v8a2 2 0 0 0 4 0V3M8 3v18M16 3c-2 2-2 6 0 8v10';
+  static const _travelPath = 'M5 16l1.5-5h11L19 16M4 16h16v3H4zM7 19v2M17 19v2';
+  static const _shopPath = 'M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0';
+  static const _billsPath = 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6';
+  static const _funPath = 'M5 5h14v14H5zM10 9l5 3-5 3z';
+  static const _incomePath = 'M12 4v13M6 12l6 6 6-6';
+  static const _transferPath = 'M7 7h10l-3-3M17 17H7l3 3';
+  static const _emiPath = 'M6 10h12v10H6zM9 10V7a3 3 0 0 1 6 0v3';
+  static const _groceriesPath =
+      'M4 9h16l-1.4 10H5.4zM8 9l1.5-5h5L16 9M9 13v2M15 13v2';
+  static const _personalPath =
+      'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0';
+  static const _fuelPath =
+      'M4 21V5h9v16M4 9h9M8 3v3M13 8h3l3 3v7a2 2 0 0 0 4 0v-5l-2-2';
+  static const _utilitiesPath = 'M13 2L5 14h6l-1 8 8-12h-6z';
+  static const _healthcarePath = 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z';
+  static const _educationPath = 'M3 5h7v16H3zM14 5h7v16h-7zM6 9h1M17 9h1';
+  static const _rentPath =
+      'M4 21V5h10v16M14 10h6v11M7 8h2M7 12h2M7 16h2M17 13h1M17 17h1';
+  static const _investmentPath = 'M4 18l5-5 4 3 7-8M15 8h5v5';
+  static const _otherPath = 'M20 13l-7 7-9-9V4h7l9 9zM8 8h.01';
+
   static const _categoryPaths = <String, String>{
-    'Food': 'M6 3v8a2 2 0 0 0 4 0V3M8 3v18M16 3c-2 2-2 6 0 8v10',
-    'Travel': 'M5 16l1.5-5h11L19 16M4 16h16v3H4zM7 19v2M17 19v2',
-    'Shop': 'M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0',
-    'Bills': 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
-    'Fun': 'M5 5h14v14H5zM10 9l5 3-5 3z',
-    'Income': 'M12 4v13M6 12l6 6 6-6',
-    'Transfer': 'M7 7h10l-3-3M17 17H7l3 3',
-    'EMI': 'M6 10h12v10H6zM9 10V7a3 3 0 0 1 6 0v3',
+    'Home': IconPaths.home,
+    'Groceries': _groceriesPath,
+    'Food & Dining': _foodPath,
+    'Transportation': _travelPath,
+    'Entertainment': _funPath,
+    'Shopping': _shopPath,
+    'Personal': _personalPath,
+    'Fuel': _fuelPath,
+    'Utilities': _utilitiesPath,
+    'Healthcare': _healthcarePath,
+    'Education': _educationPath,
+    'Bills & EMIs': _billsPath,
+    'Rent & Housing': _rentPath,
+    'Investment': _investmentPath,
+    'Travel': _travelPath,
+    'Other': _otherPath,
+    'Income': _incomePath,
+    'Transfer': _transferPath,
+    'EMI': _emiPath,
+    'Food': _foodPath,
+    'Shop': _shopPath,
+    'Bills': _billsPath,
+    'Fun': _funPath,
   };
 
   static const _brandOrder = [
@@ -213,7 +250,7 @@ class MerchantAvatar extends StatelessWidget {
       );
     }
     final color = AppColors.category(category);
-    final path = _categoryPaths[category] ?? 'M5 12h14';
+    final path = _categoryPaths[category] ?? _otherPath;
     final svg =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
         'fill="none" stroke="${SpendIcon._hex(color)}" stroke-width="1.8" '
