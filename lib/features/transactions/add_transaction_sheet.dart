@@ -35,6 +35,7 @@ Future<void> showAddTransactionSheet(
       initialAmount: amount,
       initialMerchant: merchant,
     ),
+    scrollable: false,
   );
 }
 
@@ -249,164 +250,186 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Expanded(
-              child: SheetTitle(
-                'Add transaction',
-                subtitle: 'Track money in or out.',
-              ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(color: c.c2, shape: BoxShape.circle),
-                alignment: Alignment.center,
-                child: SpendIcon('closeSmall', size: 18, color: c.tx),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        _label(context, 'Transaction name *'),
-        _Input(
-          controller: _name,
-          hint: 'e.g. Coffee Shop, Salary, Gas Station',
-          capitalization: TextCapitalization.words,
-        ),
-        const SizedBox(height: 12),
-        _label(context, 'Amount *'),
-        _Input(
-          controller: _amount,
-          hint: '0.00',
-          number: true,
-          large: true,
-          prefix: '₹ ',
-        ),
-        const SizedBox(height: 12),
-        _label(context, 'Type *'),
-        SegmentedControl<bool>(
-          margin: EdgeInsets.zero,
-          options: const [
-            SegmentedOption(false, 'Expense'),
-            SegmentedOption(true, 'Income'),
-          ],
-          selected: _income,
-          onChanged: (value) => setState(() {
-            _income = value;
-            if (value) {
-              _category = 'Income';
-            } else if (!categories.contains(_category)) {
-              _category = categories.isNotEmpty ? categories.first : 'Other';
-            }
-          }),
-        ),
-        const SizedBox(height: 12),
-        _label(context, 'Date *'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            AppPill(
-              label: 'Today',
-              active: _sameDay(_date, today),
-              onTap: () => setState(() => _date = today),
-            ),
-            AppPill(
-              label: 'Yesterday',
-              active: _sameDay(_date, yesterday),
-              onTap: () => setState(() => _date = yesterday),
-            ),
-            AppPill(
-              label: 'Last week',
-              active: _sameDay(_date, lastWeek),
-              onTap: () => setState(() => _date = lastWeek),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickDate,
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            decoration: BoxDecoration(
-              color: c.c2,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Text(
-                    isoDate(_date),
-                    style: AppTypography.sans(size: 14, color: c.tx),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(
+                      child: SheetTitle(
+                        'Add transaction',
+                        subtitle: 'Track money in or out.',
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: c.c2,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: SpendIcon('closeSmall', size: 18, color: c.tx),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _label(context, 'Transaction name *'),
+                _Input(
+                  controller: _name,
+                  hint: 'e.g. Coffee Shop, Salary, Gas Station',
+                  capitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                _label(context, 'Amount *'),
+                _Input(
+                  controller: _amount,
+                  hint: '0.00',
+                  number: true,
+                  large: true,
+                  prefix: '₹ ',
+                ),
+                const SizedBox(height: 12),
+                _label(context, 'Type *'),
+                SegmentedControl<bool>(
+                  margin: EdgeInsets.zero,
+                  options: const [
+                    SegmentedOption(false, 'Expense'),
+                    SegmentedOption(true, 'Income'),
+                  ],
+                  selected: _income,
+                  onChanged: (value) => setState(() {
+                    _income = value;
+                    if (value) {
+                      _category = 'Income';
+                    } else if (!categories.contains(_category)) {
+                      _category = categories.isNotEmpty
+                          ? categories.first
+                          : 'Other';
+                    }
+                  }),
+                ),
+                const SizedBox(height: 12),
+                _label(context, 'Date *'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    AppPill(
+                      label: 'Today',
+                      active: _sameDay(_date, today),
+                      onTap: () => setState(() => _date = today),
+                    ),
+                    AppPill(
+                      label: 'Yesterday',
+                      active: _sameDay(_date, yesterday),
+                      onTap: () => setState(() => _date = yesterday),
+                    ),
+                    AppPill(
+                      label: 'Last week',
+                      active: _sameDay(_date, lastWeek),
+                      onTap: () => setState(() => _date = lastWeek),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 13),
+                    decoration: BoxDecoration(
+                      color: c.c2,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isoDate(_date),
+                            style: AppTypography.sans(size: 14, color: c.tx),
+                          ),
+                        ),
+                        SpendIcon('calendar', size: 16, color: c.mu),
+                      ],
+                    ),
                   ),
                 ),
-                SpendIcon('calendar', size: 16, color: c.mu),
+                const SizedBox(height: 12),
+                _label(context, 'Category *'),
+                if (_income)
+                  const _ReadOnlyField(value: 'Income')
+                else
+                  AppSelect<String>(
+                    value: effectiveCategory,
+                    options: [
+                      for (final category in categories)
+                        AppSelectOption(category, category),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _category = value ?? _category),
+                  ),
+                if (snapshot.tags.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _label(context, 'Tags'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final tag in snapshot.tags)
+                        AppPill(
+                          label: '#$tag',
+                          active: _tags.contains(tag),
+                          onTap: () {
+                            setState(() {
+                              if (_tags.contains(tag)) {
+                                _tags.remove(tag);
+                              } else {
+                                _tags.add(tag);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                _label(context, 'Account *'),
+                AppSelect<String>(
+                  value: _source,
+                  hint: 'Choose account',
+                  options: sources,
+                  onChanged: (value) => setState(() => _source = value ?? ''),
+                ),
+                const SizedBox(height: 12),
+                _label(context, 'Comments (optional)'),
+                _Input(
+                  controller: _note,
+                  hint: 'Add any additional notes…',
+                  maxLines: 3,
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        _label(context, 'Category *'),
-        if (_income)
-          const _ReadOnlyField(value: 'Income')
-        else
-          AppSelect<String>(
-            value: effectiveCategory,
-            options: [
-              for (final category in categories)
-                AppSelectOption(category, category),
-            ],
-            onChanged: (value) =>
-                setState(() => _category = value ?? _category),
+        Container(
+          padding: const EdgeInsets.only(top: 10, bottom: 8),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: c.ln)),
           ),
-        if (snapshot.tags.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _label(context, 'Tags'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final tag in snapshot.tags)
-                AppPill(
-                  label: '#$tag',
-                  active: _tags.contains(tag),
-                  onTap: () {
-                    setState(() {
-                      if (_tags.contains(tag)) {
-                        _tags.remove(tag);
-                      } else {
-                        _tags.add(tag);
-                      }
-                    });
-                  },
-                ),
-            ],
+          child: PrimaryButton(
+            label: _income ? 'Save income' : 'Save expense',
+            onTap: _save,
+            margin: EdgeInsets.zero,
           ),
-        ],
-        const SizedBox(height: 12),
-        _label(context, 'Account *'),
-        AppSelect<String>(
-          value: _source,
-          hint: 'Choose account',
-          options: sources,
-          onChanged: (value) => setState(() => _source = value ?? ''),
-        ),
-        const SizedBox(height: 12),
-        _label(context, 'Comments (optional)'),
-        _Input(
-          controller: _note,
-          hint: 'Add any additional notes…',
-          maxLines: 3,
-        ),
-        const SizedBox(height: 20),
-        PrimaryButton(
-          label: _income ? 'Save income' : 'Save expense',
-          onTap: _save,
         ),
       ],
     );

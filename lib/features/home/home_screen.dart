@@ -35,6 +35,7 @@ import '../sms/sms_review_sheet.dart';
 import '../transactions/add_transaction_sheet.dart';
 import 'customize_home_sheet.dart';
 import 'services/capture_parser.dart';
+import 'widgets/cash_runway_sheet.dart';
 import 'widgets/receipt_scanner_sheet.dart';
 import 'widgets/voice_capture_sheet.dart';
 
@@ -722,147 +723,153 @@ class _CashRunwayHero extends StatelessWidget {
         ? runway.payday!.difference(runway.startDate).inDays
         : null;
 
-    return GlowCard(
-      color: accent,
-      margin: const EdgeInsets.only(top: 16, bottom: 8),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Text(
-                'CASH RUNWAY',
-                style: AppTypography.sans(
-                  size: 11,
-                  color: c.mu,
-                  letterSpacing: 1.32,
+    return Pressable(
+      onTap: () => showCashRunwaySheet(context),
+      scale: 0.995,
+      child: GlowCard(
+        color: accent,
+        margin: const EdgeInsets.only(top: 16, bottom: 8),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'CASH RUNWAY',
+                  style: AppTypography.sans(
+                    size: 11,
+                    color: c.mu,
+                    letterSpacing: 1.32,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              AppPill(
-                label: status,
-                active: status == 'Covered',
-                textColor: status == 'Covered' ? null : accent,
-                borderColor: status == 'Covered'
-                    ? null
-                    : accent.withValues(alpha: 0.55),
-              ),
-              const SizedBox(width: 8),
-              Pressable(
-                onTap: onOpen,
-                child: Text(
-                  'Calendar →',
-                  style: AppTypography.sans(size: 12, color: c.ac),
+                const SizedBox(width: 6),
+                SpendIcon('info', size: 13, color: c.mu),
+                const Spacer(),
+                AppPill(
+                  label: status,
+                  active: status == 'Covered',
+                  textColor: status == 'Covered' ? null : accent,
+                  borderColor: status == 'Covered'
+                      ? null
+                      : accent.withValues(alpha: 0.55),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 8),
+                Pressable(
+                  onTap: onOpen,
+                  child: Text(
+                    'Calendar →',
+                    style: AppTypography.sans(size: 12, color: c.ac),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        shortfall
+                            ? runway.paydayInWindow
+                                  ? 'Shortfall before payday'
+                                  : 'Shortfall in ${runway.days} days'
+                            : runway.paydayInWindow
+                            ? 'Lowest before payday'
+                            : 'Lowest in ${runway.days} days',
+                        style: AppTypography.sans(size: 12, color: c.mu),
+                      ),
+                      AnimatedAmount(
+                        value: runway.lowestBalance,
+                        formatter: (value) => formatINR(value),
+                        style: AppTypography.serif(
+                          size: 42,
+                          color: shortfall ? c.co : c.tx,
+                          letterSpacing: -1,
+                          height: 1.05,
+                        ),
+                      ),
+                      Text(
+                        runway.paydayInWindow
+                            ? '${dayMonth(runway.lowestDate)} · payday ${dayMonth(runway.payday!)}'
+                            : '${dayMonth(runway.lowestDate)} · next ${runway.days} days',
+                        style: AppTypography.sans(size: 12, color: c.mu),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      shortfall
-                          ? runway.paydayInWindow
-                                ? 'Shortfall before payday'
-                                : 'Shortfall in ${runway.days} days'
-                          : runway.paydayInWindow
-                          ? 'Lowest before payday'
-                          : 'Lowest in ${runway.days} days',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                    AnimatedAmount(
-                      value: runway.lowestBalance,
-                      formatter: (value) => formatINR(value),
-                      style: AppTypography.serif(
-                        size: 42,
-                        color: shortfall ? c.co : c.tx,
-                        letterSpacing: -1,
-                        height: 1.05,
-                      ),
+                      runway.paydayInWindow ? 'at payday' : 'now',
+                      style: AppTypography.sans(size: 10, color: c.mu),
                     ),
                     Text(
-                      runway.paydayInWindow
-                          ? '${dayMonth(runway.lowestDate)} · payday ${dayMonth(runway.payday!)}'
-                          : '${dayMonth(runway.lowestDate)} · next ${runway.days} days',
-                      style: AppTypography.sans(size: 12, color: c.mu),
+                      _money(
+                        runway.paydayInWindow
+                            ? runway.endingBalance
+                            : runway.startingBalance,
+                      ),
+                      style: AppTypography.serif(
+                        size: 20,
+                        color: c.tx,
+                        letterSpacing: -0.4,
+                      ),
                     ),
                   ],
                 ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 720),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Opacity(
+                opacity: value,
+                child: Transform.scale(
+                  scale: 0.985 + 0.015 * value,
+                  alignment: Alignment.center,
+                  child: child,
+                ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    runway.paydayInWindow ? 'at payday' : 'now',
-                    style: AppTypography.sans(size: 10, color: c.mu),
-                  ),
-                  Text(
-                    _money(
-                      runway.paydayInWindow
-                          ? runway.endingBalance
-                          : runway.startingBalance,
-                    ),
-                    style: AppTypography.serif(
-                      size: 20,
-                      color: c.tx,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 720),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) => Opacity(
-              opacity: value,
-              child: Transform.scale(
-                scale: 0.985 + 0.015 * value,
-                alignment: Alignment.center,
-                child: child,
+              child: CashRunwayChart(
+                values: [for (final point in runway.points) point.balance],
+                lowestIndex: lowIndex < 0 ? 0 : lowIndex,
+                billIndices: billIndices,
+                paydayIndex: paydayIndex,
+                color: accent,
+                height: 128,
               ),
             ),
-            child: CashRunwayChart(
-              values: [for (final point in runway.points) point.balance],
-              lowestIndex: lowIndex < 0 ? 0 : lowIndex,
-              billIndices: billIndices,
-              paydayIndex: paydayIndex,
-              color: accent,
-              height: 128,
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _RunwayMetric(
+                  label: 'Bills',
+                  value: compactINR(runway.totalBills),
+                ),
+                const _RunwayDivider(),
+                _RunwayMetric(
+                  label: 'Typical spend',
+                  value: '${compactINR(runway.dailySpend)}/day',
+                ),
+                const _RunwayDivider(),
+                _RunwayMetric(
+                  label: runway.paydayInWindow ? 'Payday' : 'Window',
+                  value: runway.paydayInWindow
+                      ? _money(runway.expectedIncome)
+                      : '${runway.days} days',
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _RunwayMetric(
-                label: 'Bills',
-                value: compactINR(runway.totalBills),
-              ),
-              const _RunwayDivider(),
-              _RunwayMetric(
-                label: 'Typical spend',
-                value: '${compactINR(runway.dailySpend)}/day',
-              ),
-              const _RunwayDivider(),
-              _RunwayMetric(
-                label: runway.paydayInWindow ? 'Payday' : 'Window',
-                value: runway.paydayInWindow
-                    ? _money(runway.expectedIncome)
-                    : '${runway.days} days',
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
