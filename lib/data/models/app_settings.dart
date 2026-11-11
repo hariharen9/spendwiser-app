@@ -173,7 +173,9 @@ class AppSettings {
       (e) => e.name == j['theme'],
       orElse: () => AppThemeMode.dark,
     ),
-    accent: Color(((j['accent'] as num?) ?? 0xFFD4FF3A).toInt()),
+    accent: AppColors.normalizeAccent(
+      Color(((j['accent'] as num?) ?? 0xFFD4FF3A).toInt()),
+    ),
     font: AppFontMode.values.firstWhere(
       (e) => e.name == j['font'],
       orElse: () => AppFontMode.dmSans,

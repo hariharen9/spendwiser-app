@@ -8,7 +8,7 @@ import 'app_typography.dart';
 abstract final class AppTheme {
   static ThemeData build(AppSettings settings) {
     final dark = settings.isDark;
-    final accent = settings.accent;
+    final accent = AppColors.normalizeAccent(settings.accent);
     final spend = dark ? SpendColors.dark(accent) : SpendColors.light(accent);
     final family = switch (settings.font) {
       AppFontMode.dmSans => 'DMSans',

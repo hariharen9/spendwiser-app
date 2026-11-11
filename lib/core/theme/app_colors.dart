@@ -29,7 +29,6 @@ abstract final class AppColors {
     Color(0xFF6EE7FF), // Cyan
     Color(0xFFC084FC), // Purple
     Color(0xFFFFD23F), // Gold
-    Color(0xFFFF6B9D), // Rose
     Color(0xFF60A5FA), // Sky
     Color(0xFF7BE495), // Mint
   ];
@@ -41,13 +40,15 @@ abstract final class AppColors {
     Color(0xFF6EE7FF): Color(0xFF2DD4BF), // Cyan → teal
     Color(0xFFC084FC): Color(0xFFA78BFA), // Purple → lavender
     Color(0xFFFFD23F): Color(0xFFFF9F43), // Gold → amber
-    Color(0xFFFF6B9D): Color(0xFFFF4D6D), // Rose → red
     Color(0xFF60A5FA): Color(0xFF38BDF8), // Sky → cyan
     Color(0xFF7BE495): Color(0xFF34D399), // Mint → emerald
   };
 
   static Color accentSecondary(Color primary) =>
       accentPairs[primary] ?? Color.lerp(primary, Colors.white, 0.24)!;
+
+  static Color normalizeAccent(Color accent) =>
+      accents.contains(accent) ? accent : ac;
 
   static const categoryPalette = <Color>[
     Color(0xFFFF9F43), // Orange

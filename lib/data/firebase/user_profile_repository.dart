@@ -140,7 +140,9 @@ class FirestoreUserProfileRepository {
 
     _settings = AppSettings(
       theme: theme,
-      accent: Color(asInt(mobilePrefs['accent'], AppColors.ac.toARGB32())),
+      accent: AppColors.normalizeAccent(
+        Color(asInt(mobilePrefs['accent'], AppColors.ac.toARGB32())),
+      ),
       font: font,
       navigation: AppNavigationMode.values.firstWhere(
         (mode) => mode.name == asString(mobilePrefs['navigation'], 'orb'),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
@@ -303,18 +304,26 @@ class _AppShellState extends ConsumerState<AppShell>
                   onHorizontalDragEnd: _onSwipeEnd,
                   onHorizontalDragCancel: _resetSwipe,
                   child: PageTransitionSwitcher(
-                    duration: const Duration(milliseconds: 420),
+                    duration: const Duration(milliseconds: 460),
                     reverse: _transitionReverse,
                     layoutBuilder: (entries) =>
                         Stack(fit: StackFit.expand, children: entries),
                     transitionBuilder:
                         (child, primaryAnimation, secondaryAnimation) {
+                          final scale = Tween<double>(begin: 0.985, end: 1)
+                              .animate(
+                                CurvedAnimation(
+                                  parent: primaryAnimation,
+                                  curve: Curves.easeOutCubic,
+                                  reverseCurve: Curves.easeInCubic,
+                                ),
+                              );
                           return SharedAxisTransition(
                             animation: primaryAnimation,
                             secondaryAnimation: secondaryAnimation,
                             transitionType: SharedAxisTransitionType.horizontal,
                             fillColor: Colors.transparent,
-                            child: child,
+                            child: ScaleTransition(scale: scale, child: child),
                           );
                         },
                     child: KeyedSubtree(
@@ -538,53 +547,137 @@ class _BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final selectedIndex = allOpen ? null : _selectionIndex(current);
     return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: c.c1.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: c.ln),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-            spreadRadius: -4,
+            color: Colors.black.withValues(alpha: 0.24),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+            spreadRadius: -6,
           ),
         ],
       ),
-      child: Row(
-        children: [
-          _NavBarItem(
-            icon: 'home',
-            label: 'Home',
-            selected: current == AppModule.home,
-            onTap: () => onNavigate(AppModule.home),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            height: 72,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(
+                    c.c1,
+                    Colors.white,
+                    c.dark ? 0.07 : 0.55,
+                  )!.withValues(alpha: c.dark ? 0.6 : 0.72),
+                  c.c1.withValues(alpha: c.dark ? 0.52 : 0.6),
+                ],
+              ),
+              border: Border.all(color: c.ln),
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = constraints.maxWidth / 5;
+                return Stack(
+                  children: [
+                    if (selectedIndex != null)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 360),
+                        curve: Curves.easeOutCubic,
+                        left: selectedIndex * itemWidth + 3,
+                        top: 7,
+                        width: itemWidth - 6,
+                        height: 58,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                c.ac.withValues(alpha: 0.12),
+                                c.ac2.withValues(alpha: 0.055),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: c.ac.withValues(alpha: 0.15),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        _NavBarItem(
+                          icon: 'home',
+                          label: 'Home',
+                          selected: current == AppModule.home,
+                          onTap: () => onNavigate(AppModule.home),
+                        ),
+                        _NavBarItem(
+                          icon: 'ledger',
+                          label: 'Ledger',
+                          selected: current == AppModule.ledger,
+                          onTap: () => onNavigate(AppModule.ledger),
+                        ),
+                        _AllAppsNavItem(open: allOpen, onTap: onAllApps),
+                        _NavBarItem(
+                          icon: 'cards',
+                          label: 'Cards',
+                          selected: current == AppModule.cards,
+                          onTap: () => onNavigate(AppModule.cards),
+                        ),
+                        _NavBarItem(
+                          icon: 'debt',
+                          label: 'Debt',
+                          selected: current == AppModule.debt,
+                          onTap: () => onNavigate(AppModule.debt),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      left: 18,
+                      right: 18,
+                      top: 0,
+                      height: 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.transparent,
+                              Colors.white.withValues(
+                                alpha: c.dark ? 0.16 : 0.5,
+                              ),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-          _NavBarItem(
-            icon: 'ledger',
-            label: 'Ledger',
-            selected: current == AppModule.ledger,
-            onTap: () => onNavigate(AppModule.ledger),
-          ),
-          _AllAppsNavItem(open: allOpen, onTap: onAllApps),
-          _NavBarItem(
-            icon: 'cards',
-            label: 'Cards',
-            selected: current == AppModule.cards,
-            onTap: () => onNavigate(AppModule.cards),
-          ),
-          _NavBarItem(
-            icon: 'debt',
-            label: 'Debt',
-            selected: current == AppModule.debt,
-            onTap: () => onNavigate(AppModule.debt),
-          ),
-        ],
+        ),
       ),
     );
   }
+
+  int? _selectionIndex(AppModule module) => switch (module) {
+    AppModule.home => 0,
+    AppModule.ledger => 1,
+    AppModule.cards => 3,
+    AppModule.debt => 4,
+    _ => null,
+  };
 }
 
 class _NavBarItem extends StatelessWidget {
