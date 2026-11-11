@@ -1139,7 +1139,9 @@ class _Payments extends ConsumerWidget {
             children: [
               for (var i = 0; i < payments.length; i++)
                 GestureDetector(
-                  onTap: () => _deletePayment(context, ref, i),
+                  onTap: payments[i].imported
+                      ? null
+                      : () => _deletePayment(context, ref, i),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -1163,7 +1165,7 @@ class _Payments extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                '${shortDate(payments[i].date)} · interest ${rupee(payments[i].interest)} · principal ${rupee(payments[i].principal)}',
+                                '${shortDate(payments[i].date)} · interest ${rupee(payments[i].interest)} · principal ${rupee(payments[i].principal)}${payments[i].imported ? ' · imported' : ''}',
                                 style: AppTypography.sans(
                                   size: 11,
                                   color: c.mu,

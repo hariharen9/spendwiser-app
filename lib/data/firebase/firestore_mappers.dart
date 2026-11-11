@@ -155,12 +155,14 @@ CreditCard creditCardFromDoc(
   return CreditCard(
     id: id,
     name: asString(data['name'], 'Card'),
+    cardHolder: asString(data['cardHolderName']),
     gradient: gradientFor(id),
     last4: asString(data['last4Digits']),
     limit: asDouble(data['limit']),
     statementDay: asInt(data['statementDate'], 1).clamp(1, 31),
     dueDay: asInt(data['paymentDueDate'], 1).clamp(1, 31),
     payments: payments,
+    openingOutstanding: asDouble(data['openingOutstanding']),
   );
 }
 
@@ -241,18 +243,39 @@ Loan loanFromDoc(
         )
       : null;
 
-  double outstanding = original;
-  if (sortedPayments.isNotEmpty) {
-    if (schedule == null || schedule.entries.isEmpty) {
-      outstanding = 0;
-    } else if (sortedPayments.length >= schedule.entries.length) {
-      outstanding = 0;
-    } else {
-      outstanding = schedule.entries[sortedPayments.length - 1].balance;
+  final importedOutstanding = data['currentOutstanding'];
+  double outstanding;
+  if (importedOutstanding is num) {
+    outstanding = importedOutstanding.toDouble().clamp(0.0, original);
+  } else {
+    outstanding = original;
+    if (sortedPayments.isNotEmpty) {
+      if (schedule == null || schedule.entries.isEmpty) {
+        outstanding = 0;
+      } else if (sortedPayments.length >= schedule.entries.length) {
+        outstanding = 0;
+      } else {
+        outstanding = schedule.entries[sortedPayments.length - 1].balance;
+      }
     }
   }
 
   final payments = <LoanPayment>[];
+  for (final raw in (data['importedPayments'] as List?) ?? const []) {
+    final payment = asMap(raw);
+    payments.add(
+      LoanPayment(
+        date: parseFirestoreDate(payment['date']) ?? now,
+        amount: asDouble(payment['amount']).abs(),
+        type: asString(payment['type']) == 'prepayment'
+            ? LoanPaymentType.prepayment
+            : LoanPaymentType.emi,
+        interest: asDouble(payment['interest']),
+        principal: asDouble(payment['principal']),
+        imported: true,
+      ),
+    );
+  }
   for (var i = 0; i < sortedPayments.length; i++) {
     final doc = sortedPayments[i];
     final amount = asDouble(doc['amount']).abs();
@@ -269,17 +292,18 @@ Loan loanFromDoc(
       ),
     );
   }
+  payments.sort((a, b) => a.date.compareTo(b.date));
 
   return Loan(
     id: id,
     name: asString(data['name'], 'Loan'),
-    lender: '',
+    lender: asString(data['mobileLender']),
     type: loanTypeFromRemote(asString(data['type'])),
     outstanding: outstanding,
     original: original,
     rate: rate,
     emi: emi,
-    emiDay: start.day,
+    emiDay: asInt(data['emiDay'], start.day).clamp(1, 31),
     tenureMonths: months > 0 ? months : null,
     startDate: start,
     payments: payments,

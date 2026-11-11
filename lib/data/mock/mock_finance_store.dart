@@ -1070,10 +1070,12 @@ class MockFinanceStore
     required String last4,
     required int statementDay,
     required int dueDay,
+    String cardHolder = '',
   }) async {
     final card = CreditCard(
       id: 'card-${_idCounter++}',
       name: name,
+      cardHolder: cardHolder,
       gradient: CreditCard.newCardGradient,
       last4: last4,
       limit: limit,

@@ -250,6 +250,7 @@ class _ManageCardSheet extends ConsumerStatefulWidget {
 
 class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
   late final TextEditingController _name;
+  late final TextEditingController _holder;
   late final TextEditingController _limit;
   late final TextEditingController _statementDay;
   late final TextEditingController _dueDay;
@@ -259,6 +260,7 @@ class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
     super.initState();
     final card = ref.read(financeSnapshotProvider).cardById(widget.cardId);
     _name = TextEditingController(text: card?.name ?? '');
+    _holder = TextEditingController(text: card?.cardHolder ?? '');
     _limit = TextEditingController(text: card?.limit.round().toString() ?? '');
     _statementDay = TextEditingController(
       text: (card?.statementDay ?? 20).toString(),
@@ -269,6 +271,7 @@ class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
   @override
   void dispose() {
     _name.dispose();
+    _holder.dispose();
     _limit.dispose();
     _statementDay.dispose();
     _dueDay.dispose();
@@ -281,6 +284,7 @@ class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
     if (card == null) return;
     final updated = card.copyWith(
       name: _name.text.trim().isEmpty ? card.name : _name.text.trim(),
+      cardHolder: _holder.text.trim(),
       limit: double.tryParse(_limit.text) ?? card.limit,
       statementDay: (int.tryParse(_statementDay.text) ?? card.statementDay)
           .clamp(1, 28),
@@ -308,6 +312,7 @@ class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
         const SheetTitle('Manage card'),
         const SizedBox(height: 12),
         _SheetField(controller: _name, hint: 'Card name'),
+        _SheetField(controller: _holder, hint: 'Cardholder name'),
         Row(
           children: [
             Expanded(
@@ -384,14 +389,22 @@ class _AddCardSheet extends ConsumerStatefulWidget {
 
 class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
   final _name = TextEditingController();
+  final _holder = TextEditingController();
   final _limit = TextEditingController();
   final _last4 = TextEditingController();
   final _statementDay = TextEditingController(text: '20');
   final _dueDay = TextEditingController(text: '10');
 
   @override
+  void initState() {
+    super.initState();
+    _holder.text = ref.read(settingsProvider).userName;
+  }
+
+  @override
   void dispose() {
     _name.dispose();
+    _holder.dispose();
     _limit.dispose();
     _last4.dispose();
     _statementDay.dispose();
@@ -407,6 +420,10 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
   Future<void> _add() async {
     if (_name.text.trim().isEmpty) {
       ref.read(toastProvider.notifier).show('Name the card');
+      return;
+    }
+    if (_holder.text.trim().isEmpty) {
+      ref.read(toastProvider.notifier).show('Enter the cardholder name');
       return;
     }
     if (_limitValue <= 0) {
@@ -429,6 +446,7 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
           last4: _digits,
           statementDay: _statement,
           dueDay: _due,
+          cardHolder: _holder.text.trim(),
         );
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -450,6 +468,7 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
         const SizedBox(height: 18),
         _CardPreview(
           name: name.isEmpty ? 'NEW CARD' : name,
+          holder: _holder.text.trim(),
           last4: last4,
           limit: _limitValue,
         ),
@@ -483,6 +502,15 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
                 }),
               ),
           ],
+        ),
+        const SizedBox(height: 16),
+        const PremiumLabel('Cardholder name', requiredField: true),
+        PremiumField(
+          controller: _holder,
+          hint: 'Name on card',
+          capitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 16),
         const PremiumLabel('Credit limit', requiredField: true),
@@ -573,11 +601,13 @@ class _AddCardSheetState extends ConsumerState<_AddCardSheet> {
 class _CardPreview extends StatelessWidget {
   const _CardPreview({
     required this.name,
+    required this.holder,
     required this.last4,
     required this.limit,
   });
 
   final String name;
+  final String holder;
   final String last4;
   final double limit;
 
@@ -684,8 +714,34 @@ class _CardPreview extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'CARDHOLDER',
+                          style: AppTypography.sans(
+                            size: 8,
+                            color: Colors.white.withValues(alpha: 0.45),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Text(
+                          holder.isEmpty ? '—' : holder.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.sans(
+                            size: 12,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
                         'CREDIT LIMIT',
@@ -704,16 +760,6 @@ class _CardPreview extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    'CREDIT',
-                    style: AppTypography.sans(
-                      size: 9,
-                      color: Colors.white.withValues(alpha: 0.55),
-                      letterSpacing: 1.4,
-                      weight: FontWeight.w500,
-                    ),
                   ),
                 ],
               ),

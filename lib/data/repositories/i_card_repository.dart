@@ -7,6 +7,7 @@ abstract interface class ICardRepository {
     required String last4,
     required int statementDay,
     required int dueDay,
+    String cardHolder = '',
   });
 
   Future<void> updateCard(CreditCard card);

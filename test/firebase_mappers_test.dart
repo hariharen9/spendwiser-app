@@ -74,11 +74,11 @@ void main() {
 
   group('account mapping', () {
     test('maps web account types while preserving remoteType', () {
-      final wallet = accountFromDoc(
-        'acc1',
-        {'name': 'Paytm', 'type': 'Wallet', 'balance': 500},
-        liveBalance: 750,
-      );
+      final wallet = accountFromDoc('acc1', {
+        'name': 'Paytm',
+        'type': 'Wallet',
+        'balance': 500,
+      }, liveBalance: 750);
 
       expect(wallet.type, AccountType.cash);
       expect(wallet.remoteType, 'Wallet');
@@ -113,8 +113,33 @@ void main() {
         ),
       ];
 
-      FinanceCalculator.recalcCard(card, transactions, now: DateTime(2026, 11, 10));
+      FinanceCalculator.recalcCard(
+        card,
+        transactions,
+        now: DateTime(2026, 11, 10),
+      );
       expect(card.outstanding, 3000);
+    });
+
+    test('adds an imported opening balance to the derived balance', () {
+      final card = creditCardFromDoc(
+        'card1',
+        {
+          'name': 'Test Card',
+          'type': 'Credit Card',
+          'limit': 20000,
+          'statementDate': 17,
+          'paymentDueDate': 3,
+          'openingOutstanding': 2500,
+          'cardHolderName': 'Test Holder',
+        },
+        paymentDocs: const [],
+        now: DateTime(2026, 11, 10),
+      );
+
+      FinanceCalculator.recalcCard(card, const [], now: DateTime(2026, 11, 10));
+      expect(card.outstanding, 2500);
+      expect(card.cardHolder, 'Test Holder');
     });
   });
 
@@ -143,6 +168,50 @@ void main() {
       expect(loan.payments.length, 1);
       expect(loan.outstanding, lessThan(600000));
       expect(loan.outstanding, greaterThan(0));
+    });
+
+    test('uses an imported current outstanding and lender', () {
+      final loan = loanFromDoc(
+        'loan1',
+        {
+          'name': 'Test Loan',
+          'loanAmount': 200000,
+          'interestRate': 10.0,
+          'tenure': 2,
+          'tenureInMonths': 24,
+          'emi': 9000.0,
+          'startDate': '2026-01-05',
+          'type': 'personal',
+          'mobileLender': 'Test Bank',
+          'emiDay': 5,
+          'currentOutstanding': 175000.0,
+          'importedPayments': [
+            {
+              'date': '2026-10-03',
+              'amount': 9000.0,
+              'interest': 2000.0,
+              'principal': 7000.0,
+              'type': 'emi',
+            },
+            {
+              'date': '2026-11-03',
+              'amount': 9000.0,
+              'interest': 1900.0,
+              'principal': 7100.0,
+              'type': 'emi',
+            },
+          ],
+        },
+        paymentDocs: const [],
+        now: DateTime(2026, 11, 10),
+      );
+
+      expect(loan.outstanding, closeTo(175000.0, 0.01));
+      expect(loan.lender, 'Test Bank');
+      expect(loan.emiDay, 5);
+      expect(loan.payments.length, 2);
+      expect(loan.payments.first.imported, isTrue);
+      expect(loan.payments.last.interest, 1900.0);
     });
   });
 

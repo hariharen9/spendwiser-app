@@ -27,6 +27,7 @@ class LoanPayment {
     required this.type,
     required this.interest,
     required this.principal,
+    this.imported = false,
   });
 
   final DateTime date;
@@ -35,12 +36,17 @@ class LoanPayment {
   final double interest;
   final double principal;
 
+  /// True for payment history restored from a one-time import. These entries
+  /// have no matching ledger transaction to delete.
+  final bool imported;
+
   Map<String, dynamic> toJson() => {
     'date': date.toIso8601String(),
     'amount': amount,
     'type': type.name,
     'interest': interest,
     'principal': principal,
+    'imported': imported,
   };
 
   factory LoanPayment.fromJson(Map<String, dynamic> j) => LoanPayment(
@@ -52,6 +58,7 @@ class LoanPayment {
     ),
     interest: (j['interest'] as num? ?? 0).toDouble(),
     principal: (j['principal'] as num? ?? 0).toDouble(),
+    imported: j['imported'] as bool? ?? false,
   );
 }
 

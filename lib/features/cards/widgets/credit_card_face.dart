@@ -190,7 +190,12 @@ class _FrontFace extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _CardLabel(label: 'CARDHOLDER', value: 'ARJUN R'),
+                child: _CardLabel(
+                  label: 'CARDHOLDER',
+                  value: card.cardHolder.isEmpty
+                      ? '—'
+                      : card.cardHolder.toUpperCase(),
+                ),
               ),
               _CardLabel(label: 'EXPIRES', value: '09/29', alignEnd: true),
             ],
@@ -325,7 +330,12 @@ class _CardLabel extends StatelessWidget {
             letterSpacing: 1.12,
           ),
         ),
-        Text(value, style: AppTypography.sans(size: 13, color: Colors.white)),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.sans(size: 13, color: Colors.white),
+        ),
       ],
     );
   }

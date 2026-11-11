@@ -165,6 +165,7 @@ class CreditCard {
   CreditCard({
     required this.id,
     required this.name,
+    this.cardHolder = '',
     required this.gradient,
     required this.last4,
     required this.limit,
@@ -183,10 +184,12 @@ class CreditCard {
     this.due,
     this.dueLabel = '—',
     this.cycleLeftDays = 0,
+    this.openingOutstanding = 0,
   });
 
   final String id;
   final String name;
+  final String cardHolder;
   final List<Color> gradient;
   final String last4;
   final double limit;
@@ -206,6 +209,7 @@ class CreditCard {
   CardDue? due;
   String dueLabel;
   int cycleLeftDays;
+  final double openingOutstanding;
 
   double get available => (limit - outstanding).clamp(0, limit);
   double get utilisation =>
@@ -216,6 +220,7 @@ class CreditCard {
 
   CreditCard copyWith({
     String? name,
+    String? cardHolder,
     String? last4,
     double? limit,
     int? statementDay,
@@ -233,10 +238,12 @@ class CreditCard {
     CardDue? due,
     String? dueLabel,
     int? cycleLeftDays,
+    double? openingOutstanding,
   }) {
     return CreditCard(
       id: id,
       name: name ?? this.name,
+      cardHolder: cardHolder ?? this.cardHolder,
       gradient: gradient,
       last4: last4 ?? this.last4,
       limit: limit ?? this.limit,
@@ -255,12 +262,14 @@ class CreditCard {
       due: due ?? this.due,
       dueLabel: dueLabel ?? this.dueLabel,
       cycleLeftDays: cycleLeftDays ?? this.cycleLeftDays,
+      openingOutstanding: openingOutstanding ?? this.openingOutstanding,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'cardHolder': cardHolder,
     'gradient': gradient.map((c) => c.toARGB32()).toList(),
     'last4': last4,
     'limit': limit,
@@ -279,12 +288,14 @@ class CreditCard {
     'due': due?.toJson(),
     'dueLabel': dueLabel,
     'cycleLeftDays': cycleLeftDays,
+    'openingOutstanding': openingOutstanding,
   };
 
   factory CreditCard.fromJson(Map<String, dynamic> j) {
     final card = CreditCard(
       id: j['id'] as String,
       name: j['name'] as String,
+      cardHolder: j['cardHolder'] as String? ?? '',
       gradient: ((j['gradient'] as List?) ?? [])
           .map((e) => Color((e as num).toInt()))
           .toList(),
@@ -303,16 +314,21 @@ class CreditCard {
           .map((e) => CardPayment.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
       statements: ((j['statements'] as List?) ?? [])
-          .map((e) => CardStatement.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => CardStatement.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
           .toList(),
       openCycle: j['openCycle'] == null
           ? null
-          : CardCycle.fromJson(Map<String, dynamic>.from(j['openCycle'] as Map)),
+          : CardCycle.fromJson(
+              Map<String, dynamic>.from(j['openCycle'] as Map),
+            ),
       due: j['due'] == null
           ? null
           : CardDue.fromJson(Map<String, dynamic>.from(j['due'] as Map)),
       dueLabel: j['dueLabel'] as String? ?? '—',
       cycleLeftDays: (j['cycleLeftDays'] as num? ?? 0).toInt(),
+      openingOutstanding: (j['openingOutstanding'] as num? ?? 0).toDouble(),
     );
     return card;
   }

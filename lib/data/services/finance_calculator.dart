@@ -267,7 +267,10 @@ abstract final class FinanceCalculator {
       if (t.amount < 0) spend -= t.amount;
     }
     final paid = card.payments.fold(0.0, (sum, p) => sum + p.amount);
-    card.outstanding = math.max(0, (charges - paid).roundToDouble());
+    card.outstanding = math.max(
+      0,
+      (card.openingOutstanding + charges - paid).roundToDouble(),
+    );
     card.rewardPoints = (spend / 100).floor();
 
     final unpaid = card.statements.where((s) => s.remaining > 0).toList();

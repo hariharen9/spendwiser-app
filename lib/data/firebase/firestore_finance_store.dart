@@ -780,9 +780,11 @@ class FirestoreFinanceStore
     required String last4,
     required int statementDay,
     required int dueDay,
+    String cardHolder = '',
   }) async {
     final payload = {
       'name': name,
+      'cardHolderName': cardHolder,
       'type': 'Credit Card',
       'balance': 0,
       'limit': limit,
@@ -796,6 +798,7 @@ class FirestoreFinanceStore
     return CreditCard(
       id: ref.id,
       name: name,
+      cardHolder: cardHolder,
       gradient: gradientFor(ref.id),
       last4: last4,
       limit: limit,
@@ -809,6 +812,7 @@ class FirestoreFinanceStore
     try {
       await refs.accounts.doc(card.id).update({
         'name': card.name,
+        'cardHolderName': card.cardHolder,
         'type': 'Credit Card',
         'limit': card.limit,
         'last4Digits': card.last4,
