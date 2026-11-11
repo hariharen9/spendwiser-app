@@ -254,6 +254,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
         _SettingsSectionHeader(
+          icon: 'grid',
+          title: 'Navigation',
+          subtitle: 'Choose how you move around',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingBlock(
+              title: 'Navigation style',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SegmentedControl<AppNavigationMode>(
+                    margin: EdgeInsets.zero,
+                    options: const [
+                      SegmentedOption(AppNavigationMode.orb, 'Orb'),
+                      SegmentedOption(AppNavigationMode.navbar, 'Nav bar'),
+                    ],
+                    selected: settings.navigation,
+                    onChanged: (value) {
+                      Haptics.light();
+                      ref
+                          .read(settingsProvider.notifier)
+                          .patch(navigation: value);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    settings.navigation == AppNavigationMode.orb
+                        ? 'Tap the orb for all modules. Hold and slide for the radial menu.'
+                        : 'Five fixed tabs. Open all modules from the center button.',
+                    style: AppTypography.sans(size: 11, color: c.mu),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
           icon: 'settings',
           title: 'Preferences',
           subtitle: 'How the app behaves',

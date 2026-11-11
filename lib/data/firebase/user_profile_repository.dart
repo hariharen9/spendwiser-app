@@ -142,6 +142,10 @@ class FirestoreUserProfileRepository {
       theme: theme,
       accent: Color(asInt(mobilePrefs['accent'], AppColors.ac.toARGB32())),
       font: font,
+      navigation: AppNavigationMode.values.firstWhere(
+        (mode) => mode.name == asString(mobilePrefs['navigation'], 'orb'),
+        orElse: () => AppNavigationMode.orb,
+      ),
       userName: asString(data['name'], _email ?? 'You'),
       hideBalances: asBool(mobilePrefs['hideBalances']),
       haptics: asBool(mobilePrefs['haptics'], true),
@@ -196,6 +200,7 @@ class FirestoreUserProfileRepository {
       if (categoriesChanged) 'categories': categories,
       'mobilePrefs': {
         'font': settings.font.name,
+        'navigation': settings.navigation.name,
         'accent': settings.accent.toARGB32(),
         'hideBalances': settings.hideBalances,
         'haptics': settings.haptics,

@@ -6,6 +6,8 @@ enum AppThemeMode { dark, light }
 
 enum AppFontMode { dmSans, serif, mono }
 
+enum AppNavigationMode { orb, navbar }
+
 /// Reorderable / hideable Home widgets, mirroring the prototype's Customize
 /// Home sheet.
 enum HomeWidget {
@@ -40,6 +42,7 @@ class AppSettings {
     this.theme = AppThemeMode.dark,
     this.accent = AppColors.ac,
     this.font = AppFontMode.dmSans,
+    this.navigation = AppNavigationMode.orb,
     this.userName = 'Arjun',
     this.hideBalances = false,
     this.haptics = true,
@@ -61,6 +64,7 @@ class AppSettings {
   final AppThemeMode theme;
   final Color accent;
   final AppFontMode font;
+  final AppNavigationMode navigation;
   final String userName;
   final bool hideBalances;
   final bool haptics;
@@ -99,6 +103,7 @@ class AppSettings {
     AppThemeMode? theme,
     Color? accent,
     AppFontMode? font,
+    AppNavigationMode? navigation,
     String? userName,
     bool? hideBalances,
     bool? haptics,
@@ -120,6 +125,7 @@ class AppSettings {
       theme: theme ?? this.theme,
       accent: accent ?? this.accent,
       font: font ?? this.font,
+      navigation: navigation ?? this.navigation,
       userName: userName ?? this.userName,
       hideBalances: hideBalances ?? this.hideBalances,
       haptics: haptics ?? this.haptics,
@@ -143,6 +149,7 @@ class AppSettings {
     'theme': theme.name,
     'accent': accent.toARGB32(),
     'font': font.name,
+    'navigation': navigation.name,
     'userName': userName,
     'hideBalances': hideBalances,
     'haptics': haptics,
@@ -170,6 +177,10 @@ class AppSettings {
     font: AppFontMode.values.firstWhere(
       (e) => e.name == j['font'],
       orElse: () => AppFontMode.dmSans,
+    ),
+    navigation: AppNavigationMode.values.firstWhere(
+      (e) => e.name == j['navigation'],
+      orElse: () => AppNavigationMode.orb,
     ),
     userName: j['userName'] as String? ?? 'Arjun',
     hideBalances: j['hideBalances'] as bool? ?? false,

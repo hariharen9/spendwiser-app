@@ -17,6 +17,7 @@ abstract final class IconPaths {
   static const subscription = 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4';
   static const loan = 'M6 10h12v10H6zM9 10V7a3 3 0 0 1 6 0v3';
   static const split = 'M7 7h10l-3-3M17 17H7l3 3';
+  static const grid = 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z';
   static const insights = 'M5 20V10M12 20V4M19 20v-7';
   static const vault = 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z';
   static const tools = 'M4 4h16v16H4zM8 8h3M8 14h8M14 8h2';
@@ -85,6 +86,7 @@ class SpendIcon extends StatelessWidget {
     'debt': IconPaths.loan,
     'loan': IconPaths.loan,
     'split': IconPaths.split,
+    'grid': IconPaths.grid,
     'goals': IconPaths.goal,
     'goal': IconPaths.goal,
     'calendar': IconPaths.calendar,

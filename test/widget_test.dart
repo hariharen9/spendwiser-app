@@ -63,6 +63,52 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('Nav bar mode shows five tabs and opens all apps', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.build(const AppSettings()),
+          home: const AppShell(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 7));
+    if (find.text('✕').evaluate().isNotEmpty) {
+      await tester.tap(find.text('✕'));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    container
+        .read(settingsProvider.notifier)
+        .patch(navigation: AppNavigationMode.navbar);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Apps'), findsOneWidget);
+    expect(find.text('Ledger'), findsOneWidget);
+    expect(find.text('Cards'), findsOneWidget);
+    expect(find.text('Debt'), findsOneWidget);
+
+    await tester.tap(find.text('Apps'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Jump to anything'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  test('navigation mode persists through settings JSON', () {
+    const settings = AppSettings(navigation: AppNavigationMode.navbar);
+    expect(
+      AppSettings.fromJson(settings.toJson()).navigation,
+      AppNavigationMode.navbar,
+    );
+    expect(const AppSettings().navigation, AppNavigationMode.orb);
+  });
+
   test('Font mode changes update AppTypography styles dynamically', () {
     AppTypography.fontMode = AppFontMode.dmSans;
     expect(AppTypography.activeSansFamily, 'DMSans');

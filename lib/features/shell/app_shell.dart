@@ -13,6 +13,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/atmosphere_background.dart';
 import '../../core/widgets/pressable.dart';
+import '../../data/models/app_settings.dart';
 import '../accounts/accounts_screen.dart';
 import '../budgets/budgets_screen.dart';
 import '../calendar/calendar_screen.dart';
@@ -268,6 +269,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final c = context.spend;
+    final navMode = settings.navigation == AppNavigationMode.navbar;
     final overlayStyle = settings.isDark
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
@@ -353,7 +355,9 @@ class _AppShellState extends ConsumerState<AppShell>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: math.max(4, MediaQuery.paddingOf(context).bottom),
+                bottom: navMode
+                    ? math.max(8, MediaQuery.paddingOf(context).bottom) + 82
+                    : math.max(4, MediaQuery.paddingOf(context).bottom),
                 child: _SwipeEdgeFeedback(
                   progress: _swipeProgress,
                   target: _swipeTarget,
@@ -416,63 +420,77 @@ class _AppShellState extends ConsumerState<AppShell>
                         ),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _fabBottom(context) + 88,
-                child: IgnorePointer(
-                  child: ValueListenableBuilder<AppModule?>(
-                    valueListenable: _swipeTarget,
-                    builder: (context, target, _) => AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: target == null
-                          ? const SizedBox.shrink(key: ValueKey('no-target'))
-                          : Center(
-                              key: ValueKey(target),
-                              child: _SwipeTargetPill(module: target),
-                            ),
+              if (!navMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _fabBottom(context) + 88,
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<AppModule?>(
+                      valueListenable: _swipeTarget,
+                      builder: (context, target, _) => AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        child: target == null
+                            ? const SizedBox.shrink(key: ValueKey('no-target'))
+                            : Center(
+                                key: ValueKey(target),
+                                child: _SwipeTargetPill(module: target),
+                              ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _fabBottom(context),
-                child: Center(
-                  child: ValueListenableBuilder<AppModule?>(
-                    valueListenable: _swipeTarget,
-                    builder: (context, target, _) {
-                      return ValueListenableBuilder<double>(
-                        valueListenable: _swipeProgress,
-                        builder: (context, progress, _) {
-                          return _OrbFab(
-                            module: target ?? _module,
-                            swipeProgress: progress,
-                            open: _launcherOpen,
-                            radialOpen: _radialOpen,
-                            pulse: _fabPulse,
-                            onTap: _toggleLauncher,
-                            onRadialOpen: (pos) {
-                              setState(() {
-                                _radialOpen = true;
-                                _radialPointer = pos;
-                                _launcherOpen = false;
-                              });
-                            },
-                            onRadialDrag: (pos) {
-                              _radialKey.currentState?.updatePointer(pos);
-                            },
-                            onRadialEnd: (pos) {
-                              _radialKey.currentState?.handlePointerUp(pos);
-                            },
-                          );
-                        },
-                      );
-                    },
+              if (!navMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _fabBottom(context),
+                  child: Center(
+                    child: ValueListenableBuilder<AppModule?>(
+                      valueListenable: _swipeTarget,
+                      builder: (context, target, _) {
+                        return ValueListenableBuilder<double>(
+                          valueListenable: _swipeProgress,
+                          builder: (context, progress, _) {
+                            return _OrbFab(
+                              module: target ?? _module,
+                              swipeProgress: progress,
+                              open: _launcherOpen,
+                              radialOpen: _radialOpen,
+                              pulse: _fabPulse,
+                              onTap: _toggleLauncher,
+                              onRadialOpen: (pos) {
+                                setState(() {
+                                  _radialOpen = true;
+                                  _radialPointer = pos;
+                                  _launcherOpen = false;
+                                });
+                              },
+                              onRadialDrag: (pos) {
+                                _radialKey.currentState?.updatePointer(pos);
+                              },
+                              onRadialEnd: (pos) {
+                                _radialKey.currentState?.handlePointerUp(pos);
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
+              if (navMode)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: math.max(8, MediaQuery.paddingOf(context).bottom),
+                  child: _BottomNavBar(
+                    current: _module,
+                    allOpen: _launcherOpen,
+                    onNavigate: (module) => _go(module),
+                    onAllApps: _toggleLauncher,
+                  ),
+                ),
               Positioned(
                 top: 56,
                 left: 20,
@@ -502,6 +520,190 @@ class _AppShellState extends ConsumerState<AppShell>
 
   double _fabBottom(BuildContext context) =>
       math.max(30, MediaQuery.paddingOf(context).bottom);
+}
+
+class _BottomNavBar extends StatelessWidget {
+  const _BottomNavBar({
+    required this.current,
+    required this.allOpen,
+    required this.onNavigate,
+    required this.onAllApps,
+  });
+
+  final AppModule current;
+  final bool allOpen;
+  final ValueChanged<AppModule> onNavigate;
+  final VoidCallback onAllApps;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: c.c1.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: c.ln),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _NavBarItem(
+            icon: 'home',
+            label: 'Home',
+            selected: current == AppModule.home,
+            onTap: () => onNavigate(AppModule.home),
+          ),
+          _NavBarItem(
+            icon: 'ledger',
+            label: 'Ledger',
+            selected: current == AppModule.ledger,
+            onTap: () => onNavigate(AppModule.ledger),
+          ),
+          _AllAppsNavItem(open: allOpen, onTap: onAllApps),
+          _NavBarItem(
+            icon: 'cards',
+            label: 'Cards',
+            selected: current == AppModule.cards,
+            onTap: () => onNavigate(AppModule.cards),
+          ),
+          _NavBarItem(
+            icon: 'debt',
+            label: 'Debt',
+            selected: current == AppModule.debt,
+            onTap: () => onNavigate(AppModule.debt),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  const _NavBarItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Expanded(
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.94,
+        child: SizedBox(
+          height: 70,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SpendIcon(
+                icon,
+                size: 21,
+                color: selected ? c.ac : c.mu,
+                strokeWidth: selected ? 1.9 : 1.65,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.sans(
+                  size: 9,
+                  color: selected ? c.tx : c.mu,
+                  weight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 3),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: selected ? 14 : 4,
+                height: 2,
+                decoration: BoxDecoration(
+                  gradient: selected ? c.accentGradient : null,
+                  color: selected ? null : c.ln,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AllAppsNavItem extends StatelessWidget {
+  const _AllAppsNavItem({required this.open, required this.onTap});
+
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return Expanded(
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.93,
+        child: SizedBox(
+          height: 70,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: c.accentGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: c.ac.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: SpendIcon(
+                  open ? 'closeSmall' : 'grid',
+                  size: 19,
+                  color: c.aci,
+                  strokeWidth: 1.8,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                open ? 'Close' : 'Apps',
+                style: AppTypography.sans(
+                  size: 9,
+                  color: open ? c.tx : c.mu,
+                  weight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SwipeEdgeFeedback extends StatelessWidget {
