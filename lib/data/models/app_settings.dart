@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../features/shell/app_module.dart';
 
 enum AppThemeMode { dark, light }
 
@@ -36,6 +37,28 @@ const defaultHomeWidgets = <HomeWidget>[
   HomeWidget.recent,
 ];
 
+const defaultNavbarLeft = <AppModule>[
+  AppModule.home,
+  AppModule.ledger,
+];
+
+const defaultNavbarRight = <AppModule>[
+  AppModule.cards,
+  AppModule.debt,
+];
+
+const expandedNavbarLeft = <AppModule>[
+  AppModule.home,
+  AppModule.ledger,
+  AppModule.accounts,
+];
+
+const expandedNavbarRight = <AppModule>[
+  AppModule.cards,
+  AppModule.debt,
+  AppModule.settings,
+];
+
 @immutable
 class AppSettings {
   const AppSettings({
@@ -43,6 +66,8 @@ class AppSettings {
     this.accent = AppColors.ac,
     this.font = AppFontMode.dmSans,
     this.navigation = AppNavigationMode.orb,
+    this.navbarLeft = defaultNavbarLeft,
+    this.navbarRight = defaultNavbarRight,
     this.userName = 'Arjun',
     this.hideBalances = false,
     this.haptics = true,
@@ -65,6 +90,8 @@ class AppSettings {
   final Color accent;
   final AppFontMode font;
   final AppNavigationMode navigation;
+  final List<AppModule> navbarLeft;
+  final List<AppModule> navbarRight;
   final String userName;
   final bool hideBalances;
   final bool haptics;
@@ -104,6 +131,8 @@ class AppSettings {
     Color? accent,
     AppFontMode? font,
     AppNavigationMode? navigation,
+    List<AppModule>? navbarLeft,
+    List<AppModule>? navbarRight,
     String? userName,
     bool? hideBalances,
     bool? haptics,
@@ -126,6 +155,8 @@ class AppSettings {
       accent: accent ?? this.accent,
       font: font ?? this.font,
       navigation: navigation ?? this.navigation,
+      navbarLeft: navbarLeft ?? this.navbarLeft,
+      navbarRight: navbarRight ?? this.navbarRight,
       userName: userName ?? this.userName,
       hideBalances: hideBalances ?? this.hideBalances,
       haptics: haptics ?? this.haptics,
@@ -150,6 +181,8 @@ class AppSettings {
     'accent': accent.toARGB32(),
     'font': font.name,
     'navigation': navigation.name,
+    'navbarLeft': navbarLeft.map((m) => m.id).toList(),
+    'navbarRight': navbarRight.map((m) => m.id).toList(),
     'userName': userName,
     'hideBalances': hideBalances,
     'haptics': haptics,
@@ -184,6 +217,8 @@ class AppSettings {
       (e) => e.name == j['navigation'],
       orElse: () => AppNavigationMode.orb,
     ),
+    navbarLeft: _parseNavbarModules(j['navbarLeft'], defaultNavbarLeft),
+    navbarRight: _parseNavbarModules(j['navbarRight'], defaultNavbarRight),
     userName: j['userName'] as String? ?? 'Arjun',
     hideBalances: j['hideBalances'] as bool? ?? false,
     haptics: j['haptics'] as bool? ?? true,
@@ -224,4 +259,19 @@ class AppSettings {
       (k, v) => MapEntry(k as String, Color((v as num).toInt())),
     ),
   );
+
+  static List<AppModule> _parseNavbarModules(
+    dynamic raw,
+    List<AppModule> fallback,
+  ) {
+    if (raw is! List || raw.isEmpty) return fallback;
+    final parsed = <AppModule>[];
+    for (final item in raw) {
+      final id = '$item';
+      final match = AppModule.values.where((m) => m.id == id);
+      if (match.isNotEmpty) parsed.add(match.first);
+    }
+    if (parsed.isEmpty) return fallback;
+    return parsed.take(3).toList(growable: false);
+  }
 }

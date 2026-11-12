@@ -17,6 +17,7 @@ import '../../data/mock/mock_settings_repository.dart';
 import '../../data/services/backup_codec.dart';
 import 'auth_provider.dart';
 import '../../data/models/app_settings.dart';
+import '../../features/shell/app_module.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../../data/repositories/i_account_repository.dart';
 import '../../data/repositories/i_budget_repository.dart';
@@ -459,6 +460,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
     Color? accent,
     AppFontMode? font,
     AppNavigationMode? navigation,
+    List<AppModule>? navbarLeft,
+    List<AppModule>? navbarRight,
     String? userName,
     bool? hideBalances,
     bool? haptics,
@@ -482,6 +485,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
         accent: accent,
         font: font,
         navigation: navigation,
+        navbarLeft: navbarLeft,
+        navbarRight: navbarRight,
         userName: userName,
         hideBalances: hideBalances,
         haptics: haptics,

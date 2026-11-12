@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../features/shell/app_module.dart';
 import '../models/app_settings.dart';
 import 'firestore_mappers.dart';
 import 'firestore_refs.dart';
@@ -149,6 +150,11 @@ class FirestoreUserProfileRepository {
         (mode) => mode.name == asString(mobilePrefs['navigation'], 'orb'),
         orElse: () => AppNavigationMode.orb,
       ),
+      navbarLeft: _navbarModules(mobilePrefs['navbarLeft'], defaultNavbarLeft),
+      navbarRight: _navbarModules(
+        mobilePrefs['navbarRight'],
+        defaultNavbarRight,
+      ),
       userName: asString(data['name'], _email ?? 'You'),
       hideBalances: asBool(mobilePrefs['hideBalances']),
       haptics: asBool(mobilePrefs['haptics'], true),
@@ -192,6 +198,18 @@ class FirestoreUserProfileRepository {
         .toList();
   }
 
+  List<AppModule> _navbarModules(dynamic raw, List<AppModule> fallback) {
+    final list = asStringList(raw);
+    if (list.isEmpty) return List.of(fallback);
+    final parsed = <AppModule>[];
+    for (final id in list) {
+      final match = AppModule.values.where((module) => module.id == id);
+      if (match.isNotEmpty) parsed.add(match.first);
+    }
+    if (parsed.isEmpty) return List.of(fallback);
+    return parsed.take(3).toList(growable: false);
+  }
+
   Future<void> save(AppSettings settings) async {
     final categories = settings.categories.keys.toList();
     final categoriesChanged = !listEquals(categories, _lastRemoteCategories);
@@ -204,6 +222,8 @@ class FirestoreUserProfileRepository {
       'mobilePrefs': {
         'font': settings.font.name,
         'navigation': settings.navigation.name,
+        'navbarLeft': settings.navbarLeft.map((m) => m.id).toList(),
+        'navbarRight': settings.navbarRight.map((m) => m.id).toList(),
         'accent': settings.accent.toARGB32(),
         'hideBalances': settings.hideBalances,
         'haptics': settings.haptics,

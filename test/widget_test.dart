@@ -101,12 +101,53 @@ void main() {
   });
 
   test('navigation mode persists through settings JSON', () {
-    const settings = AppSettings(navigation: AppNavigationMode.navbar);
-    expect(
-      AppSettings.fromJson(settings.toJson()).navigation,
-      AppNavigationMode.navbar,
+    const settings = AppSettings(
+      navigation: AppNavigationMode.navbar,
+      navbarLeft: expandedNavbarLeft,
+      navbarRight: expandedNavbarRight,
     );
+    final decoded = AppSettings.fromJson(settings.toJson());
+    expect(decoded.navigation, AppNavigationMode.navbar);
+    expect(decoded.navbarLeft, expandedNavbarLeft);
+    expect(decoded.navbarRight, expandedNavbarRight);
     expect(const AppSettings().navigation, AppNavigationMode.orb);
+  });
+
+  testWidgets('Nav bar mode supports 3 left + Apps + 3 right custom tabs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: AppShell())),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    if (find.text('✕').evaluate().isNotEmpty) {
+      await tester.tap(find.text('✕'));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    container.read(settingsProvider.notifier).patch(
+      navigation: AppNavigationMode.navbar,
+      navbarLeft: expandedNavbarLeft,
+      navbarRight: expandedNavbarRight,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Ledger'), findsOneWidget);
+    expect(find.text('Banks'), findsOneWidget);
+    expect(find.text('Apps'), findsOneWidget);
+    expect(find.text('Cards'), findsOneWidget);
+    expect(find.text('Debt'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+
+    await tester.tap(find.text('Settings'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Customize nav bar'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
   });
 
   test('Font mode changes update AppTypography styles dynamically', () {

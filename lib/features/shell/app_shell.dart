@@ -495,6 +495,8 @@ class _AppShellState extends ConsumerState<AppShell>
                   bottom: math.max(8, MediaQuery.paddingOf(context).bottom),
                   child: _BottomNavBar(
                     current: _module,
+                    left: settings.navbarLeft,
+                    right: settings.navbarRight,
                     allOpen: _launcherOpen,
                     onNavigate: (module) => _go(module),
                     onAllApps: _toggleLauncher,
@@ -534,12 +536,16 @@ class _AppShellState extends ConsumerState<AppShell>
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({
     required this.current,
+    required this.left,
+    required this.right,
     required this.allOpen,
     required this.onNavigate,
     required this.onAllApps,
   });
 
   final AppModule current;
+  final List<AppModule> left;
+  final List<AppModule> right;
   final bool allOpen;
   final ValueChanged<AppModule> onNavigate;
   final VoidCallback onAllApps;
@@ -547,6 +553,8 @@ class _BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final totalItems = left.length + 1 + right.length;
+    final compact = totalItems > 5;
     final selectedIndex = allOpen ? null : _selectionIndex(current);
     return Container(
       decoration: BoxDecoration(
@@ -585,16 +593,16 @@ class _BottomNavBar extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / 5;
+                final itemWidth = constraints.maxWidth / totalItems;
                 return Stack(
                   children: [
                     if (selectedIndex != null)
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 360),
                         curve: Curves.easeOutCubic,
-                        left: selectedIndex * itemWidth + 3,
+                        left: selectedIndex * itemWidth + (compact ? 2 : 3),
                         top: 7,
-                        width: itemWidth - 6,
+                        width: itemWidth - (compact ? 4 : 6),
                         height: 58,
                         child: Container(
                           decoration: BoxDecoration(
@@ -615,31 +623,27 @@ class _BottomNavBar extends StatelessWidget {
                       ),
                     Row(
                       children: [
-                        _NavBarItem(
-                          icon: 'home',
-                          label: 'Home',
-                          selected: current == AppModule.home,
-                          onTap: () => onNavigate(AppModule.home),
+                        for (final module in left)
+                          _NavBarItem(
+                            icon: module.icon,
+                            label: module.label,
+                            compact: compact,
+                            selected: current == module,
+                            onTap: () => onNavigate(module),
+                          ),
+                        _AllAppsNavItem(
+                          open: allOpen,
+                          compact: compact,
+                          onTap: onAllApps,
                         ),
-                        _NavBarItem(
-                          icon: 'ledger',
-                          label: 'Ledger',
-                          selected: current == AppModule.ledger,
-                          onTap: () => onNavigate(AppModule.ledger),
-                        ),
-                        _AllAppsNavItem(open: allOpen, onTap: onAllApps),
-                        _NavBarItem(
-                          icon: 'cards',
-                          label: 'Cards',
-                          selected: current == AppModule.cards,
-                          onTap: () => onNavigate(AppModule.cards),
-                        ),
-                        _NavBarItem(
-                          icon: 'debt',
-                          label: 'Debt',
-                          selected: current == AppModule.debt,
-                          onTap: () => onNavigate(AppModule.debt),
-                        ),
+                        for (final module in right)
+                          _NavBarItem(
+                            icon: module.icon,
+                            label: module.label,
+                            compact: compact,
+                            selected: current == module,
+                            onTap: () => onNavigate(module),
+                          ),
                       ],
                     ),
                     Positioned(
@@ -671,13 +675,13 @@ class _BottomNavBar extends StatelessWidget {
     );
   }
 
-  int? _selectionIndex(AppModule module) => switch (module) {
-    AppModule.home => 0,
-    AppModule.ledger => 1,
-    AppModule.cards => 3,
-    AppModule.debt => 4,
-    _ => null,
-  };
+  int? _selectionIndex(AppModule module) {
+    final leftIndex = left.indexOf(module);
+    if (leftIndex >= 0) return leftIndex;
+    final rightIndex = right.indexOf(module);
+    if (rightIndex >= 0) return left.length + 1 + rightIndex;
+    return null;
+  }
 }
 
 class _NavBarItem extends StatelessWidget {
@@ -686,12 +690,14 @@ class _NavBarItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.compact = false,
   });
 
   final String icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -707,7 +713,7 @@ class _NavBarItem extends StatelessWidget {
             children: [
               SpendIcon(
                 icon,
-                size: 21,
+                size: compact ? 19 : 21,
                 color: selected ? c.ac : c.mu,
                 strokeWidth: selected ? 1.9 : 1.65,
               ),
@@ -717,7 +723,7 @@ class _NavBarItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.sans(
-                  size: 9,
+                  size: compact ? 8.5 : 9,
                   color: selected ? c.tx : c.mu,
                   weight: FontWeight.w500,
                 ),
@@ -742,14 +748,20 @@ class _NavBarItem extends StatelessWidget {
 }
 
 class _AllAppsNavItem extends StatelessWidget {
-  const _AllAppsNavItem({required this.open, required this.onTap});
+  const _AllAppsNavItem({
+    required this.open,
+    required this.onTap,
+    this.compact = false,
+  });
 
   final bool open;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final orbSize = compact ? 38.0 : 42.0;
     return Expanded(
       child: Pressable(
         onTap: onTap,
@@ -760,8 +772,8 @@ class _AllAppsNavItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: orbSize,
+                height: orbSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: c.accentGradient,

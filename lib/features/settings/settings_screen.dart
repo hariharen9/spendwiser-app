@@ -18,6 +18,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
+import '../../core/widgets/app_select.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/field_label.dart';
@@ -32,6 +33,7 @@ import '../../data/services/notifications_service.dart';
 import '../../data/sms/sms_inbox.dart';
 import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
+import '../shell/app_module.dart';
 import '../sms/sms_settings_sheet.dart';
 import 'delete_account_sheet.dart';
 import 'shortcuts_sheet.dart';
@@ -284,12 +286,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Text(
                     settings.navigation == AppNavigationMode.orb
                         ? 'Tap the orb for all modules. Hold and slide for the radial menu.'
-                        : 'Five fixed tabs. Open all modules from the center button.',
+                        : '${settings.navbarLeft.length + 1 + settings.navbarRight.length} tabs with Apps in the center.',
                     style: AppTypography.sans(size: 11, color: c.mu),
                   ),
                 ],
               ),
             ),
+            if (settings.navigation == AppNavigationMode.navbar)
+              _SettingsRow(
+                icon: 'grid',
+                title: 'Customize nav bar',
+                subtitle: [
+                  ...settings.navbarLeft.map((m) => m.label),
+                  'Apps',
+                  ...settings.navbarRight.map((m) => m.label),
+                ].join(' · '),
+                trailing: SpendIcon('chevronRight', size: 16, color: c.mu),
+                onTap: () => showAppSheet<void>(
+                  context,
+                  (_) => const _NavbarCustomizeSheet(),
+                ),
+              ),
           ],
         ),
         _SettingsSectionHeader(
@@ -2663,6 +2680,180 @@ class _PinSetupSheetState extends ConsumerState<_PinSetupSheet>
           ],
         ),
         const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _NavbarCustomizeSheet extends ConsumerWidget {
+  const _NavbarCustomizeSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final c = context.spend;
+    final left = settings.navbarLeft;
+    final right = settings.navbarRight;
+    final perSide = left.length >= 3 || right.length >= 3 ? 3 : 2;
+    final options = [
+      for (final module in AppModule.values)
+        AppSelectOption(module, module.label),
+    ];
+
+    void setPerSide(int count) {
+      Haptics.light();
+      if (count == 3) {
+        final nextLeft = List<AppModule>.from(left);
+        for (final fallback in expandedNavbarLeft) {
+          if (nextLeft.length >= 3) break;
+          if (!nextLeft.contains(fallback)) nextLeft.add(fallback);
+        }
+        while (nextLeft.length < 3) {
+          nextLeft.add(AppModule.home);
+        }
+        final nextRight = List<AppModule>.from(right);
+        for (final fallback in expandedNavbarRight) {
+          if (nextRight.length >= 3) break;
+          if (!nextRight.contains(fallback)) nextRight.add(fallback);
+        }
+        while (nextRight.length < 3) {
+          nextRight.add(AppModule.settings);
+        }
+        ref.read(settingsProvider.notifier).patch(
+          navbarLeft: nextLeft.take(3).toList(growable: false),
+          navbarRight: nextRight.take(3).toList(growable: false),
+        );
+      } else {
+        ref.read(settingsProvider.notifier).patch(
+          navbarLeft: left.take(2).toList(growable: false),
+          navbarRight: right.take(2).toList(growable: false),
+        );
+      }
+    }
+
+    void updateLeft(int index, AppModule module) {
+      final next = List<AppModule>.from(left);
+      if (index < next.length) {
+        next[index] = module;
+        ref.read(settingsProvider.notifier).patch(navbarLeft: next);
+      }
+    }
+
+    void updateRight(int index, AppModule module) {
+      final next = List<AppModule>.from(right);
+      if (index < next.length) {
+        next[index] = module;
+        ref.read(settingsProvider.notifier).patch(navbarRight: next);
+      }
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetTitle(
+          'Customize nav bar',
+          subtitle: 'Choose 2 or 3 tabs on each side of Apps.',
+        ),
+        const SizedBox(height: 16),
+        LabeledField(
+          label: 'Tabs per side',
+          child: SegmentedControl<int>(
+            margin: EdgeInsets.zero,
+            options: const [
+              SegmentedOption(2, '2 per side (5)'),
+              SegmentedOption(3, '3 per side (7)'),
+            ],
+            selected: perSide,
+            onChanged: setPerSide,
+          ),
+        ),
+        const SizedBox(height: 16),
+        LabeledField(
+          label: 'Left of Apps',
+          child: Column(
+            children: [
+              for (var i = 0; i < left.length; i++) ...[
+                AppSelect<AppModule>(
+                  value: left[i],
+                  options: options,
+                  onChanged: (value) {
+                    if (value != null) updateLeft(i, value);
+                  },
+                ),
+                if (i < left.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: c.c2,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: c.ln),
+          ),
+          child: Row(
+            children: [
+              SpendIcon('grid', size: 16, color: c.ac),
+              const SizedBox(width: 10),
+              Text(
+                'Center: Apps (All modules)',
+                style: AppTypography.sans(
+                  size: 13,
+                  color: c.tx,
+                  weight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        LabeledField(
+          label: 'Right of Apps',
+          child: Column(
+            children: [
+              for (var i = 0; i < right.length; i++) ...[
+                AppSelect<AppModule>(
+                  value: right[i],
+                  options: options,
+                  onChanged: (value) {
+                    if (value != null) updateRight(i, value);
+                  },
+                ),
+                if (i < right.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                label: 'Reset',
+                centered: true,
+                onTap: () {
+                  Haptics.light();
+                  ref.read(settingsProvider.notifier).patch(
+                    navbarLeft: defaultNavbarLeft,
+                    navbarRight: defaultNavbarRight,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                label: 'Done',
+                margin: EdgeInsets.zero,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }
