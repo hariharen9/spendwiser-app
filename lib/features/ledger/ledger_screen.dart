@@ -17,12 +17,12 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/month_navigator.dart';
 import '../../core/widgets/section_caption.dart';
-import '../../core/widgets/segmented_control.dart';
 import '../../core/widgets/transaction_row.dart';
 import '../../data/models/finance_snapshot.dart';
 import '../../data/models/transaction.dart';
 import '../transactions/add_transaction_sheet.dart';
 import '../transactions/edit_transaction_sheet.dart';
+import 'widgets/ledger_view_switch.dart';
 
 enum _LedgerView { list, calendar }
 
@@ -105,6 +105,13 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
           subtitle: isCalendar
               ? '${snapshot.transactions.length} entries · on this device'
               : '${filtered.length} shown · ${snapshot.transactions.length} total',
+          trailing: LedgerViewSwitch(
+            calendar: isCalendar,
+            onChanged: (calendar) => setState(() {
+              _view = calendar ? _LedgerView.calendar : _LedgerView.list;
+              _day = 0;
+            }),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -155,17 +162,6 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
               ),
             ),
           ],
-        ),
-        SegmentedControl<_LedgerView>(
-          options: const [
-            SegmentedOption(_LedgerView.list, 'List'),
-            SegmentedOption(_LedgerView.calendar, 'Calendar'),
-          ],
-          selected: _view,
-          onChanged: (value) => setState(() {
-            _view = value;
-            _day = 0;
-          }),
         ),
         if (isCalendar) ...[
           MonthNavigator(
