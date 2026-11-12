@@ -305,6 +305,18 @@ class MerchantAvatar extends StatelessWidget {
     (keys: ['bescom', 'tata power'], label: '⚡', bg: Color(0xFF1D3A6B), fg: Color(0xFFFFD23F)),
     (keys: ['sbi'], label: 'SBI', bg: Color(0xFF280071), fg: Color(0xFF00B5EF)),
     (keys: ['kotak'], label: 'K', bg: Color(0xFFED1C24), fg: Colors.white),
+    (keys: ['idfc'], label: 'IDFC', bg: Color(0xFF9D1D27), fg: Colors.white),
+    (keys: ['yes bank', 'yesbank'], label: 'YES', bg: Color(0xFF00529C), fg: Colors.white),
+    (keys: ['indusind'], label: 'IB', bg: Color(0xFF8C1D40), fg: Colors.white),
+    (keys: ['canara'], label: 'CB', bg: Color(0xFF0091D5), fg: Color(0xFFFFD100)),
+    (keys: ['pnb', 'punjab national'], label: 'PNB', bg: Color(0xFFA20A3A), fg: Color(0xFFFFD200)),
+    (keys: ['baroda', 'bob'], label: 'BoB', bg: Color(0xFFF15A22), fg: Colors.white),
+    (keys: ['federal'], label: 'FB', bg: Color(0xFF004C97), fg: Color(0xFFFFD100)),
+    (keys: ['hsbc'], label: 'HSBC', bg: Color(0xFFDB0011), fg: Colors.white),
+    (keys: ['amex', 'american express'], label: 'AMEX', bg: Color(0xFF006FCF), fg: Colors.white),
+    (keys: ['citi'], label: 'citi', bg: Color(0xFF003B70), fg: Color(0xFFEE1C25)),
+    (keys: ['jupiter'], label: 'J', bg: Color(0xFFFE6B52), fg: Colors.white),
+    (keys: ['fi money', 'fi'], label: 'Fi', bg: Color(0xFF00B5A3), fg: Colors.white),
   ];
 
   bool _matchesKey(String name, String key) {

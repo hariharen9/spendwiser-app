@@ -23,6 +23,7 @@ import '../debt/debt_screen.dart';
 import '../goals/goals_screen.dart';
 import '../home/home_screen.dart';
 import '../insights/insights_screen.dart';
+import '../insights/spendwiser_ai_screen.dart';
 import '../launcher/orb_launcher.dart';
 import '../launcher/radial_orbit_overlay.dart';
 import '../ledger/ledger_screen.dart';
@@ -258,6 +259,7 @@ class _AppShellState extends ConsumerState<AppShell>
       AppModule.calendar => const CalendarScreen(),
       AppModule.insights => InsightsScreen(onNavigate: _go),
       AppModule.tools => ToolsScreen(onNavigate: _go),
+      AppModule.ai => const SpendWiserAiScreen(),
       AppModule.settings => SettingsScreen(
         onLock: () => ref.read(securityProvider.notifier).lock(),
         onReset: () => _go(AppModule.home),

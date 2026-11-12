@@ -24,32 +24,10 @@ Most finance apps are glorified spreadsheets that judge you *after* you're broke
 
 - **🧠 Smart Cash Runway** — Knows rent & bills hit on the 1st–5th and refuses to extrapolate start-of-month spikes into a fake month-end crash.
 - **🎙️ 2-Second Capture** — Type `"chai 40"` or `"uber 280"`, speak it, snap a receipt, or parse bank SMS alerts automatically.
+- **✨ Ask SpendWiser + Optional BYOK AI** — Instant offline answers out of the box (`LocalAskEngine`), plus an optional **SpendWiser AI** copilot (Gemini, OpenRouter, or Claude — your key, zero subscriptions).
 - **🇮🇳 India-Native DNA** — Built for UPI velocity, HDFC/ICICI/SBI/Axis/Kotak/Amex SMS formats, Indian card billing cycles, and ₹ lakh/crore formatting.
 - **🛸 Command Orb + Customizable Nav** — Navigate via a tactile radial **Command Orb** & Bento launcher, or switch to a **customizable Nav Bar** (up to 3 left + Apps + 3 right).
 - **🔒 Zero Bank Credentials** — Local-first storage with Hive, biometric/PIN lock, full PDF/XLSX/JSON export, and optional Firebase sync.
-
----
-
-## 🧠 Cash Runway: The Brain Under the Hood
-
-A naive `totalSpend / 90` average breaks the moment you pay ₹35,000 in rent and bills at the start of the month. SpendWiser’s `FinanceCalculator.cashRunway` models your actual monthly rhythm:
-
-```mermaid
-flowchart LR
-    A["📜 180-Day Ledger"] --> B["🔍 Auto-Detect Monthly Bills<br/>(2+ months, consistent day & amount)"]
-    A --> C["🛡️ Filter Fixed & Card Swipes<br/>(Covered by dues & schedules)"]
-    B --> D{"Already paid<br/>this month?"}
-    D -- Yes --> E["✅ Skip for rest of month"]
-    D -- No --> F["📅 Schedule on expected day"]
-    C --> G["📊 Winsorize Outliers<br/>& Learn Month Phases"]
-    G --> H["Early (1–7) · Mid (8–20) · Late (21–31)<br/>× Weekday / Weekend Multiplier"]
-    F --> I["📈 Daily Cash Curve<br/>to Next Payday"]
-    H --> I
-```
-
-- **Auto-detects unregistered bills** (maid, broadband, maintenance, etc.) from transaction history and skips them once paid for the month.
-- **Separates month phases** so early-month spending never pollutes mid/late-month daily burn.
-- **Winsorizes one-off spikes** (flights, gadgets, emergencies) so a single purchase doesn't wreck your forecast.
 
 ---
 
@@ -77,10 +55,25 @@ Merchants are auto-categorized across **Indian & global brands** (Swiggy, Zomato
 | **Debt** | Loan tracking, EMI calendar, full amortization schedules & **Avalanche vs. Snowball** payoff simulator |
 | **Budgets** | Category envelopes + total monthly pace without guilt-trip UI |
 | **Goals** | Target amounts, deadlines, progress tracking & contributions |
-| **Subscriptions** | Active renewals, recurring schedules & monthly burn visibility |
+| **Subscriptions** | Active renewals, recurring schedules & optional **AI Leak Audit** |
 | **Split** | Shared expenses with friends/roommates, balances & clean settlements |
-| **Insights** | Monthly spending breakdowns, top merchants & **Ask SpendWiser** |
+| **Insights** | Monthly reports, Year in Review, top merchants & **Ask SpendWiser** |
+| **SpendWiser AI** *(Optional)* | Dedicated BYOK financial copilot unlocked when you add a Gemini, OpenRouter, or Claude key |
 | **Tools & Export** | Annual summary **PDF**, statement **Excel (`.xlsx`)**, JSON backup/restore & PIN/biometric lock |
+
+---
+
+## ✨ Ask SpendWiser & Optional BYOK AI
+
+SpendWiser works **100% offline by default** — no API key required:
+
+- **Offline Instant Engine (`LocalAskEngine`)** — Answers biggest spends, last-N-day lists, `#tag` totals, custom date ranges (`1 Nov to 10 Nov`), category/merchant breakdowns, card dues, and Cash Runway locally with tap-to-filter Ledger links.
+- **Optional BYOK Copilot (`SpendWiser AI`)** — Add your own **Gemini**, **OpenRouter**, or **Claude** API key in Settings (free tiers supported) to unlock:
+  - **Dedicated SpendWiser AI App** in the launcher with multi-turn follow-ups and rich formatted answers.
+  - **1-Tap Natural-Language Actions** — Type `"Log chai 40"` or `"Create a ₹25k Goa trip budget"` and confirm with one tap.
+  - **"Can I Afford This?" & Debt Advisor** — Grounded in your live Cash Runway and Avalanche vs. Snowball payoff curve.
+  - **AI Executive Takeaways** inside Monthly Reports & Year in Review.
+  - **Subscription & Leak Audit** and **Clean up with AI** for messy voice/OCR transaction text.
 
 ---
 
@@ -127,8 +120,9 @@ flutter test
 
 1. **No ads. No data brokers.**
 2. **No bank logins or scraping credentials.**
-3. **Local-first by default** — your ledger works offline on-device.
-4. **Your data leaves when you say so** — export to PDF/XLSX/JSON or delete everything anytime.
+3. **Local-first by default** — your ledger and `LocalAskEngine` work offline on-device.
+4. **AI is 100% opt-in (BYOK)** — no AI requests are ever made unless you add your own API key, and clearing it disables all AI UI immediately.
+5. **Your data leaves when you say so** — export to PDF/XLSX/JSON or delete everything anytime.
 
 ---
 

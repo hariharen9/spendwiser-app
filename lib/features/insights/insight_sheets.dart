@@ -12,10 +12,13 @@ import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_icons.dart';
+import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../data/models/finance_snapshot.dart';
+import 'services/ask_ai_client.dart';
+import 'widgets/formatted_ai_response.dart';
 import '../../core/widgets/app_card.dart';
 
 Future<void> showMonthlyReportSheet(BuildContext context, DateTime month) {
@@ -162,6 +165,8 @@ class _MonthlyReportSheet extends ConsumerWidget {
               },
             ),
           ),
+        if (ref.watch(settingsProvider).hasAiKey)
+          _MonthlyAiTakeaway(month: month, snapshot: snapshot),
         AppButton(
           label: 'Export as PDF',
           centered: true,
@@ -236,7 +241,15 @@ Future<void> showYearInReview(BuildContext context, FinanceSnapshot snapshot) {
     barrierColor: Colors.black.withValues(alpha: 0.35),
     transitionDuration: const Duration(milliseconds: 480),
     pageBuilder: (context, animation, secondaryAnimation) =>
-        _YearInReview(pages: pages),
+        _YearInReview(
+          pages: pages,
+          aiPrompt:
+              'Year $year summary: Income ${rupee(income)}, Expense ${rupee(expense)}, '
+              'Top category ${top?.category ?? 'None'} (${top == null ? '₹0' : rupee(top.amount)}), '
+              'Biggest spend ${biggest.isEmpty ? 'None' : '${biggest.first.merchant} ${rupee(biggest.first.amount)}'}, '
+              'Busiest day ${weekdayFullSun[busiest]}. '
+              'Give 3 crisp bullets: what spiked, what improved, and 1 move for next year.',
+        ),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -271,17 +284,153 @@ class _ReviewPage {
   final Color color;
 }
 
-class _YearInReview extends StatefulWidget {
-  const _YearInReview({required this.pages});
+class _MonthlyAiTakeaway extends ConsumerStatefulWidget {
+  const _MonthlyAiTakeaway({required this.month, required this.snapshot});
 
-  final List<_ReviewPage> pages;
+  final DateTime month;
+  final FinanceSnapshot snapshot;
 
   @override
-  State<_YearInReview> createState() => _YearInReviewState();
+  ConsumerState<_MonthlyAiTakeaway> createState() => _MonthlyAiTakeawayState();
 }
 
-class _YearInReviewState extends State<_YearInReview> {
+class _MonthlyAiTakeawayState extends ConsumerState<_MonthlyAiTakeaway> {
+  String? _text;
+  String? _error;
+  bool _loading = false;
+
+  Future<void> _generate() async {
+    final settings = ref.read(settingsProvider);
+    if (!settings.hasAiKey || _loading) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final prevMonth = DateTime(widget.month.year, widget.month.month - 1, 1);
+    final currFlow = widget.snapshot.flow(widget.month);
+    final prevFlow = widget.snapshot.flow(prevMonth);
+    final top = widget.snapshot.spendByCategory(widget.month).take(5);
+    final prompt =
+        'Monthly report for ${monthFull[widget.month.month - 1]} ${widget.month.year}: '
+        'Income ${rupee(currFlow.income)}, Expense ${rupee(currFlow.expense)} '
+        '(previous month expense ${rupee(prevFlow.expense)}). '
+        'Top categories: ${top.map((e) => '${e.category} ${rupee(e.amount)}').join(', ')}. '
+        'Give 3 crisp bullets: what spiked, what improved, and 1 move for next month.';
+    try {
+      final result = await AskAiClient.generateNarrative(
+        provider: settings.aiProvider,
+        apiKey: settings.aiApiKey,
+        model: settings.effectiveAiModel,
+        prompt: prompt,
+      );
+      if (!mounted) return;
+      setState(() {
+        _text = result;
+        _loading = false;
+      });
+    } on AskAiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'AI takeaway',
+                style: AppTypography.sans(
+                  size: 13,
+                  color: c.ac,
+                  weight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              if (_text == null && !_loading)
+                GestureDetector(
+                  onTap: _generate,
+                  child: Text(
+                    'Generate',
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: c.ac,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (_loading) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Summarizing your month…',
+              style: AppTypography.sans(size: 12, color: c.mu),
+            ),
+          ] else if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: AppTypography.sans(size: 12, color: c.co)),
+          ] else if (_text != null) ...[
+            const SizedBox(height: 8),
+            FormattedAiResponse(text: _text!),
+          ] else ...[
+            const SizedBox(height: 6),
+            Text(
+              'Tap Generate for a 3-bullet executive brief on what spiked, improved, and what to do next.',
+              style: AppTypography.sans(size: 12, color: c.mu),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _YearInReview extends ConsumerStatefulWidget {
+  const _YearInReview({required this.pages, this.aiPrompt});
+
+  final List<_ReviewPage> pages;
+  final String? aiPrompt;
+
+  @override
+  ConsumerState<_YearInReview> createState() => _YearInReviewState();
+}
+
+class _YearInReviewState extends ConsumerState<_YearInReview> {
   int _index = 0;
+  String? _aiText;
+  bool _aiLoading = false;
+
+  Future<void> _loadAi() async {
+    final prompt = widget.aiPrompt;
+    final settings = ref.read(settingsProvider);
+    if (prompt == null || !settings.hasAiKey || _aiLoading) return;
+    setState(() => _aiLoading = true);
+    try {
+      final res = await AskAiClient.generateNarrative(
+        provider: settings.aiProvider,
+        apiKey: settings.aiApiKey,
+        model: settings.effectiveAiModel,
+        prompt: prompt,
+      );
+      if (!mounted) return;
+      setState(() {
+        _aiText = res;
+        _aiLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _aiLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +519,61 @@ class _YearInReviewState extends State<_YearInReview> {
                               height: 1.05,
                             ),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 24),
+                          if (_index == widget.pages.length - 1 &&
+                              ref.watch(settingsProvider).hasAiKey) ...[
+                            if (_aiText != null)
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: c.c1.withValues(alpha: 0.92),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: c.ac.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        SpendIcon(
+                                          'sparkle',
+                                          size: 14,
+                                          color: c.ac,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'AI TAKEAWAY',
+                                          style: AppTypography.sans(
+                                            size: 10,
+                                            color: c.ac,
+                                            weight: FontWeight.w700,
+                                            letterSpacing: 1.0,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    FormattedAiResponse(text: _aiText!),
+                                  ],
+                                ),
+                              )
+                            else
+                              AppPill(
+                                label: _aiLoading
+                                    ? 'Writing AI takeaway...'
+                                    : 'Generate AI takeaway',
+                                leading: SpendIcon(
+                                  'sparkle',
+                                  size: 14,
+                                  color: c.ac,
+                                ),
+                                color: c.ac,
+                                onTap: _aiLoading ? null : _loadAi,
+                              ),
+                            const SizedBox(height: 18),
+                          ],
                           Text(
                             'Tap to continue',
                             style: AppTypography.sans(size: 12, color: c.mu),

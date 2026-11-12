@@ -19,6 +19,8 @@ import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/subscription.dart';
+import '../insights/services/ask_ai_client.dart';
+import '../insights/widgets/formatted_ai_response.dart';
 
 class SubscriptionsScreen extends ConsumerStatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -55,6 +57,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           subtitle: _recurring
               ? 'Logged automatically on schedule'
               : '${rupee(monthly)} / month',
+          trailing: ref.watch(settingsProvider).hasAiKey
+              ? AppPill(
+                  label: 'Audit leaks',
+                  active: true,
+                  onTap: () => _showSubscriptionAudit(context),
+                )
+              : null,
         ),
         SegmentedControl<bool>(
           options: const [
@@ -385,6 +394,72 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   ref.read(toastProvider.notifier).show('Recurring removed');
                 },
               ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSubscriptionAudit(BuildContext context) {
+    final settings = ref.read(settingsProvider);
+    final snapshot = ref.read(financeSnapshotProvider);
+    final future = AskAiClient.auditSubscriptions(
+      provider: settings.aiProvider,
+      apiKey: settings.aiApiKey.trim(),
+      model: settings.effectiveAiModel,
+      snapshot: snapshot,
+    );
+    showAppSheet<void>(
+      context,
+      (sheetContext) => FutureBuilder<String>(
+        future: future,
+        builder: (context, snap) {
+          final c = context.spend;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  SpendIcon('sparkle', size: 18, color: c.ac),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Subscription & Leak Audit',
+                    style: AppTypography.serif(size: 22, color: c.tx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (snap.connectionState == ConnectionState.waiting)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: c.ac,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Auditing recurring charges...',
+                        style: AppTypography.sans(size: 13, color: c.mu),
+                      ),
+                    ],
+                  ),
+                )
+              else if (snap.hasError)
+                Text(
+                  snap.error.toString().replaceFirst('Exception: ', ''),
+                  style: AppTypography.sans(size: 13, color: c.co),
+                )
+              else
+                FormattedAiResponse(text: snap.data ?? ''),
             ],
           );
         },

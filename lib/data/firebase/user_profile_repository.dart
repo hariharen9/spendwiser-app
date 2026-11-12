@@ -180,6 +180,12 @@ class FirestoreUserProfileRepository {
         0,
       ).clamp(0, 59).toInt(),
       categories: categoryMap,
+      aiProvider: AiProvider.values.firstWhere(
+        (p) => p.name == asString(mobilePrefs['aiProvider'], 'none'),
+        orElse: () => AiProvider.none,
+      ),
+      aiApiKey: asString(mobilePrefs['aiApiKey']),
+      aiModel: asString(mobilePrefs['aiModel']),
     );
     _controller.add(_settings);
   }
@@ -242,6 +248,9 @@ class FirestoreUserProfileRepository {
         'categoryColors': settings.categories.map(
           (key, value) => MapEntry(key, value.toARGB32()),
         ),
+        'aiProvider': settings.aiProvider.name,
+        'aiApiKey': settings.aiApiKey,
+        'aiModel': settings.aiModel,
       },
     });
   }

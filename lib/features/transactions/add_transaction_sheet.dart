@@ -17,6 +17,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/transaction.dart';
 import '../home/services/capture_parser.dart';
+import '../insights/services/ask_ai_client.dart';
 import '../../data/services/notifications_service.dart';
 
 Future<void> showAddTransactionSheet(
@@ -70,6 +71,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
   late DateTime _date;
   late List<String> _tags;
   late bool _categoryManuallySelected;
+  bool _aiParsing = false;
 
   @override
   void initState() {
@@ -138,6 +140,55 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
       .keys
       .where((category) => category != 'Transfer' && category != 'Income')
       .toList();
+
+  Future<void> _cleanUpWithAi() async {
+    final nameText = _name.text.trim();
+    final noteText = _note.text.trim();
+    final rawInput = [nameText, noteText].where((s) => s.isNotEmpty).join(' — ');
+    if (rawInput.isEmpty) {
+      ref.read(toastProvider.notifier).show('Type messy text or OCR first');
+      return;
+    }
+    final settings = ref.read(settingsProvider);
+    if (!settings.hasAiKey || _aiParsing) return;
+
+    setState(() => _aiParsing = true);
+    try {
+      final categories = _expenseCategories();
+      final parsed = await AskAiClient.parseTransactionWithAi(
+        provider: settings.aiProvider,
+        apiKey: settings.aiApiKey.trim(),
+        model: settings.effectiveAiModel,
+        rawInput: rawInput,
+        categories: categories,
+      );
+      if (!mounted) return;
+      setState(() {
+        _name.text = parsed.merchant;
+        if (parsed.amount > 0) {
+          _amount.text = parsed.amount == parsed.amount.roundToDouble()
+              ? parsed.amount.round().toString()
+              : parsed.amount.toStringAsFixed(2);
+        }
+        _income = parsed.isIncome;
+        _category = parsed.isIncome
+            ? 'Income'
+            : resolveCategoryName(parsed.category, categories);
+        _categoryManuallySelected = true;
+        if (parsed.note.isNotEmpty && _note.text.trim().isEmpty) {
+          _note.text = parsed.note;
+        }
+        _aiParsing = false;
+      });
+      ref.read(toastProvider.notifier).show('Cleaned up with AI');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _aiParsing = false);
+      ref
+          .read(toastProvider.notifier)
+          .show(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
 
   String _initialAmount(double? value) {
     if (value == null || value <= 0) return '';
@@ -299,7 +350,23 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                _label(context, 'Transaction name *'),
+                Row(
+                  children: [
+                    Expanded(child: _label(context, 'Transaction name *')),
+                    if (ref.watch(settingsProvider).hasAiKey)
+                      GestureDetector(
+                        onTap: _aiParsing ? null : _cleanUpWithAi,
+                        child: Text(
+                          _aiParsing ? 'Cleaning…' : 'Clean up with AI',
+                          style: AppTypography.sans(
+                            size: 12,
+                            color: c.ac,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 _Input(
                   controller: _name,
                   hint: 'e.g. Coffee Shop, Salary, Gas Station',

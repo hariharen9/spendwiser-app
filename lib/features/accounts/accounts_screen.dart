@@ -385,24 +385,30 @@ class _AccountRow extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: c.c2,
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: c.ln),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    account.name.isEmpty ? '?' : account.name.substring(0, 1),
-                    style: AppTypography.sans(
-                      size: 12,
-                      color: c.tx,
-                      weight: FontWeight.w500,
+                if (isCash)
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: const Color(0xFF34D399).withValues(alpha: 0.35),
+                      ),
                     ),
+                    alignment: Alignment.center,
+                    child: const SpendIcon(
+                      'cash',
+                      size: 19,
+                      color: Color(0xFF34D399),
+                    ),
+                  )
+                else
+                  MerchantAvatar(
+                    merchant: account.name,
+                    category: 'Income',
+                    size: 38,
                   ),
-                ),
                 Positioned(
                   right: -3,
                   bottom: -3,
@@ -418,7 +424,7 @@ class _AccountRow extends StatelessWidget {
                     child: SpendIcon(
                       isCash ? 'cash' : 'accounts',
                       size: 9,
-                      color: c.mu,
+                      color: isCash ? const Color(0xFF34D399) : c.mu,
                       strokeWidth: 1.8,
                     ),
                   ),

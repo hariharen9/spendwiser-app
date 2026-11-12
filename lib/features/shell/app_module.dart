@@ -90,6 +90,14 @@ enum AppModule {
     tint: Color(0xFFFFD23F),
     wide: true,
   ),
+  ai(
+    id: 'ai',
+    label: 'SpendWiser AI',
+    subtitle: 'Financial copilot',
+    icon: 'sparkle',
+    tint: Color(0xFFD4FF3A),
+    fullWidth: true,
+  ),
   settings(
     id: 'settings',
     label: 'Settings',
@@ -130,6 +138,7 @@ enum AppModule {
     AppModule.calendar => AppColors.moduleTint['calendar']!,
     AppModule.insights => AppColors.moduleTint['insights']!,
     AppModule.tools => AppColors.moduleTint['tools']!,
+    AppModule.ai => const Color(0xFFD4FF3A),
     AppModule.settings => AppColors.moduleTint['settings']!,
   };
 }

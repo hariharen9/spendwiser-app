@@ -190,7 +190,45 @@ void main() {
       expect(decoded['cashRunway'], isA<Map>());
       expect(decoded['cards'], isA<List>());
       expect(decoded['loans'], isA<List>());
+      expect(decoded['budgets'], isA<List>());
+      expect(decoded['goals'], isA<List>());
+      expect(decoded['subscriptions'], isA<List>());
       expect(decoded['matchingTransactions'], isA<List>());
+    });
+
+    test('parseReply extracts log_tx, add_budget, and add_goal action blocks', () {
+      final txReply = AskAiClient.parseReply('''
+Logged your chai!
+```action
+{"action":"log_tx","merchant":"Chai Point","amount":40,"category":"Food","isIncome":false,"note":"Evening tea"}
+```
+''');
+      expect(txReply.text, 'Logged your chai!');
+      expect(txReply.action?.type, AiActionType.logTx);
+      expect(txReply.action?.title, 'Chai Point');
+      expect(txReply.action?.amount, 40);
+      expect(txReply.action?.category, 'Food');
+
+      final budgetReply = AskAiClient.parseReply('''
+Created a Goa trip budget.
+```action
+{"action":"add_budget","category":"Travel","amount":25000}
+```
+''');
+      expect(budgetReply.text, 'Created a Goa trip budget.');
+      expect(budgetReply.action?.type, AiActionType.addBudget);
+      expect(budgetReply.action?.amount, 25000);
+      expect(budgetReply.action?.category, 'Travel');
+
+      final goalReply = AskAiClient.parseReply('''
+Added your emergency fund goal.
+```action
+{"action":"add_goal","title":"Emergency Fund","amount":150000}
+```
+''');
+      expect(goalReply.action?.type, AiActionType.addGoal);
+      expect(goalReply.action?.title, 'Emergency Fund');
+      expect(goalReply.action?.amount, 150000);
     });
 
     test('AppSettings persists AI provider, key, and model through JSON', () {

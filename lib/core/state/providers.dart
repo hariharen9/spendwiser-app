@@ -435,7 +435,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
   @override
   AppSettings build() {
     final profile = ref.watch(userProfileRepositoryProvider);
-    if (profile == null) return const AppSettings();
+    if (profile == null) {
+      final persisted = loadPersistedSettings();
+      AppColors.dynamicCategories = Map.of(persisted.categories);
+      return persisted;
+    }
     final subscription = profile.watch().listen((next) {
       state = next;
       AppColors.dynamicCategories = Map.of(next.categories);

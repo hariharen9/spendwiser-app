@@ -82,8 +82,10 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
       AppModule.insights =>
         'Health ${FinanceCalculator.health(s, now: now).score}',
       AppModule.tools => 'Calc · SIP',
+      AppModule.ai =>
+        '${ref.read(settingsProvider).aiProvider.label} · Copilot',
       AppModule.settings =>
-        '${ref.read(settingsProvider).themeLabel} · INR · Synced',
+        '${ref.read(settingsProvider).themeLabel} · INR · ${ref.read(userProfileRepositoryProvider) != null ? 'Synced' : 'Local'}',
     };
   }
 
@@ -115,9 +117,10 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
     final modules = AppModule.values
         .where(
           (m) =>
-              _query.isEmpty ||
-              m.label.toLowerCase().contains(_query.toLowerCase()) ||
-              m.subtitle.toLowerCase().contains(_query.toLowerCase()),
+              (m != AppModule.ai || settings.hasAiKey) &&
+              (_query.isEmpty ||
+                  m.label.toLowerCase().contains(_query.toLowerCase()) ||
+                  m.subtitle.toLowerCase().contains(_query.toLowerCase())),
         )
         .toList();
 
@@ -268,11 +271,26 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                           width: width,
                           column: column,
                           modules: modules
-                              .where((m) => m != AppModule.settings)
+                              .where(
+                                (m) =>
+                                    m != AppModule.settings &&
+                                    m != AppModule.ai,
+                              )
                               .toList(),
                           snapshot: snapshot,
                           settingsLabel: settings.themeLabel,
                         ),
+                        if (modules.contains(AppModule.ai)) ...[
+                          const SizedBox(height: 8),
+                          _buildTile(
+                            context,
+                            module: AppModule.ai,
+                            index: modules.length - 2,
+                            width: width,
+                            snapshot: snapshot,
+                            settingsLabel: settings.themeLabel,
+                          ),
+                        ],
                         if (modules.contains(AppModule.settings)) ...[
                           const SizedBox(height: 8),
                           _buildTile(
@@ -526,7 +544,9 @@ class _OrbLauncherState extends ConsumerState<OrbLauncher>
                   ),
                 ),
                 Text(
-                  '$settingsLabel · INR · Local',
+                  _metric(module, snapshot),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.sans(size: 12, color: subColor),
                 ),
               ],

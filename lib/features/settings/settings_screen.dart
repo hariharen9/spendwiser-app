@@ -589,17 +589,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Version 1.0.0',
             ),
             _SettingsRow(
-              icon: 'profile',
-              title: 'Crafted by Hariharen',
-              subtitle: 'hariharen.space · Tap to copy link',
-              onTap: () {
-                Clipboard.setData(
-                  const ClipboardData(text: 'https://hariharen.space'),
-                );
-                ref.read(toastProvider.notifier).show('Copied hariharen.space');
-              },
-            ),
-            _SettingsRow(
               icon: 'refresh',
               title: 'Replay welcome',
               subtitle: 'See the intro again',
