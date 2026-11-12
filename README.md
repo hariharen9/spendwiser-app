@@ -20,7 +20,7 @@ A local-first, India-native **Financial OS** built in Flutter — combining a ph
 
 ## ⚡ Why It Hits Different
 
-Most finance apps are glorified spreadsheets that judge you _after_ you're broke. SpendWiser is built around **forward signal**:
+Most finance apps are glorified spreadsheets that judge you *after* you're broke. SpendWiser is built around **forward signal**:
 
 - **🧠 Smart Cash Runway** — Knows rent & bills hit on the 1st–5th and refuses to extrapolate start-of-month spikes into a fake month-end crash.
 - **🎙️ 2-Second Capture** — Type `"chai 40"` or `"uber 280"`, speak it, snap a receipt, or parse bank SMS alerts automatically.
@@ -55,12 +55,12 @@ flowchart LR
 
 ## ⚡ Capture Without Friction
 
-| Input           | Powered By                      | Example                                                                         |
-| --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| **Quick Type**  | `CaptureParser`                 | `"chai 40"`, `"zomato 340"`, `"salary 142000"`                                  |
-| **Voice**       | `speech_to_text`                | Speak natural amounts & merchant names                                          |
-| **Receipt OCR** | `google_mlkit_text_recognition` | Snap a bill → extracts items, merchant & total                                  |
-| **Bank SMS**    | `BankSmsParser`                 | Parses HDFC, ICICI, Axis, SBI, Kotak, Amex & UPI alerts (ignores OTPs & promos) |
+| Input | Powered By | Example |
+|---|---|---|
+| **Quick Type** | `CaptureParser` | `"chai 40"`, `"zomato 340"`, `"salary 142000"` |
+| **Voice** | `speech_to_text` | Speak natural amounts & merchant names |
+| **Receipt OCR** | `google_mlkit_text_recognition` | Snap a bill → extracts items, merchant & total |
+| **Bank SMS** | `BankSmsParser` | Parses HDFC, ICICI, Axis, SBI, Kotak, Amex & UPI alerts (ignores OTPs & promos) |
 
 Merchants are auto-categorized across **Indian & global brands** (Swiggy, Zomato, Blinkit, Zepto, BigBasket, BookMyShow, Uber, Ola, Rapido, IRCTC, Jio, Airtel, Amazon, Flipkart, YouTube, Netflix, Spotify, and more) with **real brand icons** via `simple_icons` + crisp vector fallbacks.
 
@@ -68,19 +68,19 @@ Merchants are auto-categorized across **Indian & global brands** (Swiggy, Zomato
 
 ## 🎛️ The Financial OS Modules
 
-| Module             | What It Actually Does                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| **Home**           | Net Worth hero card, Cash Runway curve, Safe-to-Spend, Financial Health Score & upcoming bills         |
-| **Ledger**         | Day-grouped transaction archive + calendar view, search, tags, and instant edits                       |
-| **Banks**          | Savings, cash, and liquid account balances in one place                                                |
-| **Cards**          | Statement cycles, utilization, minimum vs. total due, cardholder details & due countdowns              |
-| **Debt**           | Loan tracking, EMI calendar, full amortization schedules & **Avalanche vs. Snowball** payoff simulator |
-| **Budgets**        | Category envelopes + total monthly pace without guilt-trip UI                                          |
-| **Goals**          | Target amounts, deadlines, progress tracking & contributions                                           |
-| **Subscriptions**  | Active renewals, recurring schedules & monthly burn visibility                                         |
-| **Split**          | Shared expenses with friends/roommates, balances & clean settlements                                   |
-| **Insights**       | Monthly spending breakdowns, top merchants & **Ask SpendWiser**                                        |
-| **Tools & Export** | Annual summary **PDF**, statement **Excel (`.xlsx`)**, JSON backup/restore & PIN/biometric lock        |
+| Module | What It Actually Does |
+|---|---|
+| **Home** | Net Worth hero card, Cash Runway curve, Safe-to-Spend, Financial Health Score & upcoming bills |
+| **Ledger** | Day-grouped transaction archive + calendar view, search, tags, and instant edits |
+| **Banks** | Savings, cash, and liquid account balances in one place |
+| **Cards** | Statement cycles, utilization, minimum vs. total due, cardholder details & due countdowns |
+| **Debt** | Loan tracking, EMI calendar, full amortization schedules & **Avalanche vs. Snowball** payoff simulator |
+| **Budgets** | Category envelopes + total monthly pace without guilt-trip UI |
+| **Goals** | Target amounts, deadlines, progress tracking & contributions |
+| **Subscriptions** | Active renewals, recurring schedules & monthly burn visibility |
+| **Split** | Shared expenses with friends/roommates, balances & clean settlements |
+| **Insights** | Monthly spending breakdowns, top merchants & **Ask SpendWiser** |
+| **Tools & Export** | Annual summary **PDF**, statement **Excel (`.xlsx`)**, JSON backup/restore & PIN/biometric lock |
 
 ---
 
@@ -97,13 +97,13 @@ lib/
 └── features/      # Home, Ledger, Cards, Debt, Budgets, Goals, Split, Subscriptions, Insights, Settings, Launcher
 ```
 
-| Layer                      | Packages                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **State & UI**             | `flutter_riverpod`, `animations`, `flutter_svg`, `simple_icons`, `intl`                                            |
-| **Local Storage**          | `hive`, `hive_flutter`, `path_provider`                                                                            |
-| **Capture & Intelligence** | `speech_to_text`, `image_picker`, `google_mlkit_text_recognition`                                                  |
-| **Security & Alerts**      | `local_auth`, `crypto`, `flutter_local_notifications`, `timezone`                                                  |
-| **Exports & Sync**         | `pdf`, `excel`, `share_plus`, `file_picker`, `firebase_core`, `firebase_auth`, `cloud_firestore`, `google_sign_in` |
+| Layer | Packages |
+|---|---|
+| **State & UI** | `flutter_riverpod`, `animations`, `flutter_svg`, `simple_icons`, `intl` |
+| **Local Storage** | `hive`, `hive_flutter`, `path_provider` |
+| **Capture & Intelligence** | `speech_to_text`, `image_picker`, `google_mlkit_text_recognition` |
+| **Security & Alerts** | `local_auth`, `crypto`, `flutter_local_notifications`, `timezone` |
+| **Exports & Sync** | `pdf`, `excel`, `share_plus`, `file_picker`, `firebase_core`, `firebase_auth`, `cloud_firestore`, `google_sign_in` |
 
 ---
 
@@ -135,5 +135,13 @@ flutter test
 <div align="center">
 
 **Built for people who want clarity, not a second job as an accountant.**
+
+<br />
+
+<sub>DESIGNED & BUILT BY</sub>
+
+### [Hariharen](https://hariharen.space)
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-hariharen.space-D4FF3A?style=for-the-badge&labelColor=101010)](https://hariharen.space)
 
 </div>

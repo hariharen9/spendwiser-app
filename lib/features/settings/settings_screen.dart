@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:convert';
@@ -565,6 +566,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Version 1.0.0',
             ),
             _SettingsRow(
+              icon: 'profile',
+              title: 'Crafted by Hariharen',
+              subtitle: 'hariharen.space · Tap to copy link',
+              onTap: () {
+                Clipboard.setData(
+                  const ClipboardData(text: 'https://hariharen.space'),
+                );
+                ref.read(toastProvider.notifier).show('Copied hariharen.space');
+              },
+            ),
+            _SettingsRow(
               icon: 'refresh',
               title: 'Replay welcome',
               subtitle: 'See the intro again',
@@ -572,6 +584,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               last: true,
             ),
           ],
+        ),
+        const SizedBox(height: 28),
+        Center(
+          child: Column(
+            children: [
+              Text(
+                'CRAFTED WITH CARE BY',
+                style: AppTypography.sans(
+                  size: 10,
+                  color: c.mu,
+                  weight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Hariharen',
+                style: AppTypography.display(size: 24, color: c.tx),
+              ),
+              const SizedBox(height: 10),
+              Pressable(
+                onTap: () {
+                  Clipboard.setData(
+                    const ClipboardData(text: 'https://hariharen.space'),
+                  );
+                  ref
+                      .read(toastProvider.notifier)
+                      .show('Copied hariharen.space');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: c.c1,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: c.ln),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: c.ac,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'hariharen.space',
+                        style: AppTypography.sans(
+                          size: 12,
+                          color: c.tx,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 24),
       ],
