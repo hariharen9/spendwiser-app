@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../theme/app_colors.dart';
 
@@ -181,6 +182,8 @@ class MerchantAvatar extends StatelessWidget {
   static const _rentPath =
       'M4 21V5h10v16M14 10h6v11M7 8h2M7 12h2M7 16h2M17 13h1M17 17h1';
   static const _investmentPath = 'M4 18l5-5 4 3 7-8M15 8h5v5';
+  static const _miscPath =
+      'M12 3l2.2 4.5 5 .7-3.6 3.5.8 5-4.4-2.3-4.4 2.3.8-5L4.8 8.2l5-.7z';
   static const _otherPath = 'M20 13l-7 7-9-9V4h7l9 9zM8 8h.01';
 
   static const _categoryPaths = <String, String>{
@@ -199,6 +202,7 @@ class MerchantAvatar extends StatelessWidget {
     'Rent & Housing': _rentPath,
     'Investment': _investmentPath,
     'Travel': _travelPath,
+    'Miscellaneous': _miscPath,
     'Other': _otherPath,
     'Income': _incomePath,
     'Transfer': _transferPath,
@@ -209,46 +213,195 @@ class MerchantAvatar extends StatelessWidget {
     'Fun': _funPath,
   };
 
-  static const _brandOrder = [
-    'netflix',
-    'spotify',
-    'youtube',
-    'icloud',
-    'notion',
-    'amazon',
-    'cult',
-    'swiggy',
-    'zomato',
-    'uber',
+  /// Official SimpleIcons vector marks + brand colors (matched in order).
+  static final _simpleBrands = <({List<String> keys, IconData icon, Color bg})>[
+    (keys: ['bookmyshow', 'bms'], icon: SimpleIcons.bookmyshow, bg: SimpleIconColors.bookmyshow),
+    (keys: ['bigbasket'], icon: SimpleIcons.bigbasket, bg: SimpleIconColors.bigbasket),
+    (keys: ['swiggy'], icon: SimpleIcons.swiggy, bg: SimpleIconColors.swiggy),
+    (keys: ['zomato'], icon: SimpleIcons.zomato, bg: SimpleIconColors.zomato),
+    (keys: ['google pay', 'gpay', 'googlepay'], icon: SimpleIcons.googlepay, bg: SimpleIconColors.googlepay),
+    (keys: ['phonepe'], icon: SimpleIcons.phonepe, bg: SimpleIconColors.phonepe),
+    (keys: ['paytm'], icon: SimpleIcons.paytm, bg: SimpleIconColors.paytm),
+    (keys: ['razorpay'], icon: SimpleIcons.razorpay, bg: SimpleIconColors.razorpay),
+    (keys: ['zerodha', 'kite'], icon: SimpleIcons.zerodha, bg: SimpleIconColors.zerodha),
+    (keys: ['hdfc'], icon: SimpleIcons.hdfcbank, bg: SimpleIconColors.hdfcbank),
+    (keys: ['icici'], icon: SimpleIcons.icicibank, bg: SimpleIconColors.icicibank),
+    (keys: ['axis'], icon: SimpleIcons.axisbank, bg: SimpleIconColors.axisbank),
+    (keys: ['indigo'], icon: SimpleIcons.indigo, bg: SimpleIconColors.indigo),
+    (keys: ['airtel'], icon: SimpleIcons.airtel, bg: SimpleIconColors.airtel),
+    (keys: ['jiofiber', 'jio'], icon: SimpleIcons.jio, bg: SimpleIconColors.jio),
+    (keys: ['vodafone', 'vi '], icon: SimpleIcons.vodafone, bg: SimpleIconColors.vodafone),
+    (keys: ['tata'], icon: SimpleIcons.tata, bg: SimpleIconColors.tata),
+    (keys: ['bata'], icon: SimpleIcons.bata, bg: SimpleIconColors.bata),
+    (keys: ['oyo'], icon: SimpleIcons.oyo, bg: SimpleIconColors.oyo),
+    (keys: ['uber'], icon: SimpleIcons.uber, bg: const Color(0xFF141414)),
+    (keys: ['youtube'], icon: SimpleIcons.youtube, bg: SimpleIconColors.youtube),
+    (keys: ['netflix'], icon: SimpleIcons.netflix, bg: const Color(0xFF141414)),
+    (keys: ['spotify'], icon: SimpleIcons.spotify, bg: SimpleIconColors.spotify),
+    (keys: ['starbucks'], icon: SimpleIcons.starbucks, bg: SimpleIconColors.starbucks),
+    (keys: ['mcdonald'], icon: SimpleIcons.mcdonalds, bg: SimpleIconColors.mcdonalds),
+    (keys: ['kfc'], icon: SimpleIcons.kfc, bg: SimpleIconColors.kfc),
+    (keys: ['burger king', 'burgerking'], icon: SimpleIcons.burgerking, bg: SimpleIconColors.burgerking),
+    (keys: ['icloud'], icon: SimpleIcons.icloud, bg: SimpleIconColors.icloud),
+    (keys: ['apple'], icon: SimpleIcons.apple, bg: const Color(0xFF1C1C22)),
+    (keys: ['google'], icon: SimpleIcons.google, bg: SimpleIconColors.google),
+    (keys: ['steam'], icon: SimpleIcons.steam, bg: SimpleIconColors.steam),
+    (keys: ['playstation', 'ps5', 'ps4'], icon: SimpleIcons.playstation, bg: SimpleIconColors.playstation),
+    (keys: ['nike'], icon: SimpleIcons.nike, bg: const Color(0xFF141414)),
+    (keys: ['adidas'], icon: SimpleIcons.adidas, bg: const Color(0xFF141414)),
+    (keys: ['puma'], icon: SimpleIcons.puma, bg: const Color(0xFF141414)),
+    (keys: ['decathlon'], icon: SimpleIcons.nike, bg: const Color(0xFF0082C3)),
+    (keys: ['ikea'], icon: SimpleIcons.ikea, bg: SimpleIconColors.ikea),
+    (keys: ['zara'], icon: SimpleIcons.zara, bg: const Color(0xFF141414)),
+    (keys: ['uniqlo'], icon: SimpleIcons.uniqlo, bg: SimpleIconColors.uniqlo),
+    (keys: ['notion'], icon: SimpleIcons.notion, bg: const Color(0xFFF4F1EA)),
+    (keys: ['discord'], icon: SimpleIcons.discord, bg: SimpleIconColors.discord),
+    (keys: ['telegram'], icon: SimpleIcons.telegram, bg: SimpleIconColors.telegram),
+    (keys: ['whatsapp'], icon: SimpleIcons.whatsapp, bg: SimpleIconColors.whatsapp),
+    (keys: ['instagram'], icon: SimpleIcons.instagram, bg: SimpleIconColors.instagram),
+    (keys: ['facebook'], icon: SimpleIcons.facebook, bg: SimpleIconColors.facebook),
+    (keys: ['github'], icon: SimpleIcons.github, bg: const Color(0xFF181717)),
+    (keys: ['figma'], icon: SimpleIcons.figma, bg: const Color(0xFF1E1E1E)),
+    (keys: ['dropbox'], icon: SimpleIcons.dropbox, bg: SimpleIconColors.dropbox),
+    (keys: ['coursera'], icon: SimpleIcons.coursera, bg: SimpleIconColors.coursera),
+    (keys: ['udemy'], icon: SimpleIcons.udemy, bg: SimpleIconColors.udemy),
+    (keys: ['duolingo'], icon: SimpleIcons.duolingo, bg: SimpleIconColors.duolingo),
+    (keys: ['airbnb'], icon: SimpleIcons.airbnb, bg: SimpleIconColors.airbnb),
+    (keys: ['shell'], icon: SimpleIcons.shell, bg: SimpleIconColors.shell),
+    (keys: ['hpcl', 'hp'], icon: SimpleIcons.hp, bg: SimpleIconColors.hp),
+    (keys: ['claude'], icon: SimpleIcons.claude, bg: SimpleIconColors.claude),
   ];
 
-  String? get _brand {
-    final name = merchant.toLowerCase();
-    for (final key in _brandOrder) {
-      if (name.contains(key)) return key;
+  /// Custom brand badges for major Indian brands not present in SimpleIcons.
+  static const _customBrands = <({List<String> keys, String label, Color bg, Color fg})>[
+    (keys: ['blinkit'], label: 'bl', bg: Color(0xFFF8CB46), fg: Color(0xFF111111)),
+    (keys: ['zepto'], label: 'Z', bg: Color(0xFF3B007A), fg: Color(0xFFFF3269)),
+    (keys: ['flipkart'], label: 'f', bg: Color(0xFF2874F0), fg: Color(0xFFFFE500)),
+    (keys: ['myntra'], label: 'M', bg: Color(0xFFFF3F6C), fg: Colors.white),
+    (keys: ['ajio'], label: 'AJ', bg: Color(0xFF2C4152), fg: Colors.white),
+    (keys: ['nykaa'], label: 'N', bg: Color(0xFFFC2779), fg: Colors.white),
+    (keys: ['meesho'], label: 'm', bg: Color(0xFF9F2089), fg: Colors.white),
+    (keys: ['dmart'], label: 'D', bg: Color(0xFF007A3D), fg: Color(0xFFFFD100)),
+    (keys: ['ola'], label: 'O', bg: Color(0xFF141414), fg: Color(0xFFD4FF3A)),
+    (keys: ['rapido'], label: 'R', bg: Color(0xFFF9C935), fg: Color(0xFF111111)),
+    (keys: ['namma yatri'], label: 'NY', bg: Color(0xFF1B5E20), fg: Color(0xFFFFD54F)),
+    (keys: ['irctc'], label: 'IR', bg: Color(0xFF003B73), fg: Colors.white),
+    (keys: ['cred'], label: 'CR', bg: Color(0xFF121212), fg: Color(0xFFF4F1EA)),
+    (keys: ['groww'], label: 'G', bg: Color(0xFF00D09C), fg: Color(0xFF0B0D02)),
+    (keys: ['hotstar', 'jiohotstar'], label: 'H★', bg: Color(0xFF0A1230), fg: Color(0xFF38BDF8)),
+    (keys: ['jiocinema'], label: 'JC', bg: Color(0xFFD9008D), fg: Colors.white),
+    (keys: ['sonyliv'], label: 'SL', bg: Color(0xFF1C1C22), fg: Color(0xFFFF9F43)),
+    (keys: ['pvr', 'inox'], label: 'PV', bg: Color(0xFF1B1B1B), fg: Color(0xFFFFD23F)),
+    (keys: ['dominos'], label: 'D', bg: Color(0xFF006491), fg: Colors.white),
+    (keys: ['chaayos'], label: 'C', bg: Color(0xFF00A859), fg: Colors.white),
+    (keys: ['haldiram'], label: 'H', bg: Color(0xFFB71C1C), fg: Color(0xFFFFD54F)),
+    (keys: ['apollo'], label: 'A+', bg: Color(0xFF007B8A), fg: Colors.white),
+    (keys: ['pharmeasy'], label: 'PE', bg: Color(0xFF10847E), fg: Colors.white),
+    (keys: ['1mg'], label: '1mg', bg: Color(0xFFFF6F61), fg: Colors.white),
+    (keys: ['lenskart'], label: 'LK', bg: Color(0xFF000042), fg: Color(0xFF2DD4BF)),
+    (keys: ['makemytrip', 'mmt'], label: 'MMT', bg: Color(0xFFEB2026), fg: Colors.white),
+    (keys: ['redbus'], label: 'rB', bg: Color(0xFFD84E55), fg: Colors.white),
+    (keys: ['urban company', 'urbanclap'], label: 'UC', bg: Color(0xFF141414), fg: Colors.white),
+    (keys: ['bescom', 'tata power'], label: '⚡', bg: Color(0xFF1D3A6B), fg: Color(0xFFFFD23F)),
+    (keys: ['sbi'], label: 'SBI', bg: Color(0xFF280071), fg: Color(0xFF00B5EF)),
+    (keys: ['kotak'], label: 'K', bg: Color(0xFFED1C24), fg: Colors.white),
+  ];
+
+  bool _matchesKey(String name, String key) {
+    if (key.length <= 3) {
+      return RegExp('\\b${RegExp.escape(key)}\\b').hasMatch(name);
     }
-    return null;
+    return name.contains(key);
   }
 
   @override
   Widget build(BuildContext context) {
-    final brand = _brand;
-    if (brand != null) {
+    final name = merchant.toLowerCase();
+
+    // 1. Amazon custom SVG (not in SimpleIcons)
+    if (name.contains('amazon')) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: _brandBackground(brand),
+          color: const Color(0xFF232F3E),
           borderRadius: BorderRadius.circular(size * 0.34),
         ),
         alignment: Alignment.center,
         child: SvgPicture.string(
-          _brandSvg(brand),
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M6 15c4 3 8 3 12 0M15 17l3-2" stroke="#ff9900" stroke-width="2"/><path d="M9 11a3 3 0 1 1 3 3" stroke="#fff" stroke-width="1.8"/></svg>',
           width: size * 0.58,
           height: size * 0.58,
         ),
       );
     }
+
+    // 2. Cult custom SVG
+    if (name.contains('cult')) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF3366),
+          borderRadius: BorderRadius.circular(size * 0.34),
+        ),
+        alignment: Alignment.center,
+        child: SvgPicture.string(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9v6M9 7v10M15 7v10M18 9v6M9 12h6"/></svg>',
+          width: size * 0.58,
+          height: size * 0.58,
+        ),
+      );
+    }
+
+    // 3. Official SimpleIcons vector brand marks
+    for (final brand in _simpleBrands) {
+      if (brand.keys.any((k) => _matchesKey(name, k))) {
+        final fg = brand.bg.computeLuminance() > 0.55
+            ? const Color(0xFF111111)
+            : Colors.white;
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: brand.bg,
+            borderRadius: BorderRadius.circular(size * 0.34),
+          ),
+          alignment: Alignment.center,
+          child: Icon(brand.icon, size: size * 0.54, color: fg),
+        );
+      }
+    }
+
+    // 4. Custom Indian brand marks
+    for (final brand in _customBrands) {
+      if (brand.keys.any((k) => _matchesKey(name, k))) {
+        final fontSize = brand.label.length >= 3
+            ? size * 0.28
+            : (brand.label.length == 2 ? size * 0.34 : size * 0.42);
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: brand.bg,
+            borderRadius: BorderRadius.circular(size * 0.34),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            brand.label,
+            style: TextStyle(
+              color: brand.fg,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+              height: 1,
+            ),
+          ),
+        );
+      }
+    }
+
+    // 5. Category icon fallback
     final color = AppColors.category(category);
     final path = _categoryPaths[category] ?? _otherPath;
     final svg =
@@ -265,45 +418,6 @@ class MerchantAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: SvgPicture.string(svg, width: size * 0.55, height: size * 0.55),
     );
-  }
-
-  static Color _brandBackground(String brand) {
-    return switch (brand) {
-      'netflix' => const Color(0xFF141414),
-      'spotify' => const Color(0xFF1DB954),
-      'youtube' => const Color(0xFFFF0000),
-      'icloud' => const Color(0xFF2F80ED),
-      'notion' => const Color(0xFFF4F1EA),
-      'amazon' => const Color(0xFF232F3E),
-      'cult' => const Color(0xFFFF3366),
-      'swiggy' => const Color(0xFFFC8019),
-      'zomato' => const Color(0xFFE23744),
-      'uber' => const Color(0xFF000000),
-      _ => const Color(0xFF1C1C22),
-    };
-  }
-
-  static String _brandSvg(String brand) {
-    const open =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
-    return switch (brand) {
-      'netflix' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 4h3l4 9V4h3v16h-3l-4-9v9H7z" fill="#e50914"/></svg>',
-      'spotify' =>
-        '$open<path d="M6 9c4-1.2 8-1 12 1M7 12.5c3.4-1 6.6-.8 10 .8M8 16c2.6-.7 5-.5 8 .7"/></svg>',
-      'youtube' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 8.5v7l6-3.5z" fill="#fff"/></svg>',
-      'icloud' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 17 9.5a4.2 4.2 0 0 1 .5 8.5z" fill="#fff"/></svg>',
-      'notion' =>
-        '$open<path d="M8 6v12M8 6l8 12M16 6v12" stroke="#111" stroke-width="2.2"/></svg>',
-      'amazon' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M6 15c4 3 8 3 12 0M15 17l3-2" stroke="#ff9900" stroke-width="2"/><path d="M9 11a3 3 0 1 1 3 3" stroke="#fff" stroke-width="1.8"/></svg>',
-      'cult' =>
-        '$open<path d="M6 9v6M9 7v10M15 7v10M18 9v6M9 12h6" stroke-width="2"/></svg>',
-      'swiggy' =>
-        '$open<path d="M15 7c-4-2-8 1-5 4s5 2 2 6" stroke-width="2.4"/></svg>',
-      'zomato' => '$open<path d="M8 7h8l-8 10h8" stroke-width="2.4"/></svg>',
-      'uber' =>
-        '$open<path d="M8 6v7a4 4 0 0 0 8 0V6" stroke-width="2.4"/></svg>',
-      _ => '$open<path d="M5 12h14"/></svg>',
-    };
   }
 }
 

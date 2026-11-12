@@ -58,6 +58,7 @@ dependencies:
   google_sign_in: ^7.2.0
   animations: ^3.0.0
   flutter_timezone: ^5.1.1
+  simple_icons: ^16.23.0
 
 dev_dependencies:
   flutter_test:
