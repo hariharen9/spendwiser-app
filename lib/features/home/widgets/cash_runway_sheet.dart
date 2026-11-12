@@ -61,7 +61,10 @@ class _CashRunwaySheet extends ConsumerWidget {
     final billsToLow = eventsToLow
         .where((event) => !event.isIncome)
         .fold<double>(0, (sum, event) => sum - event.amount);
-    final spendToLow = runway.dailySpend * lowDay;
+    final spendToLow = math.max(
+      0.0,
+      runway.startingBalance + incomeToLow - billsToLow - runway.lowestBalance,
+    );
     final lowDrivers = eventsToLow.where((event) => !event.isIncome).toList()
       ..sort((a, b) => a.amount.compareTo(b.amount));
     final status = shortfall

@@ -141,6 +141,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const PageHeader(
           title: 'Settings',
           subtitle: 'Your account, money and privacy',
+          bottom: 16,
         ),
         AppCard(
           onTap: () => _editProfile(context, settings),

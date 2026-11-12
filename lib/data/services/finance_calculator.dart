@@ -505,7 +505,6 @@ abstract final class FinanceCalculator {
     final window = (payday == null ? 30 : payday.difference(start).inDays)
         .clamp(1, 60)
         .toInt();
-    final dailySpend = avgDailySpend(snapshot, now: n);
     final upcoming = bills(
       snapshot,
       now: n,
@@ -520,9 +519,18 @@ abstract final class FinanceCalculator {
       ))
         if (subscription.recurringId != null) subscription.recurringId!,
     };
+    final trackedKeys = <String>{
+      for (final bill in upcoming) _normMerchant(bill.name),
+      for (final s in snapshot.subscriptions.where((s) => s.active))
+        _normMerchant(s.name),
+    }..remove('');
+    final limit = start.add(Duration(days: window));
+
     for (final recurring in snapshot.recurring.where(
       (item) => item.active && !item.isIncome,
     )) {
+      final recurringKey = _normMerchant(recurring.name);
+      if (recurringKey.isNotEmpty) trackedKeys.add(recurringKey);
       if (subscribedIds.contains(recurring.id)) continue;
       final base = recurring.lastProcessedDate ?? recurring.startDate;
       var date = base == null
@@ -532,20 +540,68 @@ abstract final class FinanceCalculator {
       while (!date.isAfter(start) && guard++ < 120) {
         date = _addRecurring(date, recurring.frequency);
       }
-      final limit = start.add(Duration(days: window));
+      final paidThisMonth =
+          recurring.frequency == RecurringFrequency.monthly &&
+          snapshot.transactions.any(
+            (t) =>
+                t.amount < 0 &&
+                t.date.year == start.year &&
+                t.date.month == start.month &&
+                _normMerchant(t.merchant) == recurringKey,
+          );
       while (!date.isAfter(limit) && guard++ < 240) {
-        commitments.add((
-          date: dateOnly(date),
-          label: recurring.name,
-          amount: recurring.amount.abs(),
-        ));
+        final sameMonth = date.year == start.year && date.month == start.month;
+        if (!(paidThisMonth && sameMonth)) {
+          commitments.add((
+            date: dateOnly(date),
+            label: recurring.name,
+            amount: recurring.amount.abs(),
+          ));
+        }
         date = _addRecurring(date, recurring.frequency);
       }
     }
 
+    // Auto-detect recurring monthly outflows from transaction history that
+    // aren't explicitly registered in `recurring` or `subscriptions`.
+    final detectedRecurring = _detectRecurringOutflows(
+      snapshot,
+      start,
+      trackedKeys,
+    );
+    final detectedKeys = <String>{};
+    for (final det in detectedRecurring) {
+      detectedKeys.add(det.key);
+      for (var mOffset = 0; mOffset <= 2; mOffset++) {
+        final targetMonth = DateTime(start.year, start.month + mOffset, 1);
+        final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0).day;
+        final dueDate = DateTime(
+          targetMonth.year,
+          targetMonth.month,
+          det.expectedDay.clamp(1, lastDay),
+        );
+        if (dueDate.isBefore(start) || dueDate.isAfter(limit)) continue;
+        final sameMonth =
+            dueDate.year == start.year && dueDate.month == start.month;
+        if (det.paidThisMonth && sameMonth) continue;
+        commitments.add((
+          date: dueDate,
+          label: det.label,
+          amount: det.amount,
+        ));
+      }
+    }
+
+    final spendModel = _RunwaySpendModel.fromSnapshot(
+      snapshot,
+      start: start,
+      extraExcludedMerchants: {...trackedKeys, ...detectedKeys},
+    );
+
     var balance = starting;
     var lowest = starting;
     var lowestDate = start;
+    var projectedVariableTotal = 0.0;
     final points = <CashRunwayPoint>[];
     final events = <CashRunwayEvent>[];
 
@@ -564,7 +620,11 @@ abstract final class FinanceCalculator {
           ),
         );
       }
-      if (d > 0) balance -= dailySpend;
+      if (d > 0) {
+        final daySpend = spendModel.dailyFor(date);
+        balance -= daySpend;
+        projectedVariableTotal += daySpend;
+      }
       for (final commitment in commitments.where(
         (commitment) => commitment.date.difference(start).inDays == d,
       )) {
@@ -584,6 +644,8 @@ abstract final class FinanceCalculator {
         lowestDate = date;
       }
     }
+
+    final dailySpend = window > 0 ? projectedVariableTotal / window : 0.0;
 
     return CashRunway(
       startDate: start,
@@ -722,6 +784,117 @@ abstract final class FinanceCalculator {
       count++;
     }
     return count == 0 ? 0 : total / count;
+  }
+
+  static const _fixedCategories = <String>{
+    'Transfer',
+    'EMI',
+    'Bills & EMIs',
+    'Bills',
+    'Rent & Housing',
+    'Rent',
+    'Utilities',
+    'Investment',
+  };
+
+  static String _normMerchant(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  /// Estimates typical *variable* daily cash spend for Cash Runway.
+  ///
+  /// Excludes fixed/committed categories (rent, EMIs, bills, utilities,
+  /// investments, transfers), credit-card swipes (covered by card dues),
+  /// and active recurring/subscription merchants (scheduled separately),
+  /// then caps single-day outliers so lump-sum purchases don't skew the curve.
+  static double discretionaryDailySpend(
+    FinanceSnapshot snapshot, {
+    DateTime? now,
+  }) {
+    final start = todayFrom(now ?? snapshot.generatedAt);
+    final detected = _detectRecurringOutflows(snapshot, start, const {});
+    return _RunwaySpendModel.fromSnapshot(
+      snapshot,
+      start: start,
+      extraExcludedMerchants: {for (final d in detected) d.key},
+    ).overallMean;
+  }
+
+  static List<
+    ({
+      String label,
+      String key,
+      double amount,
+      int expectedDay,
+      bool paidThisMonth,
+    })
+  >
+  _detectRecurringOutflows(
+    FinanceSnapshot snapshot,
+    DateTime start,
+    Set<String> alreadyTracked,
+  ) {
+    final cutoff = start.subtract(const Duration(days: 180));
+    final byMerchant = <String, List<Transaction>>{};
+    for (final t in snapshot.transactions) {
+      if (t.amount >= 0) continue;
+      if (t.cardId != null && t.cardId!.isNotEmpty) continue;
+      if (t.category == 'Transfer') continue;
+      final day = dateOnly(t.date);
+      if (day.isBefore(cutoff) || day.isAfter(start)) continue;
+      final key = _normMerchant(t.merchant);
+      if (key.isEmpty || alreadyTracked.contains(key)) continue;
+      byMerchant.putIfAbsent(key, () => []).add(t);
+    }
+
+    final detected =
+        <
+          ({
+            String label,
+            String key,
+            double amount,
+            int expectedDay,
+            bool paidThisMonth,
+          })
+        >[];
+    for (final entry in byMerchant.entries) {
+      final txs = entry.value;
+      final months = <int>{for (final t in txs) t.date.year * 12 + t.date.month};
+      // Must span >= 2 distinct months and occur roughly once per month.
+      if (months.length < 2 || txs.length > months.length + 1) continue;
+
+      final amounts = txs.map((t) => t.amount.abs()).toList()..sort();
+      final mid = amounts.length ~/ 2;
+      final medianAmount = amounts.length.isOdd
+          ? amounts[mid]
+          : (amounts[mid - 1] + amounts[mid]) / 2;
+      if (medianAmount <= 0) continue;
+      if (amounts.first < medianAmount * 0.65 ||
+          amounts.last > medianAmount * 1.35) {
+        continue;
+      }
+
+      final days = txs.map((t) => t.date.day).toList()..sort();
+      final daySpread = days.last - days.first;
+      // Handle month-boundary wrap (e.g., 30th and 2nd) if spread is wide.
+      final wrappedSpread = daySpread <= 8
+          ? daySpread
+          : (30 - days.last) + days.first;
+      if (wrappedSpread > 8) continue;
+
+      final expectedDay = days[days.length ~/ 2].clamp(1, 31);
+      final paidThisMonth = txs.any(
+        (t) => t.date.year == start.year && t.date.month == start.month,
+      );
+      detected.add((
+        label: txs.last.merchant,
+        key: entry.key,
+        amount: medianAmount,
+        expectedDay: expectedDay,
+        paidThisMonth: paidThisMonth,
+      ));
+    }
+    return detected;
   }
 
   static double avgDailySpend(FinanceSnapshot snapshot, {DateTime? now}) {
@@ -1034,5 +1207,150 @@ abstract final class FinanceCalculator {
     final n = now ?? DateTime.now();
     final d = DateTime(n.year, n.month + months, 1);
     return '${monthFull[d.month - 1]} ${d.year}';
+  }
+}
+
+/// Phase-aware, recency-weighted, outlier-resistant variable spend model used
+/// by [FinanceCalculator.cashRunway].
+class _RunwaySpendModel {
+  const _RunwaySpendModel({
+    required this.overallMean,
+    required this.phaseRates,
+    required this.weekdayMult,
+    required this.weekendMult,
+  });
+
+  final double overallMean;
+  final List<double> phaseRates;
+  final double weekdayMult;
+  final double weekendMult;
+
+  static int _phaseOf(int dayOfMonth) {
+    if (dayOfMonth <= 7) return 0; // Early month
+    if (dayOfMonth <= 20) return 1; // Mid month
+    return 2; // Late month
+  }
+
+  static _RunwaySpendModel fromSnapshot(
+    FinanceSnapshot snapshot, {
+    required DateTime start,
+    Set<String> extraExcludedMerchants = const {},
+  }) {
+    final cutoff = start.subtract(const Duration(days: 120));
+    final excluded = <String>{
+      for (final s in snapshot.subscriptions.where((s) => s.active))
+        FinanceCalculator._normMerchant(s.name),
+      for (final r in snapshot.recurring.where((r) => r.active && !r.isIncome))
+        FinanceCalculator._normMerchant(r.name),
+      ...extraExcludedMerchants,
+    }..remove('');
+
+    final byDay = <DateTime, double>{};
+    DateTime? earliest;
+    for (final t in snapshot.transactions) {
+      if (t.amount >= 0) continue;
+      if (t.cardId != null && t.cardId!.isNotEmpty) continue;
+      if (FinanceCalculator._fixedCategories.contains(t.category)) continue;
+      if (excluded.contains(FinanceCalculator._normMerchant(t.merchant))) {
+        continue;
+      }
+      final day = dateOnly(t.date);
+      if (day.isBefore(cutoff) || day.isAfter(start)) continue;
+      if (earliest == null || day.isBefore(earliest)) earliest = day;
+      byDay[day] = (byDay[day] ?? 0) - t.amount;
+    }
+
+    if (byDay.isEmpty || earliest == null) {
+      return const _RunwaySpendModel(
+        overallMean: 0,
+        phaseRates: [0, 0, 0],
+        weekdayMult: 1,
+        weekendMult: 1,
+      );
+    }
+
+    final sortedNonZero = byDay.values.toList()..sort();
+    final mid = sortedNonZero.length ~/ 2;
+    final median = sortedNonZero.length.isOdd
+        ? sortedNonZero[mid]
+        : (sortedNonZero[mid - 1] + sortedNonZero[mid]) / 2;
+    final cap = math.max(median * 3.0, 2500.0);
+
+    final spanDays = (start.difference(earliest).inDays + 1).clamp(7, 120);
+    final windowStart = start.subtract(Duration(days: spanDays - 1));
+
+    var totalWeighted = 0.0;
+    var totalWeight = 0.0;
+    final phaseSum = <double>[0, 0, 0];
+    final phaseWeight = <double>[0, 0, 0];
+    var weekdaySum = 0.0;
+    var weekdayWeight = 0.0;
+    var weekendSum = 0.0;
+    var weekendWeight = 0.0;
+
+    for (var i = 0; i < spanDays; i++) {
+      final day = windowStart.add(Duration(days: i));
+      final age = start.difference(day).inDays;
+      final w = age <= 30 ? 1.5 : (age <= 60 ? 1.0 : 0.7);
+      final spend = math.min(byDay[day] ?? 0.0, cap);
+
+      totalWeighted += spend * w;
+      totalWeight += w;
+
+      final phase = _phaseOf(day.day);
+      phaseSum[phase] += spend * w;
+      phaseWeight[phase] += w;
+
+      if (day.weekday >= DateTime.saturday) {
+        weekendSum += spend * w;
+        weekendWeight += w;
+      } else {
+        weekdaySum += spend * w;
+        weekdayWeight += w;
+      }
+    }
+
+    final overallMean = totalWeight > 0 ? totalWeighted / totalWeight : 0.0;
+    if (overallMean <= 0) {
+      return const _RunwaySpendModel(
+        overallMean: 0,
+        phaseRates: [0, 0, 0],
+        weekdayMult: 1,
+        weekendMult: 1,
+      );
+    }
+
+    const phasePrior = 5.0;
+    final phaseRates = List<double>.generate(
+      3,
+      (p) => (phaseSum[p] + phasePrior * overallMean) /
+          (phaseWeight[p] + phasePrior),
+    );
+
+    const dowPrior = 7.0;
+    final wdRate = (weekdaySum + dowPrior * overallMean) /
+        (weekdayWeight + dowPrior);
+    final weRate = (weekendSum + dowPrior * overallMean) /
+        (weekendWeight + dowPrior);
+    final avgWeekRate = (5 * wdRate + 2 * weRate) / 7;
+    final weekdayMult = avgWeekRate > 0
+        ? (wdRate / avgWeekRate).clamp(0.65, 1.65)
+        : 1.0;
+    final weekendMult = avgWeekRate > 0
+        ? (weRate / avgWeekRate).clamp(0.65, 1.65)
+        : 1.0;
+
+    return _RunwaySpendModel(
+      overallMean: overallMean,
+      phaseRates: phaseRates,
+      weekdayMult: weekdayMult,
+      weekendMult: weekendMult,
+    );
+  }
+
+  double dailyFor(DateTime date) {
+    final base = phaseRates[_phaseOf(date.day)];
+    final mult = date.weekday >= DateTime.saturday ? weekendMult : weekdayMult;
+    return base * mult;
   }
 }
