@@ -101,11 +101,9 @@ class _AppShellState extends ConsumerState<AppShell>
         return;
       }
 
-      // Only lock if app was truly backgrounded for more than a transient dialog duration
-      if (pausedTime != null && sec.isLockEnabled) {
-        if (DateTime.now().difference(pausedTime).inMilliseconds > 800) {
-          secNotifier.lock();
-        }
+      // Re-lock only if past the configured post-unlock grace period
+      if (pausedTime != null && secNotifier.shouldLockOnResume(pausedTime)) {
+        secNotifier.lock();
       }
     }
   }

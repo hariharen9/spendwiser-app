@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:convert';
@@ -7,6 +6,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:hive/hive.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/state/auth_provider.dart';
 import '../../core/state/providers.dart';
@@ -467,9 +467,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: 'lock',
               title: 'App lock',
               subtitle: security.hasPin
-                  ? (security.biometricsEnabled
-                        ? 'PIN + biometrics enabled'
-                        : 'PIN enabled')
+                  ? '${security.biometricsEnabled ? 'PIN + biometrics' : 'PIN'} · ${_autoLockLabel(security.autoLockMinutes)}'
                   : 'Off',
               trailing: AppPill(
                 label: security.isLockEnabled ? 'On' : 'Off',
@@ -617,13 +615,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 10),
               Pressable(
-                onTap: () {
-                  Clipboard.setData(
-                    const ClipboardData(text: 'https://hariharen.space'),
+                onTap: () async {
+                  final ok = await launchUrl(
+                    Uri.parse('https://hariharen.space'),
+                    mode: LaunchMode.externalApplication,
                   );
-                  ref
-                      .read(toastProvider.notifier)
-                      .show('Copied hariharen.space');
+                  if (!ok && context.mounted) {
+                    ref
+                        .read(toastProvider.notifier)
+                        .show('Could not open hariharen.space');
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1210,11 +1211,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  String _autoLockLabel(int minutes) {
+    if (minutes <= 0) return 'Immediate';
+    if (minutes == 60) return '1 hr';
+    return '$minutes min';
+  }
+
   void _showPinVault(BuildContext context) {
     showAppSheet<void>(
       context,
       (sheetContext) => Consumer(
-        builder: (_, sheetRef, _) {
+        builder: (builderContext, sheetRef, _) {
+          final c = builderContext.spend;
           final security = sheetRef.watch(securityProvider);
           final hasPin = security.hasPin;
           final biometrics = security.biometricsEnabled;
@@ -1317,6 +1325,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ),
+              if (hasPin) ...[
+                const SizedBox(height: 12),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Auto-lock after unlock',
+                        style: AppTypography.sans(
+                          size: 13,
+                          color: c.tx,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Stay unlocked while switching apps during this window.',
+                        style: AppTypography.sans(size: 11, color: c.mu),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final mins in const [0, 1, 5, 15, 30, 60])
+                            AppPill(
+                              label: _autoLockLabel(mins),
+                              active: security.autoLockMinutes == mins,
+                              onTap: () => sheetRef
+                                  .read(securityProvider.notifier)
+                                  .setAutoLockMinutes(mins),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               if (!hasPin)
                 PrimaryButton(

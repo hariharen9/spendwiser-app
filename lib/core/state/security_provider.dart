@@ -12,6 +12,7 @@ class SecurityState {
     required this.hasPin,
     required this.biometricsEnabled,
     required this.biometricsSupported,
+    this.autoLockMinutes = PinVault.defaultAutoLockMinutes,
     this.isAuthenticatingBiometrics = false,
     this.lockoutSecondsRemaining = 0,
   });
@@ -20,6 +21,7 @@ class SecurityState {
   final bool hasPin;
   final bool biometricsEnabled;
   final bool biometricsSupported;
+  final int autoLockMinutes;
   final bool isAuthenticatingBiometrics;
   final int lockoutSecondsRemaining;
 
@@ -31,6 +33,7 @@ class SecurityState {
     bool? hasPin,
     bool? biometricsEnabled,
     bool? biometricsSupported,
+    int? autoLockMinutes,
     bool? isAuthenticatingBiometrics,
     int? lockoutSecondsRemaining,
   }) {
@@ -39,6 +42,7 @@ class SecurityState {
       hasPin: hasPin ?? this.hasPin,
       biometricsEnabled: biometricsEnabled ?? this.biometricsEnabled,
       biometricsSupported: biometricsSupported ?? this.biometricsSupported,
+      autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
       isAuthenticatingBiometrics:
           isAuthenticatingBiometrics ?? this.isAuthenticatingBiometrics,
       lockoutSecondsRemaining:
@@ -67,6 +71,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
       hasPin: hasPin,
       biometricsEnabled: biometrics,
       biometricsSupported: false,
+      autoLockMinutes: PinVault.autoLockMinutes,
       lockoutSecondsRemaining: PinVault.lockoutRemainingSeconds,
     );
 
@@ -110,6 +115,27 @@ class SecurityNotifier extends Notifier<SecurityState> {
     } else {
       state = state.copyWith(lockoutSecondsRemaining: 0);
     }
+  }
+
+  /// Whether backgrounding should re-lock when returning from [pausedAt].
+  bool shouldLockOnResume(DateTime pausedAt) {
+    if (!state.isLockEnabled) return false;
+    final now = DateTime.now();
+    if (now.difference(pausedAt).inMilliseconds <= 800) return false;
+    final graceMinutes = state.autoLockMinutes;
+    if (graceMinutes > 0 && _lastAuthTime != null) {
+      if (now.difference(_lastAuthTime!).inSeconds < graceMinutes * 60) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Updates the post-unlock auto-lock grace period in minutes.
+  Future<void> setAutoLockMinutes(int minutes) async {
+    final clamped = minutes.clamp(0, 1440);
+    await PinVault.setAutoLockMinutes(clamped);
+    state = state.copyWith(autoLockMinutes: clamped);
   }
 
   /// Manually lock the app.
@@ -168,6 +194,7 @@ class SecurityNotifier extends Notifier<SecurityState> {
   /// Set a new 4-digit PIN.
   Future<void> setPin(String pin) async {
     await PinVault.setPin(pin);
+    _lastAuthTime = DateTime.now();
     state = state.copyWith(
       hasPin: true,
       lockoutSecondsRemaining: 0,

@@ -13,8 +13,10 @@ import 'package:local_auth/local_auth.dart';
 abstract final class PinVault {
   static const _pinHashKey = 'pinHash';
   static const _biometricsKey = 'biometricsEnabled';
+  static const _autoLockMinutesKey = 'autoLockMinutes';
   static const _failedAttemptsKey = 'pinFailedAttempts';
   static const _lockedUntilKey = 'pinLockedUntil';
+  static const int defaultAutoLockMinutes = 5;
 
   static final LocalAuthentication _localAuth = LocalAuthentication();
 
@@ -64,6 +66,19 @@ abstract final class PinVault {
   /// Sets whether biometrics are enabled.
   static Future<void> setBiometricsEnabled(bool enabled) async {
     await _box?.put(_biometricsKey, enabled ? 'true' : 'false');
+  }
+
+  /// Grace period (in minutes) after unlocking before backgrounding re-locks.
+  static int get autoLockMinutes {
+    final raw = _box?.get(_autoLockMinutesKey);
+    final parsed = raw == null ? null : int.tryParse(raw);
+    if (parsed == null || parsed < 0) return defaultAutoLockMinutes;
+    return parsed;
+  }
+
+  /// Persists the post-unlock auto-lock grace period in minutes.
+  static Future<void> setAutoLockMinutes(int minutes) async {
+    await _box?.put(_autoLockMinutesKey, minutes.clamp(0, 1440).toString());
   }
 
   /// Check whether hardware and OS support biometrics.
