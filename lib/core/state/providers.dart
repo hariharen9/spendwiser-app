@@ -478,6 +478,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
     int? reminderHour,
     int? reminderMinute,
     Map<String, Color>? categories,
+    AiProvider? aiProvider,
+    String? aiApiKey,
+    String? aiModel,
   }) {
     update(
       state.copyWith(
@@ -503,6 +506,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         categories: categories,
+        aiProvider: aiProvider,
+        aiApiKey: aiApiKey,
+        aiModel: aiModel,
       ),
     );
     if (haptics != null) Haptics.enabled = haptics;
@@ -712,6 +718,29 @@ class ToastNotifier extends Notifier<ToastMessage?> {
 final toastProvider = NotifierProvider<ToastNotifier, ToastMessage?>(
   ToastNotifier.new,
 );
+
+@immutable
+class LedgerPrefill {
+  const LedgerPrefill({this.query = '', this.category, this.from, this.to});
+  final String query;
+  final String? category;
+  final DateTime? from;
+  final DateTime? to;
+}
+
+class _LedgerPrefillNotifier extends Notifier<LedgerPrefill?> {
+  @override
+  LedgerPrefill? build() => null;
+
+  void set(LedgerPrefill? value) => state = value;
+
+  void clear() => state = null;
+}
+
+final ledgerPrefillProvider =
+    NotifierProvider<_LedgerPrefillNotifier, LedgerPrefill?>(
+      _LedgerPrefillNotifier.new,
+    );
 
 // --------------------------------------------------------------- haptics ---
 

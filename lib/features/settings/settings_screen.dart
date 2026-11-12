@@ -34,6 +34,7 @@ import '../../data/services/notifications_service.dart';
 import '../../data/sms/sms_inbox.dart';
 import '../../data/services/backup_service.dart';
 import '../home/customize_home_sheet.dart';
+import '../insights/services/ask_ai_client.dart';
 import '../shell/app_module.dart';
 import '../sms/sms_settings_sheet.dart';
 import 'delete_account_sheet.dart';
@@ -429,6 +430,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onChanged: _setSmsEnabled,
               ),
               onTap: () => _showSms(context),
+              last: true,
+            ),
+          ],
+        ),
+        _SettingsSectionHeader(
+          icon: 'sparkle',
+          title: 'Ask Spendwiser AI',
+          subtitle: 'Optional BYOK · works offline without a key',
+        ),
+        _SettingsCard(
+          children: [
+            _SettingsRow(
+              icon: 'sparkle',
+              title: 'AI provider (BYOK)',
+              subtitle: settings.hasAiKey
+                  ? '${settings.aiProvider.label} · ${settings.effectiveAiModel}'
+                  : 'Local engine only · add free Gemini or OpenRouter key',
+              trailing: AppPill(
+                label: settings.hasAiKey ? settings.aiProvider.label : 'Local',
+                active: settings.hasAiKey,
+              ),
+              onTap: () => _showAiSettings(context, settings),
               last: true,
             ),
           ],
@@ -997,6 +1020,205 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showSms(BuildContext context) {
     showSmsSettingsSheet(context);
+  }
+
+  Future<void> _showAiSettings(
+    BuildContext context,
+    AppSettings settings,
+  ) async {
+    var provider = settings.aiProvider == AiProvider.none
+        ? AiProvider.gemini
+        : settings.aiProvider;
+    final keyCtrl = TextEditingController(text: settings.aiApiKey);
+    final modelCtrl = TextEditingController(text: settings.aiModel);
+    var obscure = true;
+    var testing = false;
+    String? statusMsg;
+    var statusOk = false;
+
+    await showAppSheet<void>(
+      context,
+      (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final c = sheetContext.spend;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SheetTitle('Ask Spendwiser AI (BYOK)'),
+              const SizedBox(height: 6),
+              Text(
+                'Stored locally on your device. Gemini & OpenRouter offer free tiers — Spendwiser never sends your key anywhere else.',
+                style: AppTypography.sans(size: 12, color: c.mu),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Provider',
+                style: AppTypography.sans(
+                  size: 12,
+                  color: c.mu,
+                  weight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final p in AiProvider.values)
+                    AppPill(
+                      label: p == AiProvider.none ? 'Off (Local)' : p.label,
+                      active: provider == p,
+                      onTap: () => setSheetState(() {
+                        provider = p;
+                        statusMsg = null;
+                      }),
+                    ),
+                ],
+              ),
+              if (provider != AiProvider.none) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'API Key',
+                        style: AppTypography.sans(
+                          size: 12,
+                          color: c.mu,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setSheetState(() => obscure = !obscure),
+                      child: Text(
+                        obscure ? 'Show' : 'Hide',
+                        style: AppTypography.sans(
+                          size: 12,
+                          color: c.ac,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: keyCtrl,
+                  obscureText: obscure,
+                  style: AppTypography.sans(size: 14, color: c.tx),
+                  decoration: InputDecoration(
+                    hintText: provider == AiProvider.gemini
+                        ? 'AIza...'
+                        : provider == AiProvider.openrouter
+                        ? 'sk-or-v1-...'
+                        : 'sk-ant-...',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Model (optional)',
+                  style: AppTypography.sans(
+                    size: 12,
+                    color: c.mu,
+                    weight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: modelCtrl,
+                  style: AppTypography.sans(size: 14, color: c.tx),
+                  decoration: InputDecoration(
+                    hintText: 'Default: ${provider.defaultModel}',
+                  ),
+                ),
+                if (statusMsg != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    statusMsg!,
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: statusOk ? c.ac : c.co,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                AppButton(
+                  label: testing ? 'Testing connection…' : 'Test connection',
+                  centered: true,
+                  onTap: testing
+                      ? null
+                      : () async {
+                          setSheetState(() {
+                            testing = true;
+                            statusMsg = null;
+                          });
+                          try {
+                            await AskAiClient.testConnection(
+                              provider: provider,
+                              apiKey: keyCtrl.text,
+                              model: modelCtrl.text,
+                            );
+                            if (!sheetContext.mounted) return;
+                            setSheetState(() {
+                              testing = false;
+                              statusOk = true;
+                              statusMsg = 'Connected to ${provider.label}!';
+                            });
+                          } on AskAiException catch (e) {
+                            if (!sheetContext.mounted) return;
+                            setSheetState(() {
+                              testing = false;
+                              statusOk = false;
+                              statusMsg = e.message;
+                            });
+                          }
+                        },
+                ),
+              ],
+              const SizedBox(height: 16),
+              PrimaryButton(
+                label: 'Save',
+                onTap: () {
+                  ref.read(settingsProvider.notifier).patch(
+                    aiProvider: provider,
+                    aiApiKey: provider == AiProvider.none
+                        ? ''
+                        : keyCtrl.text.trim(),
+                    aiModel: provider == AiProvider.none
+                        ? ''
+                        : modelCtrl.text.trim(),
+                  );
+                  Navigator.of(sheetContext).pop();
+                  ref.read(toastProvider.notifier).show(
+                    provider == AiProvider.none || keyCtrl.text.trim().isEmpty
+                        ? 'Ask Spendwiser set to local mode'
+                        : '${provider.label} saved',
+                  );
+                },
+              ),
+              if (settings.hasAiKey) ...[
+                const SizedBox(height: 8),
+                AppButton(
+                  label: 'Clear API key',
+                  color: c.co,
+                  centered: true,
+                  onTap: () {
+                    ref.read(settingsProvider.notifier).patch(
+                      aiProvider: AiProvider.none,
+                      aiApiKey: '',
+                      aiModel: '',
+                    );
+                    Navigator.of(sheetContext).pop();
+                    ref.read(toastProvider.notifier).show('API key cleared');
+                  },
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _showPinVault(BuildContext context) {

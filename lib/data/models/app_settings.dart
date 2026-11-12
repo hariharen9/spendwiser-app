@@ -9,6 +9,17 @@ enum AppFontMode { dmSans, serif, mono }
 
 enum AppNavigationMode { orb, navbar }
 
+enum AiProvider {
+  none('Off (Local only)', ''),
+  gemini('Google Gemini', 'gemini-2.5-flash'),
+  openrouter('OpenRouter', 'openrouter/free'),
+  claude('Anthropic Claude', 'claude-3-5-haiku-latest');
+
+  const AiProvider(this.label, this.defaultModel);
+  final String label;
+  final String defaultModel;
+}
+
 /// Reorderable / hideable Home widgets, mirroring the prototype's Customize
 /// Home sheet.
 enum HomeWidget {
@@ -84,6 +95,9 @@ class AppSettings {
     this.reminderHour = 20,
     this.reminderMinute = 0,
     this.categories = AppColors.categories,
+    this.aiProvider = AiProvider.none,
+    this.aiApiKey = '',
+    this.aiModel = '',
   });
 
   final AppThemeMode theme;
@@ -108,6 +122,16 @@ class AppSettings {
   final int reminderHour;
   final int reminderMinute;
   final Map<String, Color> categories;
+  final AiProvider aiProvider;
+  final String aiApiKey;
+  final String aiModel;
+
+  bool get hasAiKey =>
+      aiProvider != AiProvider.none && aiApiKey.trim().isNotEmpty;
+
+  String get effectiveAiModel => aiModel.trim().isNotEmpty
+      ? aiModel.trim()
+      : aiProvider.defaultModel;
 
   bool get isDark => theme == AppThemeMode.dark;
 
@@ -149,6 +173,9 @@ class AppSettings {
     int? reminderHour,
     int? reminderMinute,
     Map<String, Color>? categories,
+    AiProvider? aiProvider,
+    String? aiApiKey,
+    String? aiModel,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -173,6 +200,9 @@ class AppSettings {
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       categories: categories ?? this.categories,
+      aiProvider: aiProvider ?? this.aiProvider,
+      aiApiKey: aiApiKey ?? this.aiApiKey,
+      aiModel: aiModel ?? this.aiModel,
     );
   }
 
@@ -199,6 +229,9 @@ class AppSettings {
     'reminderHour': reminderHour,
     'reminderMinute': reminderMinute,
     'categories': categories.map((k, v) => MapEntry(k, v.toARGB32())),
+    'aiProvider': aiProvider.name,
+    'aiApiKey': aiApiKey,
+    'aiModel': aiModel,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
@@ -258,6 +291,12 @@ class AppSettings {
     categories: ((j['categories'] as Map?) ?? {}).map(
       (k, v) => MapEntry(k as String, Color((v as num).toInt())),
     ),
+    aiProvider: AiProvider.values.firstWhere(
+      (e) => e.name == j['aiProvider'],
+      orElse: () => AiProvider.none,
+    ),
+    aiApiKey: j['aiApiKey'] as String? ?? '',
+    aiModel: j['aiModel'] as String? ?? '',
   );
 
   static List<AppModule> _parseNavbarModules(

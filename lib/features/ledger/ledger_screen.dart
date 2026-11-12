@@ -82,6 +82,24 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final prefill = ref.watch(ledgerPrefillProvider);
+    if (prefill != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final current = ref.read(ledgerPrefillProvider);
+        if (current == null) return;
+        ref.read(ledgerPrefillProvider.notifier).clear();
+        setState(() {
+          _view = _LedgerView.list;
+          _query = current.query;
+          _search.text = current.query;
+          _category = current.category;
+          _from = current.from;
+          _to = current.to;
+          _quick = current.from != null || current.to != null ? 'custom' : 'all';
+        });
+      });
+    }
     final snapshot = ref.watch(financeSnapshotProvider);
     final month = _month;
     final monthFlow = snapshot.flow(month);

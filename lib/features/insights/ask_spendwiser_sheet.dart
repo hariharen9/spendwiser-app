@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/state/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/date_helpers.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_icons.dart';
@@ -13,7 +11,8 @@ import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_caption.dart';
-import '../../data/models/finance_snapshot.dart';
+import 'services/ask_ai_client.dart';
+import 'services/local_ask_engine.dart';
 
 Future<void> showAskSpendwiserSheet(
   BuildContext context, {
@@ -38,7 +37,11 @@ class _AskSheet extends ConsumerStatefulWidget {
 
 class _AskSheetState extends ConsumerState<_AskSheet> {
   final _controller = TextEditingController();
-  _AskResult? _result;
+  LocalAskResult? _local;
+  String? _aiAnswer;
+  String? _aiError;
+  bool _aiLoading = false;
+  int _requestId = 0;
 
   @override
   void initState() {
@@ -57,22 +60,98 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
     super.dispose();
   }
 
-  void _ask(String query) {
-    if (query.trim().isEmpty) return;
+  void _ask(String query, {bool forceAi = false}) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
     final snapshot = ref.read(financeSnapshotProvider);
-    setState(() => _result = _AskResult.compute(snapshot, query));
+    final settings = ref.read(settingsProvider);
+    final local = LocalAskEngine.answer(
+      snapshot,
+      trimmed,
+      knownCategories: settings.categories.keys,
+    );
+    setState(() {
+      _local = local;
+      _aiAnswer = null;
+      _aiError = null;
+      _aiLoading = false;
+    });
     FocusScope.of(context).unfocus();
+
+    if (settings.hasAiKey && (forceAi || !local.isHighConfidence)) {
+      _askAi(trimmed);
+    }
+  }
+
+  Future<void> _askAi(String query) async {
+    final settings = ref.read(settingsProvider);
+    if (!settings.hasAiKey) return;
+    final snapshot = ref.read(financeSnapshotProvider);
+    final id = ++_requestId;
+    setState(() {
+      _aiLoading = true;
+      _aiError = null;
+    });
+    try {
+      final answer = await AskAiClient.ask(
+        provider: settings.aiProvider,
+        apiKey: settings.aiApiKey,
+        model: settings.effectiveAiModel,
+        query: query,
+        snapshot: snapshot,
+      );
+      if (!mounted || id != _requestId) return;
+      setState(() {
+        _aiAnswer = answer;
+        _aiLoading = false;
+      });
+    } on AskAiException catch (e) {
+      if (!mounted || id != _requestId) return;
+      setState(() {
+        _aiError = e.message;
+        _aiLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
-    final result = _result;
-    if (result == null) {
+    final settings = ref.watch(settingsProvider);
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final local = _local;
+    final firstTag = snapshot.tags.isNotEmpty ? snapshot.tags.first : null;
+
+    if (local == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SheetTitle('Ask Spendwiser'),
+          Row(
+            children: [
+              const Expanded(child: SheetTitle('Ask Spendwiser')),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: c.c2,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: c.ln),
+                ),
+                child: Text(
+                  settings.hasAiKey
+                      ? 'Hybrid · ${settings.aiProvider.label}'
+                      : 'Local · Instant',
+                  style: AppTypography.sans(
+                    size: 11,
+                    color: settings.hasAiKey ? c.ac : c.mu,
+                    weight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Container(
             height: 52,
@@ -96,7 +175,9 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                       border: InputBorder.none,
-                      hintText: 'e.g. Food last month, Uber this week',
+                      hintText: settings.hasAiKey
+                          ? 'Ask anything: last 2 days, #tag, 1 Nov to 10 Nov…'
+                          : 'e.g. Spends in last 2 days, #tag, Food Oct…',
                       hintStyle: AppTypography.sans(size: 13, color: c.mu),
                     ),
                   ),
@@ -122,12 +203,17 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final suggestion in const [
+              for (final suggestion in [
+                'Biggest spend this month',
+                'Spends in last 2 days',
+                'Transactions in last 7 days',
+                if (firstTag != null) 'Transactions in #$firstTag',
+                'Top merchants this month',
+                'Compare vs last month',
+                'Weekend spends',
                 'Food this month',
-                'Uber last month',
-                'Total spent this week',
-                'Income this month',
-                'Shopping last 30 days',
+                'Card dues',
+                if (settings.hasAiKey) 'How can I save ₹5,000 this month?',
               ])
                 AppPill(
                   label: suggestion,
@@ -183,27 +269,103 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
           ),
         ),
         const SizedBox(height: 18),
-        Text(result.label, style: AppTypography.sans(size: 12, color: c.mu)),
-        AnimatedAmount(
-          value: result.total,
-          duration: const Duration(milliseconds: 650),
-          style: AppTypography.serif(
-            size: 54,
-            color: c.tx,
-            letterSpacing: -1,
-            height: 1.05,
+        if (_aiLoading) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: c.c2,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: c.ac.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: c.ac,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Asking ${settings.aiProvider.label}…',
+                    style: AppTypography.sans(size: 13, color: c.tx),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ] else if (_aiAnswer != null) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 18),
+            decoration: BoxDecoration(
+              color: c.c2,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: c.ac.withValues(alpha: 0.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SpendIcon('sparkle', size: 14, color: c.ac),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${settings.aiProvider.label} · ${settings.effectiveAiModel}',
+                      style: AppTypography.sans(
+                        size: 11,
+                        color: c.ac,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _FormattedAiResponse(text: _aiAnswer!),
+              ],
+            ),
+          ),
+        ] else if (_aiError != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: c.co.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: c.co.withValues(alpha: 0.35)),
+            ),
+            child: Text(
+              _aiError!,
+              style: AppTypography.sans(size: 12, color: c.co),
+            ),
+          ),
+        ],
+        Text(local.headline, style: AppTypography.sans(size: 12, color: c.mu)),
+        if (local.amount != null)
+          AnimatedAmount(
+            value: local.amount!,
+            duration: const Duration(milliseconds: 650),
+            style: AppTypography.serif(
+              size: 52,
+              color: c.tx,
+              letterSpacing: -1,
+              height: 1.05,
+            ),
+          ),
         MoneyText(
-          '${result.count} transactions · ${rupee(result.perDay)} per day',
+          local.subtitle,
           style: AppTypography.sans(size: 12, color: c.mu),
         ),
-        if (result.top.isNotEmpty) ...[
+        if (local.bars.isNotEmpty) ...[
           const SectionCaption(
-            'Top',
+            'Breakdown',
             margin: EdgeInsets.only(top: 20, bottom: 8),
           ),
-          for (final entry in result.top)
+          for (final bar in local.bars)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Column(
@@ -211,13 +373,26 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          entry.key,
-                          style: AppTypography.sans(size: 14, color: c.tx),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              bar.label,
+                              style: AppTypography.sans(size: 14, color: c.tx),
+                            ),
+                            if (bar.sublabel != null)
+                              Text(
+                                bar.sublabel!,
+                                style: AppTypography.sans(
+                                  size: 11,
+                                  color: c.mu,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       MoneyText(
-                        rupee(entry.value),
+                        bar.valueText,
                         style: AppTypography.sans(size: 14, color: c.mu),
                       ),
                     ],
@@ -226,9 +401,7 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(9),
                     child: LinearProgressIndicator(
-                      value: result.top.first.value == 0
-                          ? 0
-                          : entry.value / result.top.first.value,
+                      value: bar.ratio,
                       minHeight: 6,
                       backgroundColor: c.c2,
                       valueColor: AlwaysStoppedAnimation(c.ac),
@@ -238,10 +411,27 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
               ),
             ),
         ],
-        if (widget.onOpenLedger != null)
+        if (settings.hasAiKey && _aiAnswer == null && !_aiLoading) ...[
+          const SizedBox(height: 6),
+          AppButton(
+            label: 'Ask ${settings.aiProvider.label} for deeper analysis',
+            centered: true,
+            onTap: () => _askAi(_controller.text),
+          ),
+        ] else if (!settings.hasAiKey && !local.isHighConfidence) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Tip: Add a free Gemini or OpenRouter API key in Settings → AI for conversational answers.',
+            textAlign: TextAlign.center,
+            style: AppTypography.sans(size: 11, color: c.mu),
+          ),
+        ],
+        const SizedBox(height: 10),
+        if (widget.onOpenLedger != null && local.ledgerPrefill != null)
           PrimaryButton(
             label: 'Open in ledger',
             onTap: () {
+              ref.read(ledgerPrefillProvider.notifier).set(local.ledgerPrefill);
               Navigator.of(context).pop();
               widget.onOpenLedger!();
             },
@@ -250,114 +440,222 @@ class _AskSheetState extends ConsumerState<_AskSheet> {
           label: 'Ask something else',
           centered: true,
           margin: const EdgeInsets.only(top: 8),
-          onTap: () => setState(() => _result = null),
+          onTap: () => setState(() {
+            _local = null;
+            _aiAnswer = null;
+            _aiError = null;
+            _aiLoading = false;
+          }),
         ),
       ],
     );
   }
 }
 
-class _AskResult {
-  const _AskResult({
-    required this.label,
-    required this.total,
-    required this.count,
-    required this.perDay,
-    required this.top,
-  });
+/// Renders lightweight Markdown (headings, bullet/numbered lists, bold, italic,
+/// inline code, and dividers) using SpendWiser's typography and accent tokens.
+class _FormattedAiResponse extends StatelessWidget {
+  const _FormattedAiResponse({required this.text});
 
-  final String label;
-  final double total;
-  final int count;
-  final double perDay;
-  final List<MapEntry<String, double>> top;
+  final String text;
 
-  factory _AskResult.compute(FinanceSnapshot snapshot, String query) {
-    final q = query.toLowerCase().trim();
-    final now = DateTime.now();
-    final today = dateOnly(now);
-    var start = DateTime(now.year, now.month, 1);
-    var end = DateTime(now.year, now.month + 1, 1);
-    var label = 'this month';
-
-    if (q.contains('today')) {
-      start = today;
-      end = today.add(const Duration(days: 1));
-      label = 'today';
-    } else if (q.contains('yesterday')) {
-      start = today.subtract(const Duration(days: 1));
-      end = today;
-      label = 'yesterday';
-    } else if (q.contains('last month')) {
-      start = DateTime(now.year, now.month - 1, 1);
-      end = DateTime(now.year, now.month, 1);
-      label = 'last month';
-    } else {
-      final lastDays = RegExp(r'last (\d+) days').firstMatch(q);
-      if (lastDays != null) {
-        final n = int.parse(lastDays.group(1)!);
-        start = today.subtract(Duration(days: n - 1));
-        end = today.add(const Duration(days: 1));
-        label = 'last $n days';
-      } else if (q.contains('week')) {
-        start = today.subtract(Duration(days: now.weekday - 1));
-        end = today.add(const Duration(days: 1));
-        label = 'this week';
-      } else if (q.contains('year')) {
-        start = DateTime(now.year, 1, 1);
-        end = today.add(const Duration(days: 1));
-        label = 'this year';
-      }
-    }
-
-    final category = snapshot.budgets
-        .map((b) => b.category)
-        .where((cat) => q.contains(cat.toLowerCase()))
-        .cast<String?>()
-        .firstWhere((_) => true, orElse: () => null);
-    final income = RegExp(r'income|earn|salary').hasMatch(q);
-    String? merchant;
-    final names = <String>{for (final t in snapshot.transactions) t.merchant};
-    for (final name in names) {
-      final token = name.toLowerCase().split(' ').first;
-      if (token.length > 2 && q.contains(token)) {
-        merchant = name;
-        break;
-      }
-    }
-
-    final matches = snapshot.transactions.where((t) {
-      if (t.date.isBefore(start) || !t.date.isBefore(end)) return false;
-      if (t.category == 'Transfer') return false;
-      if (income ? t.amount <= 0 : t.amount >= 0) return false;
-      if (category != null && t.category != category) return false;
-      if (merchant != null && t.merchant != merchant) return false;
-      return true;
-    }).toList();
-
-    final total = matches.fold<double>(0, (sum, t) => sum + t.amount.abs());
-    final cutoff = end.isAfter(today.add(const Duration(days: 1)))
-        ? today.add(const Duration(days: 1))
-        : end;
-    final days = cutoff.difference(start).inDays.clamp(1, 10000);
-    final topMap = <String, double>{};
-    for (final t in matches) {
-      topMap[t.merchant] = (topMap[t.merchant] ?? 0) + t.amount.abs();
-    }
-    final top = topMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final parts = <String>[];
-    parts.add(income ? 'Income' : 'Spent');
-    if (category != null) parts.add('on $category');
-    if (merchant != null) parts.add('· $merchant');
-    parts.add('· $label');
-    return _AskResult(
-      label: parts.join(' '),
-      total: total,
-      count: matches.length,
-      perDay: total / days,
-      top: top.take(4).toList(),
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final lines = text.replaceAll('\r\n', '\n').split('\n');
+    final widgets = <Widget>[];
+    final baseStyle = AppTypography.sans(
+      size: 13,
+      color: c.tx,
+      height: 1.5,
     );
+
+    for (var i = 0; i < lines.length; i++) {
+      final raw = lines[i].trimRight();
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) {
+        if (widgets.isNotEmpty) {
+          widgets.add(const SizedBox(height: 6));
+        }
+        continue;
+      }
+
+      // Horizontal rule
+      if (RegExp(r'^[-*_]{3,}$').hasMatch(trimmed)) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, color: c.ln),
+          ),
+        );
+        continue;
+      }
+
+      // Heading (# / ## / ###)
+      final headingMatch = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(trimmed);
+      if (headingMatch != null) {
+        final level = headingMatch.group(1)!.length;
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: widgets.isEmpty ? 0 : 8, bottom: 4),
+            child: Text.rich(
+              TextSpan(
+                children: _parseInline(
+                  headingMatch.group(2)!,
+                  AppTypography.sans(
+                    size: level == 1 ? 15 : 14,
+                    color: c.tx,
+                    weight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                  c,
+                ),
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // Bullet list (- , * , • )
+      final bulletMatch = RegExp(r'^[-*•]\s+(.+)$').firstMatch(trimmed);
+      if (bulletMatch != null) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 7, right: 8, left: 2),
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: c.ac,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: _parseInline(
+                        bulletMatch.group(1)!,
+                        baseStyle,
+                        c,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // Numbered list (1. , 2. )
+      final numMatch = RegExp(r'^(\d+\.)\s+(.+)$').firstMatch(trimmed);
+      if (numMatch != null) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 22,
+                  child: Text(
+                    numMatch.group(1)!,
+                    style: AppTypography.sans(
+                      size: 12,
+                      color: c.ac,
+                      weight: FontWeight.w600,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: _parseInline(numMatch.group(2)!, baseStyle, c),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // Regular paragraph line
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text.rich(
+            TextSpan(children: _parseInline(trimmed, baseStyle, c)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  static List<InlineSpan> _parseInline(
+    String input,
+    TextStyle base,
+    SpendColors c,
+  ) {
+    final spans = <InlineSpan>[];
+    final pattern = RegExp(
+      r'(\*\*(.+?)\*\*|__(.+?)__|`([^`]+)`|\*(.+?)\*|_([^_]+)_)',
+    );
+    var cursor = 0;
+    for (final match in pattern.allMatches(input)) {
+      if (match.start > cursor) {
+        spans.add(
+          TextSpan(text: input.substring(cursor, match.start), style: base),
+        );
+      }
+      final bold = match.group(2) ?? match.group(3);
+      final code = match.group(4);
+      final italic = match.group(5) ?? match.group(6);
+      if (bold != null) {
+        spans.add(
+          TextSpan(
+            text: bold,
+            style: base.copyWith(fontWeight: FontWeight.w600, color: c.tx),
+          ),
+        );
+      } else if (code != null) {
+        spans.add(
+          TextSpan(
+            text: code,
+            style: base.copyWith(
+              color: c.ac,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      } else if (italic != null) {
+        spans.add(
+          TextSpan(
+            text: italic,
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      }
+      cursor = match.end;
+    }
+    if (cursor < input.length) {
+      spans.add(TextSpan(text: input.substring(cursor), style: base));
+    }
+    return spans;
   }
 }
