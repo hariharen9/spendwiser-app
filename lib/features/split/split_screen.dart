@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
@@ -244,7 +245,10 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
         children: [
           const SheetTitle('Manage group'),
           const SizedBox(height: 12),
-          _Field(controller: name, hint: 'Group name'),
+          LabeledField(
+            label: 'Group name',
+            child: _Field(controller: name, hint: 'Group name'),
+          ),
           AppCard(
             child: Column(
               children: [

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/branding/app_icon.png" width="132" alt="SpendWiser" />
+<img src="assets/branding/icon-money.svg" width="132" alt="SpendWiser" />
 
 # SpendWiser
 
@@ -21,7 +21,7 @@ A private, beautifully obsessive financial operating system for Android.
 
 Your money is not a list of transactions. It is a living system.
 
-SpendWiser turns the chaos of accounts, cards, EMIs, subscriptions, bills and daily spending into one calm, cinematic command center — so you can see where you stand, what is coming, and what you can actually afford.
+SpendWiser turns the chaos of accounts, cards, EMIs, subscriptions, bills and daily spending into one calm, cinematic command center, so you can see where you stand, what is coming, and what you can actually afford.
 
 No spreadsheets. No guesswork. No noise.
 
@@ -916,7 +916,7 @@ That is SpendWiser.
 
 <br />
 
-Built with care for people who take their money seriously — and their tools even more so.
+Built with care for people who take their money seriously and their tools even more so.
 
 <br />
 

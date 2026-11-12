@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/health_score_gauge.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
@@ -194,18 +195,32 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
             ],
           ),
           const SectionCaption('Edit goal'),
-          _Field(controller: name, hint: 'Name'),
+          LabeledField(
+            label: 'Goal name',
+            child: _Field(controller: name, hint: 'Name'),
+          ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _Field(controller: target, hint: 'Target', number: true),
+                child: LabeledField(
+                  label: 'Target amount',
+                  child: _Field(
+                    controller: target,
+                    hint: 'Target',
+                    number: true,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _Field(
-                  controller: monthly,
-                  hint: 'Monthly',
-                  number: true,
+                child: LabeledField(
+                  label: 'Monthly contribution',
+                  child: _Field(
+                    controller: monthly,
+                    hint: 'Monthly',
+                    number: true,
+                  ),
                 ),
               ),
             ],

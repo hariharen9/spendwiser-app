@@ -11,6 +11,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/loan.dart';
@@ -116,71 +117,86 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
         const SheetTitle('Record payment'),
         Text(loan.name, style: AppTypography.sans(size: 12, color: c.mu)),
         const SizedBox(height: 8),
-        SegmentedControl<LoanPaymentType>(
-          options: const [
-            SegmentedOption(LoanPaymentType.emi, 'EMI'),
-            SegmentedOption(LoanPaymentType.prepayment, 'Prepayment'),
-          ],
-          selected: _type,
-          onChanged: (value) {
-            setState(() {
-              _type = value;
-              _amount.text =
-                  (value == LoanPaymentType.emi ? loan.emi : loan.outstanding)
-                      .round()
-                      .toString();
-            });
-          },
+        LabeledField(
+          label: 'Payment type',
+          child: SegmentedControl<LoanPaymentType>(
+            margin: EdgeInsets.zero,
+            options: const [
+              SegmentedOption(LoanPaymentType.emi, 'EMI'),
+              SegmentedOption(LoanPaymentType.prepayment, 'Prepayment'),
+            ],
+            selected: _type,
+            onChanged: (value) {
+              setState(() {
+                _type = value;
+                _amount.text =
+                    (value == LoanPaymentType.emi ? loan.emi : loan.outstanding)
+                        .round()
+                        .toString();
+              });
+            },
+          ),
         ),
-        _LoanField(controller: _amount, hint: 'Amount', number: true),
+        const SizedBox(height: 10),
+        LabeledField(
+          label: 'Amount',
+          child: _LoanField(controller: _amount, hint: 'Amount', number: true),
+        ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _date,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now(),
-                    builder: (context, child) => Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: Theme.of(context).colorScheme.copyWith(
-                          primary: c.ac,
-                          surface: c.c1,
-                          onSurface: c.tx,
+              child: LabeledField(
+                label: 'Payment date',
+                child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: Theme.of(context).colorScheme.copyWith(
+                            primary: c.ac,
+                            surface: c.c1,
+                            onSurface: c.tx,
+                          ),
                         ),
+                        child: child!,
                       ),
-                      child: child!,
+                    );
+                    if (picked != null) setState(() => _date = picked);
+                  },
+                  child: Container(
+                    height: 48,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 13),
+                    decoration: BoxDecoration(
+                      color: c.c2,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                  );
-                  if (picked != null) setState(() => _date = picked);
-                },
-                child: Container(
-                  height: 48,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 13),
-                  decoration: BoxDecoration(
-                    color: c.c2,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    isoDate(_date),
-                    style: AppTypography.sans(size: 13, color: c.tx),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isoDate(_date),
+                      style: AppTypography.sans(size: 13, color: c.tx),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: AppSelect<String>(
-                value: _accountId,
-                options: [
-                  for (final account in snapshot.accounts)
-                    AppSelectOption(account.id, account.name),
-                ],
-                onChanged: (value) => setState(() => _accountId = value),
+              child: LabeledField(
+                label: 'Paid from',
+                child: AppSelect<String>(
+                  value: _accountId,
+                  options: [
+                    for (final account in snapshot.accounts)
+                      AppSelectOption(account.id, account.name),
+                  ],
+                  onChanged: (value) => setState(() => _accountId = value),
+                ),
               ),
             ),
           ],
@@ -494,61 +510,92 @@ class _EditLoanSheetState extends ConsumerState<_EditLoanSheet> {
       children: [
         const SheetTitle('Edit loan'),
         const SizedBox(height: 12),
-        _LoanField(controller: _name, hint: 'Name'),
+        LabeledField(
+          label: 'Loan name',
+          child: _LoanField(controller: _name, hint: 'Name'),
+        ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _LoanField(controller: _lender, hint: 'Lender'),
+              child: LabeledField(
+                label: 'Lender',
+                child: _LoanField(controller: _lender, hint: 'Lender'),
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: AppSelect<LoanType>(
-                value: _type,
-                options: [
-                  for (final type in LoanType.values)
-                    AppSelectOption(type, type.label),
-                ],
-                onChanged: (value) =>
-                    setState(() => _type = value ?? LoanType.other),
+              child: LabeledField(
+                label: 'Loan type',
+                child: AppSelect<LoanType>(
+                  value: _type,
+                  options: [
+                    for (final type in LoanType.values)
+                      AppSelectOption(type, type.label),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _type = value ?? LoanType.other),
+                ),
               ),
             ),
           ],
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _LoanField(
-                controller: _outstanding,
-                hint: 'Outstanding',
-                number: true,
+              child: LabeledField(
+                label: 'Outstanding',
+                child: _LoanField(
+                  controller: _outstanding,
+                  hint: 'Outstanding',
+                  number: true,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _LoanField(
-                controller: _original,
-                hint: 'Original principal',
-                number: true,
+              child: LabeledField(
+                label: 'Original principal',
+                child: _LoanField(
+                  controller: _original,
+                  hint: 'Original principal',
+                  number: true,
+                ),
               ),
             ),
           ],
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _LoanField(
-                controller: _rate,
-                hint: 'Rate % p.a.',
-                number: true,
+              child: LabeledField(
+                label: 'Rate · % p.a.',
+                child: _LoanField(
+                  controller: _rate,
+                  hint: 'Rate % p.a.',
+                  number: true,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _LoanField(controller: _emi, hint: 'EMI', number: true),
+              child: LabeledField(
+                label: 'Monthly EMI',
+                child: _LoanField(controller: _emi, hint: 'EMI', number: true),
+              ),
             ),
           ],
         ),
-        _LoanField(controller: _emiDay, hint: 'EMI day of month', number: true),
+        LabeledField(
+          label: 'EMI day of month',
+          child: _LoanField(
+            controller: _emiDay,
+            hint: 'EMI day of month',
+            number: true,
+          ),
+        ),
         PrimaryButton(label: 'Save changes', onTap: _save),
       ],
     );

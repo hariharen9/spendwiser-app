@@ -10,6 +10,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/shortcut.dart';
 
@@ -75,10 +76,8 @@ class _ShortcutsSheet extends ConsumerWidget {
             ),
         PrimaryButton(
           label: '+ New shortcut',
-          onTap: () => showAppSheet<void>(
-            context,
-            (_) => const _ShortcutSheet(),
-          ),
+          onTap: () =>
+              showAppSheet<void>(context, (_) => const _ShortcutSheet()),
         ),
       ],
     );
@@ -113,7 +112,8 @@ class _ShortcutSheetState extends ConsumerState<_ShortcutSheet> {
     );
     _income = shortcut?.isIncome ?? false;
     final settings = ref.read(settingsProvider);
-    _category = shortcut?.category ??
+    _category =
+        shortcut?.category ??
         (settings.categories.isEmpty
             ? 'Other'
             : settings.categories.keys.first);
@@ -196,38 +196,56 @@ class _ShortcutSheetState extends ConsumerState<_ShortcutSheet> {
       children: [
         SheetTitle(widget.shortcut == null ? 'New shortcut' : 'Edit shortcut'),
         const SizedBox(height: 12),
-        _Field(controller: _keyword, hint: 'Keyword (e.g. coffee)'),
-        _Field(controller: _name, hint: 'Transaction name'),
-        _Field(
-          controller: _amount,
-          hint: 'Default amount (optional)',
-          number: true,
+        LabeledField(
+          label: 'Keyword',
+          child: _Field(controller: _keyword, hint: 'Keyword (e.g. coffee)'),
         ),
-        SegmentedControl<bool>(
-          margin: EdgeInsets.zero,
-          options: const [
-            SegmentedOption(false, 'Expense'),
-            SegmentedOption(true, 'Income'),
-          ],
-          selected: _income,
-          onChanged: (value) => setState(() => _income = value),
+        LabeledField(
+          label: 'Transaction name',
+          child: _Field(controller: _name, hint: 'Transaction name'),
+        ),
+        LabeledField(
+          label: 'Default amount',
+          child: _Field(
+            controller: _amount,
+            hint: 'Default amount (optional)',
+            number: true,
+          ),
+        ),
+        LabeledField(
+          label: 'Type',
+          child: SegmentedControl<bool>(
+            margin: EdgeInsets.zero,
+            options: const [
+              SegmentedOption(false, 'Expense'),
+              SegmentedOption(true, 'Income'),
+            ],
+            selected: _income,
+            onChanged: (value) => setState(() => _income = value),
+          ),
         ),
         const SizedBox(height: 10),
-        AppSelect<String>(
-          value: _category,
-          options: [
-            for (final category in categories)
-              AppSelectOption(category, category),
-          ],
-          onChanged: (value) =>
-              setState(() => _category = value ?? _category),
+        LabeledField(
+          label: 'Category',
+          child: AppSelect<String>(
+            value: _category,
+            options: [
+              for (final category in categories)
+                AppSelectOption(category, category),
+            ],
+            onChanged: (value) =>
+                setState(() => _category = value ?? _category),
+          ),
         ),
         const SizedBox(height: 10),
-        AppSelect<String>(
-          value: _accountId,
-          hint: 'No account',
-          options: accounts,
-          onChanged: (value) => setState(() => _accountId = value ?? ''),
+        LabeledField(
+          label: 'Account',
+          child: AppSelect<String>(
+            value: _accountId,
+            hint: 'No account',
+            options: accounts,
+            onChanged: (value) => setState(() => _accountId = value ?? ''),
+          ),
         ),
         const SizedBox(height: 16),
         PrimaryButton(label: 'Save shortcut', onTap: _save),

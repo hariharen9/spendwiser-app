@@ -8,6 +8,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_bottom_sheet.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../data/persistence/pin_vault.dart';
 import '../../data/sms/sms_inbox.dart';
 
@@ -88,10 +89,7 @@ class _DeleteAccountSheetState extends ConsumerState<_DeleteAccountSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SheetTitle(
-          'Delete account',
-          subtitle: 'This cannot be undone.',
-        ),
+        const SheetTitle('Delete account', subtitle: 'This cannot be undone.'),
         const SizedBox(height: 8),
         Text(
           'This permanently deletes your Spendwiser account, every transaction, '
@@ -101,10 +99,13 @@ class _DeleteAccountSheetState extends ConsumerState<_DeleteAccountSheet> {
         ),
         const SizedBox(height: 14),
         if (!isGoogle)
-          _Field(
-            controller: _password,
-            hint: 'Password',
-            obscure: true,
+          LabeledField(
+            label: 'Password',
+            child: _Field(
+              controller: _password,
+              hint: 'Password',
+              obscure: true,
+            ),
           )
         else
           Text(
@@ -112,16 +113,13 @@ class _DeleteAccountSheetState extends ConsumerState<_DeleteAccountSheet> {
             style: AppTypography.sans(size: 13, color: c.mu),
           ),
         const SizedBox(height: 8),
-        _Field(
-          controller: _confirm,
-          hint: 'Type DELETE to confirm',
+        LabeledField(
+          label: 'Confirmation',
+          child: _Field(controller: _confirm, hint: 'Type DELETE to confirm'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 4),
-          Text(
-            _error!,
-            style: AppTypography.sans(size: 13, color: c.co),
-          ),
+          Text(_error!, style: AppTypography.sans(size: 13, color: c.co)),
         ],
         const SizedBox(height: 10),
         AppButton(

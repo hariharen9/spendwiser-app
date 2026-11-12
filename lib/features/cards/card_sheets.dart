@@ -13,6 +13,7 @@ import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../core/widgets/money_text.dart';
@@ -153,16 +154,19 @@ class _PayCardSheetState extends ConsumerState<_PayCardSheet> {
           ),
         ),
         const SizedBox(height: 10),
-        AppSelect<String>(
-          value: _accountId,
-          options: [
-            for (final account in snapshot.accounts)
-              AppSelectOption(
-                account.id,
-                '${account.name} · ${rupee(account.balance)}',
-              ),
-          ],
-          onChanged: (value) => setState(() => _accountId = value),
+        LabeledField(
+          label: 'Pay from',
+          child: AppSelect<String>(
+            value: _accountId,
+            options: [
+              for (final account in snapshot.accounts)
+                AppSelectOption(
+                  account.id,
+                  '${account.name} · ${rupee(account.balance)}',
+                ),
+            ],
+            onChanged: (value) => setState(() => _accountId = value),
+          ),
         ),
         PrimaryButton(label: 'Pay now', onTap: _pay),
       ],
@@ -311,28 +315,48 @@ class _ManageCardSheetState extends ConsumerState<_ManageCardSheet> {
       children: [
         const SheetTitle('Manage card'),
         const SizedBox(height: 12),
-        _SheetField(controller: _name, hint: 'Card name'),
-        _SheetField(controller: _holder, hint: 'Cardholder name'),
+        LabeledField(
+          label: 'Card name',
+          child: _SheetField(controller: _name, hint: 'Card name'),
+        ),
+        LabeledField(
+          label: 'Cardholder name',
+          child: _SheetField(controller: _holder, hint: 'Cardholder name'),
+        ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _SheetField(
-                controller: _limit,
-                hint: 'Credit limit',
-                number: true,
+              child: LabeledField(
+                label: 'Credit limit',
+                child: _SheetField(
+                  controller: _limit,
+                  hint: 'Credit limit',
+                  number: true,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _SheetField(
-                controller: _statementDay,
-                hint: 'Statement day',
-                number: true,
+              child: LabeledField(
+                label: 'Statement day',
+                child: _SheetField(
+                  controller: _statementDay,
+                  hint: 'Statement day',
+                  number: true,
+                ),
               ),
             ),
           ],
         ),
-        _SheetField(controller: _dueDay, hint: 'Payment due day', number: true),
+        LabeledField(
+          label: 'Payment due day',
+          child: _SheetField(
+            controller: _dueDay,
+            hint: 'Payment due day',
+            number: true,
+          ),
+        ),
         const SizedBox(height: 4),
         const SectionCaption(
           'Statement history',

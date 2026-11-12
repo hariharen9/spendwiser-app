@@ -13,6 +13,7 @@ import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
@@ -208,22 +209,32 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         children: [
           SheetTitle('Edit ${subscription.name}'),
           const SizedBox(height: 12),
-          _Field(controller: name, hint: 'Name'),
+          LabeledField(
+            label: 'Subscription name',
+            child: _Field(controller: name, hint: 'Name'),
+          ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _Field(
-                  controller: price,
-                  hint: 'Monthly price',
-                  number: true,
+                child: LabeledField(
+                  label: 'Monthly price',
+                  child: _Field(
+                    controller: price,
+                    hint: 'Monthly price',
+                    number: true,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _Field(
-                  controller: days,
-                  hint: 'Renews in (days)',
-                  number: true,
+                child: LabeledField(
+                  label: 'Renews in · days',
+                  child: _Field(
+                    controller: days,
+                    hint: 'Renews in (days)',
+                    number: true,
+                  ),
                 ),
               ),
             ],
@@ -297,32 +308,45 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             children: [
               SheetTitle('Edit ${recurring.name}'),
               const SizedBox(height: 12),
-              _Field(controller: name, hint: 'Name'),
-              _Field(controller: amount, hint: 'Amount', number: true),
+              LabeledField(
+                label: 'Name',
+                child: _Field(controller: name, hint: 'Name'),
+              ),
+              LabeledField(
+                label: 'Amount',
+                child: _Field(controller: amount, hint: 'Amount', number: true),
+              ),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: AppSelect<RecurringFrequency>(
-                      value: frequency,
-                      options: [
-                        for (final f in RecurringFrequency.values)
-                          AppSelectOption(f, f.label),
-                      ],
-                      onChanged: (value) => setSheetState(
-                        () => frequency = value ?? recurring.frequency,
+                    child: LabeledField(
+                      label: 'Frequency',
+                      child: AppSelect<RecurringFrequency>(
+                        value: frequency,
+                        options: [
+                          for (final f in RecurringFrequency.values)
+                            AppSelectOption(f, f.label),
+                        ],
+                        onChanged: (value) => setSheetState(
+                          () => frequency = value ?? recurring.frequency,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: AppSelect<bool>(
-                      value: income,
-                      options: const [
-                        AppSelectOption(false, 'Expense'),
-                        AppSelectOption(true, 'Income'),
-                      ],
-                      onChanged: (value) =>
-                          setSheetState(() => income = value ?? false),
+                    child: LabeledField(
+                      label: 'Type',
+                      child: AppSelect<bool>(
+                        value: income,
+                        options: const [
+                          AppSelectOption(false, 'Expense'),
+                          AppSelectOption(true, 'Income'),
+                        ],
+                        onChanged: (value) =>
+                            setSheetState(() => income = value ?? false),
+                      ),
                     ),
                   ),
                 ],

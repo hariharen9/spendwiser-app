@@ -12,6 +12,7 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/widgets/section_caption.dart';
@@ -211,23 +212,33 @@ class AccountsScreen extends ConsumerWidget {
                 style: AppTypography.serif(size: 50, color: c.tx),
               ),
               const SizedBox(height: 10),
-              _Field(controller: name, hint: 'Name'),
+              LabeledField(
+                label: 'Account name',
+                child: _Field(controller: name, hint: 'Name'),
+              ),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: AppSelect<AccountType>(
-                      value: type,
-                      options: _accountTypeOptions,
-                      onChanged: (value) =>
-                          setSheetState(() => type = value ?? account.type),
+                    child: LabeledField(
+                      label: 'Account type',
+                      child: AppSelect<AccountType>(
+                        value: type,
+                        options: _accountTypeOptions,
+                        onChanged: (value) =>
+                            setSheetState(() => type = value ?? account.type),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _Field(
-                      controller: balance,
-                      hint: 'Balance',
-                      number: true,
+                    child: LabeledField(
+                      label: 'Balance',
+                      child: _Field(
+                        controller: balance,
+                        hint: 'Balance',
+                        number: true,
+                      ),
                     ),
                   ),
                 ],

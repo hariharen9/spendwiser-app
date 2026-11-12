@@ -11,6 +11,7 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../data/models/transaction.dart';
 
 Future<void> showEditTransactionSheet(
@@ -138,121 +139,152 @@ class _EditTransactionSheetState extends ConsumerState<_EditTransactionSheet> {
       children: [
         const SheetTitle('Edit transaction'),
         const SizedBox(height: 14),
-        _Field(controller: _merchant, hint: 'Merchant'),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _Field(controller: _amount, hint: 'Amount', number: true),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppSelect<bool>(
-                value: _income,
-                options: const [
-                  AppSelectOption(false, 'Expense'),
-                  AppSelectOption(true, 'Income'),
-                ],
-                onChanged: (value) =>
-                    setState(() => _income = value ?? _income),
-              ),
-            ),
-          ],
+        LabeledField(
+          label: 'Merchant',
+          child: _Field(controller: _merchant, hint: 'Merchant'),
         ),
         const SizedBox(height: 10),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: AppSelect<String>(
-                value: _category,
-                options: [
-                  for (final category in categories)
-                    AppSelectOption(category, category),
-                ],
-                onChanged: (value) =>
-                    setState(() => _category = value ?? _category),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppSelect<String>(
-                value: _source,
-                hint: 'No account',
-                options: [
-                  const AppSelectOption('', 'No account'),
-                  for (final account in snapshot.accounts)
-                    AppSelectOption('a:${account.id}', account.name),
-                  for (final card in snapshot.cards)
-                    AppSelectOption('c:${card.id}', 'Card · ${card.name}'),
-                ],
-                onChanged: (value) => setState(() => _source = value ?? ''),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: _date,
-              firstDate: DateTime(2020),
-              lastDate: DateTime.now(),
-              builder: (context, child) => Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: Theme.of(context).colorScheme
-                      .copyWith(primary: c.ac, surface: c.c1, onSurface: c.tx),
+              child: LabeledField(
+                label: 'Amount',
+                child: _Field(
+                  controller: _amount,
+                  hint: 'Amount',
+                  number: true,
                 ),
-                child: child!,
               ),
-            );
-            if (picked != null) setState(() => _date = picked);
-          },
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            decoration: BoxDecoration(
-              color: c.c2,
-              borderRadius: BorderRadius.circular(14),
             ),
-            alignment: Alignment.centerLeft,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    shortDate(_date),
-                    style: AppTypography.sans(size: 13, color: c.tx),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LabeledField(
+                label: 'Type',
+                child: AppSelect<bool>(
+                  value: _income,
+                  options: const [
+                    AppSelectOption(false, 'Expense'),
+                    AppSelectOption(true, 'Income'),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _income = value ?? _income),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: LabeledField(
+                label: 'Category',
+                child: AppSelect<String>(
+                  value: _category,
+                  options: [
+                    for (final category in categories)
+                      AppSelectOption(category, category),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _category = value ?? _category),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LabeledField(
+                label: 'Account',
+                child: AppSelect<String>(
+                  value: _source,
+                  hint: 'No account',
+                  options: [
+                    const AppSelectOption('', 'No account'),
+                    for (final account in snapshot.accounts)
+                      AppSelectOption('a:${account.id}', account.name),
+                    for (final card in snapshot.cards)
+                      AppSelectOption('c:${card.id}', 'Card · ${card.name}'),
+                  ],
+                  onChanged: (value) => setState(() => _source = value ?? ''),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LabeledField(
+          label: 'Date',
+          child: GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                      primary: c.ac,
+                      surface: c.c1,
+                      onSurface: c.tx,
+                    ),
                   ),
+                  child: child!,
                 ),
-                SpendIcon('calendar', size: 16, color: c.mu),
-              ],
+              );
+              if (picked != null) setState(() => _date = picked);
+            },
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: c.c2,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      shortDate(_date),
+                      style: AppTypography.sans(size: 13, color: c.tx),
+                    ),
+                  ),
+                  SpendIcon('calendar', size: 16, color: c.mu),
+                ],
+              ),
             ),
           ),
         ),
         const SizedBox(height: 10),
-        _Field(controller: _note, hint: 'Note'),
+        LabeledField(
+          label: 'Note',
+          child: _Field(controller: _note, hint: 'Note'),
+        ),
         const SizedBox(height: 14),
-        Text('Tags', style: AppTypography.sans(size: 12, color: c.mu)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final tag in snapshot.tags)
-              AppPill(
-                label: '#$tag',
-                active: _tags.contains(tag),
-                onTap: () {
-                  setState(() {
-                    if (_tags.contains(tag)) {
-                      _tags.remove(tag);
-                    } else {
-                      _tags.add(tag);
-                    }
-                  });
-                },
-              ),
-          ],
+        LabeledField(
+          label: 'Tags',
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in snapshot.tags)
+                AppPill(
+                  label: '#$tag',
+                  active: _tags.contains(tag),
+                  onTap: () {
+                    setState(() {
+                      if (_tags.contains(tag)) {
+                        _tags.remove(tag);
+                      } else {
+                        _tags.add(tag);
+                      }
+                    });
+                  },
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 18),
         PrimaryButton(label: 'Save changes', onTap: _save),

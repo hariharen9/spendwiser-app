@@ -20,6 +20,7 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/profile_avatar.dart';
 import '../../core/widgets/section_caption.dart';
@@ -614,26 +615,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           const SheetTitle('Profile'),
           const SizedBox(height: 12),
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            decoration: BoxDecoration(
-              color: context.spend.c2,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: TextField(
-              controller: controller,
-              textAlignVertical: TextAlignVertical.center,
-              style: AppTypography.sans(size: 14, color: context.spend.tx),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                hintText: 'Your name',
-                hintStyle: AppTypography.sans(
-                  size: 13,
-                  color: context.spend.mu,
+          LabeledField(
+            label: 'Your name',
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: context.spend.c2,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: TextField(
+                controller: controller,
+                textAlignVertical: TextAlignVertical.center,
+                style: AppTypography.sans(size: 14, color: context.spend.tx),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  hintText: 'Your name',
+                  hintStyle: AppTypography.sans(
+                    size: 13,
+                    color: context.spend.mu,
+                  ),
                 ),
               ),
             ),
@@ -1965,26 +1969,29 @@ class _EditCategorySheetState extends ConsumerState<_EditCategorySheet> {
           subtitle: 'Update category name or accent color',
         ),
         const SizedBox(height: 12),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          decoration: BoxDecoration(
-            color: c.c2,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          alignment: Alignment.center,
-          child: TextField(
-            controller: _controller,
-            enabled: !isProtected,
-            textAlignVertical: TextAlignVertical.center,
-            style: AppTypography.sans(size: 14, color: c.tx),
-            textCapitalization: TextCapitalization.words,
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              hintText: 'Category name',
-              hintStyle: AppTypography.sans(size: 13, color: c.mu),
-              border: InputBorder.none,
+        LabeledField(
+          label: 'Category name',
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            decoration: BoxDecoration(
+              color: c.c2,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: TextField(
+              controller: _controller,
+              enabled: !isProtected,
+              textAlignVertical: TextAlignVertical.center,
+              style: AppTypography.sans(size: 14, color: c.tx),
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'Category name',
+                hintStyle: AppTypography.sans(size: 13, color: c.mu),
+                border: InputBorder.none,
+              ),
             ),
           ),
         ),
@@ -2281,24 +2288,27 @@ class _EditTagSheetState extends ConsumerState<_EditTagSheet> {
       children: [
         SheetTitle('Edit #${widget.tag}'),
         const SizedBox(height: 12),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          decoration: BoxDecoration(
-            color: c.c2,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          alignment: Alignment.center,
-          child: TextField(
-            controller: _controller,
-            textAlignVertical: TextAlignVertical.center,
-            style: AppTypography.sans(size: 14, color: c.tx),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-              hintText: 'Tag name',
-              hintStyle: AppTypography.sans(size: 13, color: c.mu),
+        LabeledField(
+          label: 'Tag name',
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            decoration: BoxDecoration(
+              color: c.c2,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: TextField(
+              controller: _controller,
+              textAlignVertical: TextAlignVertical.center,
+              style: AppTypography.sans(size: 14, color: c.tx),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                hintText: 'Tag name',
+                hintStyle: AppTypography.sans(size: 13, color: c.mu),
+              ),
             ),
           ),
         ),

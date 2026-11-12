@@ -22,22 +22,24 @@ class ScreenScroll extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final safeTop = media.padding.top;
     final top =
-        padding?.top ??
-        (MediaQuery.paddingOf(context).top > 30
-            ? MediaQuery.paddingOf(context).top + 16.0
-            : 54.0);
-    final bottom =
-        padding?.bottom ?? (120 + MediaQuery.paddingOf(context).bottom);
-    return SingleChildScrollView(
-      controller: controller,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      padding: padding ?? EdgeInsets.fromLTRB(20, top, 20, bottom),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+        padding?.top ?? (safeTop > 30 ? 16.0 : (safeTop > 0 ? 30.0 : 54.0));
+    final bottom = padding?.bottom ?? (120 + media.padding.bottom);
+    return SafeArea(
+      top: true,
+      bottom: false,
+      child: SingleChildScrollView(
+        controller: controller,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: padding ?? EdgeInsets.fromLTRB(20, top, 20, bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
       ),
     );
   }

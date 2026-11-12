@@ -15,6 +15,7 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
 import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/field_label.dart';
 import '../../core/widgets/section_caption.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/sms/sms_inbox.dart';
@@ -147,10 +148,8 @@ class _SmsReviewSheetState extends ConsumerState<_SmsReviewSheet> {
           const SectionCaption('Waiting'),
           for (final item in items)
             AppCard(
-              onTap: () => showAppSheet<void>(
-                context,
-                (_) => _SmsItemSheet(item: item),
-              ),
+              onTap: () =>
+                  showAppSheet<void>(context, (_) => _SmsItemSheet(item: item)),
               child: Row(
                 children: [
                   Container(
@@ -196,11 +195,7 @@ class _SmsReviewSheetState extends ConsumerState<_SmsReviewSheet> {
             ),
         ],
         const SizedBox(height: 6),
-        AppButton(
-          label: 'Paste a test message',
-          centered: true,
-          onTap: _paste,
-        ),
+        AppButton(label: 'Paste a test message', centered: true, onTap: _paste),
         if (_permission == null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -311,9 +306,7 @@ class _SmsItemSheetState extends ConsumerState<_SmsItemSheet> {
   }
 
   Future<void> _dismiss() async {
-    await ref
-        .read(smsReviewProvider.notifier)
-        .dismiss(widget.item.message.id);
+    await ref.read(smsReviewProvider.notifier).dismiss(widget.item.message.id);
     if (!mounted) return;
     Navigator.of(context).pop();
     ref.read(toastProvider.notifier).show('Message dismissed');
@@ -379,92 +372,106 @@ class _SmsItemSheetState extends ConsumerState<_SmsItemSheet> {
             ],
           ),
         ),
-        _Field(controller: _merchant, hint: 'Merchant'),
-        _Field(
-          controller: _amount,
-          hint: 'Amount',
-          number: true,
+        LabeledField(
+          label: 'Merchant',
+          child: _Field(controller: _merchant, hint: 'Merchant'),
+        ),
+        LabeledField(
+          label: 'Amount',
+          child: _Field(controller: _amount, hint: 'Amount', number: true),
         ),
         const SizedBox(height: 4),
-        SegmentedControl<bool>(
-          margin: EdgeInsets.zero,
-          options: const [
-            SegmentedOption(false, 'Expense'),
-            SegmentedOption(true, 'Income'),
-          ],
-          selected: _income,
-          onChanged: (value) => setState(() {
-            _income = value;
-            if (value) {
-              _category = 'Income';
-            } else if (_category == 'Income') {
-              final available = ref
-                  .read(settingsProvider)
-                  .categories
-                  .keys
-                  .toList();
-              _category = available.isEmpty ? 'Other' : available.first;
-            }
-          }),
+        LabeledField(
+          label: 'Type',
+          child: SegmentedControl<bool>(
+            margin: EdgeInsets.zero,
+            options: const [
+              SegmentedOption(false, 'Expense'),
+              SegmentedOption(true, 'Income'),
+            ],
+            selected: _income,
+            onChanged: (value) => setState(() {
+              _income = value;
+              if (value) {
+                _category = 'Income';
+              } else if (_category == 'Income') {
+                final available = ref
+                    .read(settingsProvider)
+                    .categories
+                    .keys
+                    .toList();
+                _category = available.isEmpty ? 'Other' : available.first;
+              }
+            }),
+          ),
         ),
         const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: _date,
-              firstDate: DateTime(2020),
-              lastDate: DateTime.now(),
-              builder: (context, child) => Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: Theme.of(context).colorScheme.copyWith(
-                    primary: c.ac,
-                    surface: c.c1,
-                    onSurface: c.tx,
+        LabeledField(
+          label: 'Date',
+          child: GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                builder: (context, child) => Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                      primary: c.ac,
+                      surface: c.c1,
+                      onSurface: c.tx,
+                    ),
                   ),
+                  child: child!,
                 ),
-                child: child!,
+              );
+              if (picked != null) setState(() => _date = picked);
+            },
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: c.c2,
+                borderRadius: BorderRadius.circular(14),
               ),
-            );
-            if (picked != null) setState(() => _date = picked);
-          },
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            decoration: BoxDecoration(
-              color: c.c2,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.centerLeft,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    isoDate(_date),
-                    style: AppTypography.sans(size: 13, color: c.tx),
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      isoDate(_date),
+                      style: AppTypography.sans(size: 13, color: c.tx),
+                    ),
                   ),
-                ),
-                SpendIcon('calendar', size: 16, color: c.mu),
-              ],
+                  SpendIcon('calendar', size: 16, color: c.mu),
+                ],
+              ),
             ),
           ),
         ),
         const SizedBox(height: 10),
-        AppSelect<String>(
-          value: _category,
-          options: [
-            for (final category in categories)
-              AppSelectOption(category, category),
-          ],
-          onChanged: (value) =>
-              setState(() => _category = value ?? _category),
+        LabeledField(
+          label: 'Category',
+          child: AppSelect<String>(
+            value: _category,
+            options: [
+              for (final category in categories)
+                AppSelectOption(category, category),
+            ],
+            onChanged: (value) =>
+                setState(() => _category = value ?? _category),
+          ),
         ),
         const SizedBox(height: 10),
-        AppSelect<String>(
-          value: _source,
-          hint: 'No account',
-          options: sourceOptions,
-          onChanged: (value) => setState(() => _source = value ?? ''),
+        LabeledField(
+          label: 'Account',
+          child: AppSelect<String>(
+            value: _source,
+            hint: 'No account',
+            options: sourceOptions,
+            onChanged: (value) => setState(() => _source = value ?? ''),
+          ),
         ),
         const SizedBox(height: 16),
         PrimaryButton(label: 'Add transaction', onTap: _approve),
@@ -489,8 +496,7 @@ class _PasteSmsSheet extends ConsumerStatefulWidget {
 class _PasteSmsSheetState extends ConsumerState<_PasteSmsSheet> {
   final _sender = TextEditingController(text: 'AD-HDFCBK');
   final _body = TextEditingController(
-    text:
-        'Rs.450.00 debited from a/c XX1234 on 10-11-26 to SWIGGY. Avl Bal: INR 12,340.00',
+    text: 'Rs.450.00 debited from a/c XX1234 on 10-11-26 to SWIGGY. Avl Bal: INR 12,340.00',
   );
 
   @override
@@ -515,7 +521,9 @@ class _PasteSmsSheetState extends ConsumerState<_PasteSmsSheet> {
     Navigator.of(context).pop();
     ref
         .read(toastProvider.notifier)
-        .show(added == null ? 'Message could not be queued' : 'Test message queued');
+        .show(
+          added == null ? 'Message could not be queued' : 'Test message queued',
+        );
   }
 
   @override
@@ -529,8 +537,14 @@ class _PasteSmsSheetState extends ConsumerState<_PasteSmsSheet> {
           subtitle: 'For trying the parser without waiting for a real SMS.',
         ),
         const SizedBox(height: 12),
-        _Field(controller: _sender, hint: 'Sender ID'),
-        _Field(controller: _body, hint: 'Message body', lines: 4),
+        LabeledField(
+          label: 'Sender ID',
+          child: _Field(controller: _sender, hint: 'Sender ID'),
+        ),
+        LabeledField(
+          label: 'Message body',
+          child: _Field(controller: _body, hint: 'Message body', lines: 4),
+        ),
         const SizedBox(height: 8),
         Text(
           'Only bank senders and transaction-like messages are accepted.',
