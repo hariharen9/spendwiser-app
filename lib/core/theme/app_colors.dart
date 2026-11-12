@@ -75,6 +75,7 @@ abstract final class AppColors {
     'Income': Color(0xFFD4FF3A),
     'Fun': Color(0xFF2DD4BF),
     'EMI': Color(0xFFFF6B4A),
+    'Miscellaneous': Color(0xFF94A3B8),
     'Transfer': Color(0xFF8B8883),
   };
 

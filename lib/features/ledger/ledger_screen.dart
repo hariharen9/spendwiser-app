@@ -163,6 +163,7 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
         if (isCalendar) ...[
           MonthNavigator(
             month: month,

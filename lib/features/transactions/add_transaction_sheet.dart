@@ -16,6 +16,7 @@ import '../../core/widgets/app_select.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/segmented_control.dart';
 import '../../data/models/transaction.dart';
+import '../home/services/capture_parser.dart';
 import '../../data/services/notifications_service.dart';
 
 Future<void> showAddTransactionSheet(
@@ -68,6 +69,7 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
   late String _source;
   late DateTime _date;
   late List<String> _tags;
+  late bool _categoryManuallySelected;
 
   @override
   void initState() {
@@ -75,7 +77,9 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
     final snapshot = ref.read(financeSnapshotProvider);
     final categories = _expenseCategories();
     _income = widget.initialCategory?.toLowerCase() == 'income';
+    _categoryManuallySelected = widget.initialCategory != null;
     _name = TextEditingController(text: widget.initialMerchant ?? '');
+    _name.addListener(_onNameChanged);
     _amount = TextEditingController(text: _initialAmount(widget.initialAmount));
     _note = TextEditingController();
     _category = _income
@@ -109,10 +113,23 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
 
   @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
     _name.dispose();
     _amount.dispose();
     _note.dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    if (_income || _categoryManuallySelected) return;
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    final detected = CaptureParser.detectCategory(name, name.toLowerCase());
+    if (detected == 'Other') return;
+    final target = resolveCategoryName(detected, _expenseCategories());
+    if (target != _category) {
+      setState(() => _category = target);
+    }
   }
 
   List<String> _expenseCategories() => ref
@@ -374,8 +391,10 @@ class _AddTransactionSheetState extends ConsumerState<_AddTransactionSheet> {
                       for (final category in categories)
                         AppSelectOption(category, category),
                     ],
-                    onChanged: (value) =>
-                        setState(() => _category = value ?? _category),
+                    onChanged: (value) => setState(() {
+                      _categoryManuallySelected = true;
+                      _category = value ?? _category;
+                    }),
                   ),
                 if (snapshot.tags.isNotEmpty) ...[
                   const SizedBox(height: 12),

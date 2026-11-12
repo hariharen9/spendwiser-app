@@ -25,6 +25,7 @@ const webDefaultCategories = <String>[
   'Rent & Housing',
   'Investment',
   'Travel',
+  'Miscellaneous',
   'Other',
 ];
 

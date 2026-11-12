@@ -45,10 +45,43 @@ void main() {
     });
 
     test('unknown merchants are not forced into Food', () {
-      final p = CaptureParser.parse('misc 100');
+      final p = CaptureParser.parse('foobar 100');
       expect(p, isNotNull);
       expect(p!.category, 'Other');
       expect(p.categoryDetected, false);
+    });
+
+    test('maps misc and mis to Miscellaneous', () {
+      final p1 = CaptureParser.parse('misc 100');
+      expect(p1, isNotNull);
+      expect(p1!.category, 'Miscellaneous');
+      expect(p1.categoryDetected, true);
+
+      final p2 = CaptureParser.parse('mis 50');
+      expect(p2, isNotNull);
+      expect(p2!.category, 'Miscellaneous');
+      expect(p2.categoryDetected, true);
+    });
+
+    test('auto-categorises Indian merchants and everyday expenses', () {
+      expect(CaptureParser.parse('biryani 320')!.category, 'Food');
+      expect(CaptureParser.parse('chaayos 180')!.category, 'Food');
+      expect(CaptureParser.parse('kirana 450')!.category, 'Food');
+      expect(CaptureParser.parse('petrol 1500')!.category, 'Fuel');
+      expect(CaptureParser.parse('indianoil 2000')!.category, 'Fuel');
+      expect(CaptureParser.parse('namma yatri 140')!.category, 'Travel');
+      expect(CaptureParser.parse('irctc 1250')!.category, 'Travel');
+      expect(CaptureParser.parse('bescom 1850')!.category, 'Utilities');
+      expect(CaptureParser.parse('jiofiber 999')!.category, 'Utilities');
+      expect(CaptureParser.parse('nobroker 18000')!.category, 'Rent & Housing');
+      expect(CaptureParser.parse('pharmeasy 640')!.category, 'Healthcare');
+      expect(CaptureParser.parse('zerodha 5000')!.category, 'Investment');
+      expect(CaptureParser.parse('urban company 799')!.category, 'Personal');
+      expect(CaptureParser.parse('unacademy 3000')!.category, 'Education');
+      expect(CaptureParser.parse('zudio 1200')!.category, 'Shop');
+      expect(CaptureParser.parse('hotstar 299')!.category, 'Fun');
+      expect(CaptureParser.parse('cred 4500')!.category, 'EMI');
+      expect(CaptureParser.parse('temple 101')!.category, 'Miscellaneous');
     });
 
     test('rejects text that is not a receipt', () {

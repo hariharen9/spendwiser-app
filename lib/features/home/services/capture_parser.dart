@@ -101,7 +101,7 @@ class CaptureParser {
 
     final lower = text.toLowerCase();
     final isIncome = RegExp(
-      r'\b(salary|bonus|refund|cashback|dividend|freelance|received|credit|deposit)\b',
+      r'\b(salary|stipend|bonus|incentive|commission|reimbursement|refund|cashback|dividend|freelance|consulting|received|credit|deposit|allowance)\b',
     ).hasMatch(lower);
 
     // 1. Try to find numeric digits first (e.g. ₹500, Rs. 500, 486, 1,200.50)
@@ -244,44 +244,122 @@ class CaptureParser {
 
     final text = '$merchant $lower'.toLowerCase();
 
-    // Food
+    // Food & Dining (Indian chains, street food, chai/coffee, kirana & quick-commerce)
     if (RegExp(
-      r'\b(chai|coffee|tea|starbucks|ccd|cafe|swiggy|zomato|blinkit|zepto|instamart|groceries|grocery|food|dinner|lunch|breakfast|burger|pizza|mcdonalds|kfc|dominos|subway|biryani|restaurant|amul|milk|bakery|dosa|sweets)\b',
+      r'\b(chai|coffee|filter\s*coffee|tea|starbucks|ccd|cafe|third\s*wave|blue\s*tokai|chaayos|chai\s*point|'
+      r'swiggy|zomato|eatsure|faasos|behrouz|ovenstory|box8|blinkit|zepto|instamart|bigbasket|dmart|jiomart|'
+      r'reliance\s*smart|nature\s*basket|kirana|ration|sabzi|vegetables|fruits|dairy|amul|mother\s*dairy|nandini|'
+      r'milk|curd|paneer|bread|eggs|chicken|mutton|fish|meat|licious|freshtohome|groceries|grocery|food|'
+      r'dinner|lunch|breakfast|brunch|snacks|tiffin|mess|canteen|thali|biryani|dosa|idli|vada|samosa|kachori|'
+      r'chaat|panipuri|golgappa|pav\s*bhaji|chole|paratha|roti|momos|maggi|noodles|burger|pizza|mcdonalds|kfc|'
+      r'dominos|pizza\s*hut|burger\s*king|subway|taco\s*bell|wow\s*momo|haldiram|haldirams|bikanervala|'
+      r'saravana\s*bhavan|mtr|a2b|restaurant|dhaba|udupi|darshini|bakery|cake|theobroma|monginis|sweets|'
+      r'mithai|lassi|juice|sugarcane|coconut|nariyal|paan|ice\s*cream|naturals|baskin)\b',
     ).hasMatch(text)) {
       return 'Food';
     }
 
-    // Travel
+    // Fuel
     if (RegExp(
-      r'\b(uber|ola|rapido|cab|taxi|metro|train|irctc|flight|indigo|air\s*india|vistara|fuel|petrol|diesel|shell|hp|indianoil|toll|fastag|parking|auto)\b',
+      r'\b(fuel|petrol|diesel|cng|ev\s*charging|shell|hpcl|bpcl|iocl|indianoil|indian\s*oil|bharat\s*petroleum|nayara|jio\s*bp|pump|hp)\b',
+    ).hasMatch(text)) {
+      return 'Fuel';
+    }
+
+    // Travel & Commute (Indian cabs, autos, metro, IRCTC, buses, flights, stays)
+    if (RegExp(
+      r'\b(uber|ola|rapido|namma\s*yatri|indrive|blusmart|meru|cab|taxi|auto|rickshaw|metro|dmrc|bmrc|'
+      r'namma\s*metro|mmrc|cmrl|local\s*train|train|irctc|railway|vande\s*bharat|shatabdi|rajdhani|redbus|'
+      r'abhibus|ksrtc|msrtc|bmtc|bus|volvo|flight|indigo|air\s*india|vistara|akasa|spicejet|makemytrip|mmt|'
+      r'goibibo|cleartrip|easemytrip|yatra|ixigo|oyo|treebo|fabhotels|zostel|hotel|airbnb|resort|toll|parking|valet)\b',
     ).hasMatch(text)) {
       return 'Travel';
     }
 
-    // Bills & Utilities
+    // Rent & Housing
     if (RegExp(
-      r'\b(rent|electricity|electric|bescom|tneb|power|wifi|broadband|airtel|jio|vi|vodafone|recharge|water|gas|cylinder|indane|maintenance|utility|bill|society)\b',
+      r'\b(rent|landlord|pg|hostel|flat|deposit|brokerage|nobroker|magicbricks|99acres|mygate|nobrokerhood|'
+      r'carpenter|plumber|electrician|ikea|pepperfry|urban\s*ladder|wakefit|furniture)\b',
     ).hasMatch(text)) {
-      return 'Bills';
+      return 'Rent & Housing';
     }
 
-    // Shopping
+    // Utilities & Recharge
     if (RegExp(
-      r'\b(amazon|flipkart|myntra|zara|h&m|ajio|meesho|nykaa|clothes|shoes|electronics|apple|croma|reliance\s*digital|shopping|mall|decathlon)\b',
+      r'\b(electricity|electric|bescom|tneb|mahavitaran|msedcl|tata\s*power|adani\s*electricity|bses|uppcl|'
+      r'torrent\s*power|power|wifi|broadband|act\s*fibernet|jiofiber|xstream|hathway|airtel|jio|vi|vodafone|'
+      r'bsnl|recharge|prepaid|postpaid|dth|tata\s*play|tatasky|dish\s*tv|water|bwssb|gas|cylinder|indane|'
+      r'hp\s*gas|bharat\s*gas|igl|mahanagar\s*gas|fastag|maintenance|utility|bill|society)\b',
+    ).hasMatch(text)) {
+      return 'Utilities';
+    }
+
+    // Healthcare & Pharmacy
+    if (RegExp(
+      r'\b(apollo|pharmeasy|1mg|netmeds|medplus|practo|lal\s*pathlabs|thyrocare|diagnostics|pharmacy|'
+      r'medical|medicine|tablet|doctor|clinic|hospital|dentist|dental|optician|eyewear|health|checkup|lab)\b',
+    ).hasMatch(text)) {
+      return 'Healthcare';
+    }
+
+    // Education & Books
+    if (RegExp(
+      r'\b(school|college|university|tuition|coaching|allen|aakash|byjus|unacademy|physicswallah|coursera|'
+      r'udemy|upgrad|scaler|books|stationery|crossword|exam|fees|library|course)\b',
+    ).hasMatch(text)) {
+      return 'Education';
+    }
+
+    // Personal Care & Fitness
+    if (RegExp(
+      r'\b(salon|haircut|barber|parlour|parlor|spa|massage|grooming|urban\s*company|urbanclap|cult|cultfit|'
+      r'gym|fitness|yoga|mamaearth|plum|sephora|laundry|dryclean|dhobi|tailor)\b',
+    ).hasMatch(text)) {
+      return 'Personal';
+    }
+
+    // Investment & Insurance
+    if (RegExp(
+      r'\b(zerodha|groww|upstox|angel\s*one|kite|kuvera|etmoney|indmoney|smallcase|sip|mutual\s*fund|'
+      r'ppf|nps|epf|fixed\s*deposit|sgb|sovereign\s*gold|stocks|shares|demat|lic|insurance|policybazaar|acko|digit)\b',
+    ).hasMatch(text)) {
+      return 'Investment';
+    }
+
+    // Shopping & E-commerce
+    if (RegExp(
+      r'\b(amazon|flipkart|myntra|zara|h&m|ajio|meesho|nykaa|tatacliq|tata\s*cliq|snapdeal|firstcry|'
+      r'lenskart|boat|croma|reliance\s*digital|vijay\s*sales|apple|samsung|xiaomi|oneplus|westside|zudio|'
+      r'pantaloons|lifestyle|shoppers\s*stop|trends|fabindia|biba|manyavar|raymond|bata|woodland|nike|'
+      r'adidas|puma|skechers|decathlon|titan|fastrack|tanishq|kalyan|malabar|jewellery|jewelry|clothes|'
+      r'shoes|sneakers|electronics|mobile|laptop|shopping|mall|bazaar|fnp|gift)\b',
     ).hasMatch(text)) {
       return 'Shop';
     }
 
     // Entertainment / Fun
     if (RegExp(
-      r'\b(netflix|prime|hotstar|spotify|apple\s*music|youtube|movie|cinema|pvr|inox|bms|bookmyshow|game|gaming|steam|playstation|pub|bar|drinks|club)\b',
+      r'\b(netflix|prime|hotstar|jiohotstar|jiocinema|sonyliv|zee5|aha|hoichoi|spotify|jiosaavn|gaana|'
+      r'wynk|apple\s*music|youtube|movie|cinema|pvr|inox|cinepolis|bms|bookmyshow|insider|concert|standup|'
+      r'ipl|game|gaming|steam|playstation|ps5|xbox|bgmi|turf|badminton|cricket|bowling|arcade|wonderla|'
+      r'imagica|pub|bar|brewery|toit|social|drinks|alcohol|wine|beer|club|lounge|party)\b',
     ).hasMatch(text)) {
       return 'Fun';
     }
 
-    // Debt / EMI
-    if (RegExp(r'\b(emi|loan|interest|mortgage|prepayment)\b').hasMatch(text)) {
+    // Debt / EMI & Credit Card Bills
+    if (RegExp(
+      r'\b(emi|loan|bajaj\s*finserv|simpl|lazypay|slice|cred|cheq|credit\s*card|card\s*bill|interest|mortgage|prepayment|foreclosure)\b',
+    ).hasMatch(text)) {
       return 'EMI';
+    }
+
+    // Miscellaneous
+    if (RegExp(
+      r'\b(misc|mis|miscellaneous|donation|charity|temple|mandir|church|mosque|gurudwara|puja|pooja|'
+      r'prasad|dakshina|tip|tips|courier|delhivery|bluedart|dtdc|speed\s*post|xerox|print|photocopy|notary|challan|fine)\b',
+    ).hasMatch(text)) {
+      return 'Miscellaneous';
     }
 
     // Do not guess a spend category. The review sheet will default to Other.
