@@ -13,7 +13,6 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/app_pill.dart';
-import '../../core/widgets/app_toggle.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/custom_painters/charts.dart';
 import '../../core/widgets/money_text.dart';
@@ -69,17 +68,21 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       children: [
         PageHeader(
           title: 'Budgets',
-          subtitle:
-              '${monthFull[month.month - 1]} · ${isCurrentMonth(month) ? '$daysLeft days left' : 'closed'}',
+          subtitle: isCurrentMonth(month)
+              ? '$daysLeft days left in ${monthShort[month.month - 1]}'
+              : 'Closed · ${monthShort[month.month - 1]}',
         ),
+        const SizedBox(height: 8),
         MonthNavigator(
           month: month,
+          margin: EdgeInsets.zero,
           onPrevious: () => setState(() => _monthOffset++),
           onNext: _monthOffset == 0
               ? null
               : () => setState(() => _monthOffset--),
           canGoNext: _monthOffset > 0,
         ),
+        const SizedBox(height: 14),
         AppCard(
           child: Row(
             children: [
@@ -255,12 +258,20 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 4),
+        SectionCaption(
+          'Category Envelopes',
+          trailing: AppPill(
+            label: '+ New',
+            onTap: () => _showNewBudget(context),
+          ),
+        ),
         for (final budget in budgets)
           _BudgetCard(
             budget: budget,
             month: month,
             spent: snapshot.spentIn(budget.category, month),
-            onTap: () => _showBudget(context, snapshot, budget, month),
+            onTap: () => _showBudget(context, budget, month),
           ),
         if (budgets.isEmpty)
           EmptyState(
@@ -280,167 +291,12 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
   void _showBudget(
     BuildContext context,
-    FinanceSnapshot snapshot,
     Budget budget,
     DateTime month,
   ) {
-    var localLimit = budget.limit;
-    var alertAt = budget.alertAt;
-    var rollover = budget.rollover;
     showAppSheet<void>(
       context,
-      (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final c = context.spend;
-          final history = [
-            for (var k = 5; k >= 0; k--)
-              snapshot.spentIn(
-                budget.category,
-                DateTime(month.year, month.month - k, 1),
-              ),
-          ];
-          final labels = [
-            for (var k = 5; k >= 0; k--)
-              monthShort[DateTime(month.year, month.month - k, 1).month - 1],
-          ];
-          final tx = snapshot
-              .inMonth(month)
-              .where((t) => t.category == budget.category)
-              .take(5)
-              .toList();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${budget.category} envelope',
-                style: AppTypography.sans(size: 14, color: c.mu),
-              ),
-              MoneyText(
-                rupee(localLimit),
-                style: AppTypography.serif(size: 48, color: c.tx),
-              ),
-              SliderTheme(
-                data: Theme.of(context).sliderTheme.copyWith(
-                  trackHeight: 4,
-                  activeTrackColor: c.ac,
-                  inactiveTrackColor: c.c2,
-                  thumbColor: c.ac,
-                  overlayColor: c.ac.withValues(alpha: 0.12),
-                ),
-                child: Slider(
-                  value: localLimit.clamp(1000.0, 80000.0),
-                  min: 1000,
-                  max: 80000,
-                  divisions: 158,
-                  onChanged: (value) => setSheetState(() => localLimit = value),
-                ),
-              ),
-              SimpleBarChart(
-                values: history,
-                labels: labels,
-                budgetValue: localLimit,
-                height: 112,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Alert me at',
-                          style: AppTypography.sans(size: 14, color: c.tx),
-                        ),
-                        Text(
-                          '$alertAt% used',
-                          style: AppTypography.sans(size: 12, color: c.mu),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 130,
-                    child: Slider(
-                      value: alertAt.toDouble(),
-                      min: 50,
-                      max: 100,
-                      divisions: 10,
-                      onChanged: (value) =>
-                          setSheetState(() => alertAt = value.round()),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Roll unused over',
-                          style: AppTypography.sans(size: 14, color: c.tx),
-                        ),
-                        Text(
-                          'Carry leftover into next month',
-                          style: AppTypography.sans(size: 12, color: c.mu),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppToggle(
-                    value: rollover,
-                    onChanged: (value) => setSheetState(() => rollover = value),
-                  ),
-                ],
-              ),
-              SectionCaption(monthFull[month.month - 1]),
-              if (tx.isEmpty)
-                Text(
-                  'No spends yet',
-                  style: AppTypography.sans(size: 14, color: c.mu),
-                )
-              else
-                for (var i = 0; i < tx.length; i++)
-                  TransactionRow(
-                    transaction: tx[i],
-                    showDivider: i < tx.length - 1,
-                    onTap: () => showEditTransactionSheet(context, tx[i].id),
-                  ),
-              PrimaryButton(
-                label: 'Save envelope',
-                onTap: () async {
-                  await ref
-                      .read(budgetRepositoryProvider)
-                      .updateBudget(
-                        category: budget.category,
-                        limit: localLimit,
-                        rollover: rollover,
-                        alertAt: alertAt,
-                      );
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref.read(toastProvider.notifier).show('Envelope updated');
-                },
-              ),
-              AppButton(
-                label: 'Delete envelope',
-                color: c.co,
-                centered: true,
-                onTap: () async {
-                  await ref
-                      .read(budgetRepositoryProvider)
-                      .removeBudget(budget.category);
-                  if (!sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  ref.read(toastProvider.notifier).show('Envelope removed');
-                },
-              ),
-            ],
-          );
-        },
-      ),
+      (_) => _EditBudgetSheet(budget: budget, month: month),
     );
   }
 
@@ -450,6 +306,195 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
   void _showNewBudget(BuildContext context) {
     showAppSheet<void>(context, (_) => const _NewBudgetSheet());
+  }
+}
+
+class _EditBudgetSheet extends ConsumerStatefulWidget {
+  const _EditBudgetSheet({
+    required this.budget,
+    required this.month,
+  });
+
+  final Budget budget;
+  final DateTime month;
+
+  @override
+  ConsumerState<_EditBudgetSheet> createState() => _EditBudgetSheetState();
+}
+
+class _EditBudgetSheetState extends ConsumerState<_EditBudgetSheet> {
+  late final TextEditingController _limit;
+  late bool _rollover;
+  late int _alertAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _limit = TextEditingController(
+      text: widget.budget.limit.round().toString(),
+    );
+    _rollover = widget.budget.rollover;
+    _alertAt = widget.budget.alertAt;
+  }
+
+  @override
+  void dispose() {
+    _limit.dispose();
+    super.dispose();
+  }
+
+  double get _limitValue => double.tryParse(_limit.text) ?? 0;
+
+  void _adjustLimit(double delta) {
+    final next = math.max(0.0, _limitValue + delta);
+    setState(() {
+      _limit.text = next.round().toString();
+    });
+  }
+
+  Future<void> _save() async {
+    if (_limitValue <= 0) {
+      ref.read(toastProvider.notifier).show('Enter a valid monthly limit');
+      return;
+    }
+    await ref.read(budgetRepositoryProvider).updateBudget(
+          category: widget.budget.category,
+          limit: _limitValue,
+          rollover: _rollover,
+          alertAt: _alertAt,
+        );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('${widget.budget.category} budget updated');
+  }
+
+  Future<void> _delete() async {
+    await ref
+        .read(budgetRepositoryProvider)
+        .removeBudget(widget.budget.category);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ref.read(toastProvider.notifier).show('${widget.budget.category} envelope removed');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final snapshot = ref.watch(financeSnapshotProvider);
+    final spent = snapshot.spentIn(widget.budget.category, widget.month);
+    final history = [
+      for (var k = 5; k >= 0; k--)
+        snapshot.spentIn(
+          widget.budget.category,
+          DateTime(widget.month.year, widget.month.month - k, 1),
+        ),
+    ];
+    final labels = [
+      for (var k = 5; k >= 0; k--)
+        monthShort[DateTime(widget.month.year, widget.month.month - k, 1).month - 1],
+    ];
+    final tx = snapshot
+        .inMonth(widget.month)
+        .where((t) => t.category == widget.budget.category)
+        .take(5)
+        .toList();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PremiumSheetHeader(
+            icon: 'budgets',
+            title: 'Edit ${widget.budget.category}',
+            subtitle: '${rupee(spent)} spent in ${monthShort[widget.month.month - 1]}',
+          ),
+          const SizedBox(height: 18),
+          const PremiumLabel('Monthly limit', requiredField: true),
+          PremiumField(
+            controller: _limit,
+            hint: '0',
+            number: true,
+            large: true,
+            prefix: '₹ ',
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final delta in [500.0, 1000.0, 5000.0, 10000.0])
+                AppPill(
+                  label: '+${compactINR(delta)}',
+                  onTap: () => _adjustLimit(delta),
+                ),
+              for (final delta in [-1000.0, -5000.0])
+                AppPill(
+                  label: compactINR(delta),
+                  onTap: () => _adjustLimit(delta),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const PremiumLabel('Alert me at'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final threshold in const [50, 75, 85, 95, 100])
+                AppPill(
+                  label: '$threshold% used',
+                  active: _alertAt == threshold,
+                  onTap: () => setState(() => _alertAt = threshold),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          PremiumToggleRow(
+            title: 'Roll unused over',
+            subtitle: 'Carry leftover into next month',
+            value: _rollover,
+            onChanged: (value) => setState(() => _rollover = value),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Last 6 months · spend vs limit',
+            style: AppTypography.sans(size: 11, color: c.mu),
+          ),
+          const SizedBox(height: 6),
+          SimpleBarChart(
+            values: history,
+            labels: labels,
+            budgetValue: _limitValue,
+            height: 100,
+          ),
+          const SizedBox(height: 14),
+          if (tx.isNotEmpty) ...[
+            SectionCaption(
+              'Recent spends in ${monthShort[widget.month.month - 1]}',
+            ),
+            for (var i = 0; i < tx.length; i++)
+              TransactionRow(
+                transaction: tx[i],
+                showDivider: i < tx.length - 1,
+                onTap: () => showEditTransactionSheet(context, tx[i].id),
+              ),
+            const SizedBox(height: 14),
+          ],
+          PrimaryButton(
+            label: 'Save budget',
+            onTap: _save,
+          ),
+          const SizedBox(height: 8),
+          AppButton(
+            label: 'Delete envelope',
+            color: c.co,
+            centered: true,
+            onTap: _delete,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -663,28 +708,56 @@ class _BudgetCard extends StatelessWidget {
               MerchantAvatar(
                 merchant: budget.category,
                 category: budget.category,
-                size: 32,
+                size: 34,
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  budget.category,
-                  style: AppTypography.sans(
-                    size: 14,
-                    color: c.tx,
-                    weight: FontWeight.w500,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      budget.category,
+                      style: AppTypography.sans(
+                        size: 14,
+                        color: c.tx,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${rupee(spent)} of ${rupee(budget.limit)}${budget.rollover ? ' · rolls over' : ''}',
+                      style: AppTypography.sans(size: 11, color: c.mu),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                spent > budget.limit
-                    ? '${rupee(spent - budget.limit)} over'
-                    : '${rupee(budget.limit - spent)} left',
-                style: AppTypography.sans(size: 12, color: over ? c.co : c.mu),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    spent > budget.limit
+                        ? '${rupee(spent - budget.limit)} over'
+                        : '${rupee(budget.limit - spent)} left',
+                    style: AppTypography.sans(
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: over ? c.co : c.tx,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AppPill(
+                    label: 'Edit',
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    fontSize: 10,
+                    onTap: onTap,
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(9),
             child: LinearProgressIndicator(
@@ -693,11 +766,6 @@ class _BudgetCard extends StatelessWidget {
               backgroundColor: c.c2,
               valueColor: AlwaysStoppedAnimation(over ? c.co : c.ac),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${rupee(spent)} of ${rupee(budget.limit)}${budget.rollover ? ' · rolls over' : ''}',
-            style: AppTypography.sans(size: 12, color: c.mu),
           ),
         ],
       ),
