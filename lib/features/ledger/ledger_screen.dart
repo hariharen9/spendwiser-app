@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -131,57 +133,7 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
             }),
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: AppCard(
-                margin: EdgeInsets.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'In',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                    AnimatedAmount(
-                      value: income,
-                      style: AppTypography.serif(
-                        size: 26,
-                        color: c.ac,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppCard(
-                margin: EdgeInsets.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Out',
-                      style: AppTypography.sans(size: 12, color: c.mu),
-                    ),
-                    AnimatedAmount(
-                      value: expense,
-                      style: AppTypography.serif(
-                        size: 26,
-                        color: c.tx,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
+        _LedgerFlowHero(income: income, expense: expense),
         if (isCalendar) ...[
           MonthNavigator(
             month: month,
@@ -1235,6 +1187,222 @@ class _CalendarView extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _LedgerFlowHero extends StatelessWidget {
+  const _LedgerFlowHero({
+    required this.income,
+    required this.expense,
+  });
+
+  final double income;
+  final double expense;
+
+  static const _incomeGreen = Color(0xFF22C55E);
+  static const _expenseRed = Color(0xFFEF4444);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.spend;
+    final net = income - expense;
+    final isNetPositive = net >= 0;
+    final total = income + expense;
+    final incomeRatio = total > 0 ? (income / total).clamp(0.0, 1.0) : 0.5;
+    final savingsPercent =
+        income > 0 ? ((income - expense) / income * 100).round() : 0;
+
+    return AppCard(
+      margin: const EdgeInsets.only(top: 10, bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: _incomeGreen.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.arrow_downward_rounded,
+                          size: 18,
+                          color: _incomeGreen,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'INCOME',
+                            style: AppTypography.sans(
+                              size: 10,
+                              weight: FontWeight.w600,
+                              letterSpacing: 1.1,
+                              color: c.mu,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          AnimatedAmount(
+                            value: income,
+                            style: AppTypography.serif(
+                              size: 22,
+                              color: _incomeGreen,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 34,
+                width: 1,
+                color: c.ln,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: _expenseRed.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 18,
+                          color: _expenseRed,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'EXPENSE',
+                            style: AppTypography.sans(
+                              size: 10,
+                              weight: FontWeight.w600,
+                              letterSpacing: 1.1,
+                              color: c.mu,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          AnimatedAmount(
+                            value: expense,
+                            style: AppTypography.serif(
+                              size: 22,
+                              color: _expenseRed,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              height: 5,
+              child: total <= 0
+                  ? ColoredBox(color: c.c2)
+                  : Row(
+                      children: [
+                        if (income > 0)
+                          Expanded(
+                            flex: math.max(1, (incomeRatio * 100).round()),
+                            child: const ColoredBox(color: _incomeGreen),
+                          ),
+                        if (income > 0 && expense > 0)
+                          const SizedBox(width: 2),
+                        if (expense > 0)
+                          Expanded(
+                            flex: math.max(
+                              1,
+                              ((1 - incomeRatio) * 100).round(),
+                            ),
+                            child: const ColoredBox(color: _expenseRed),
+                          ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Net flow',
+                    style: AppTypography.sans(size: 11, color: c.mu),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (isNetPositive ? _incomeGreen : _expenseRed)
+                          .withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${isNetPositive ? '+' : ''}${formatINR(net)}',
+                      style: AppTypography.sans(
+                        size: 11,
+                        weight: FontWeight.w600,
+                        color: isNetPositive ? _incomeGreen : _expenseRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (income > 0)
+                Text(
+                  isNetPositive
+                      ? '$savingsPercent% saved'
+                      : '${(expense / income * 100).round()}% spent of income',
+                  style: AppTypography.sans(
+                    size: 11,
+                    color: isNetPositive ? _incomeGreen : _expenseRed,
+                    weight: FontWeight.w500,
+                  ),
+                )
+              else if (expense > 0)
+                Text(
+                  '100% outflow',
+                  style: AppTypography.sans(size: 11, color: _expenseRed),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

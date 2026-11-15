@@ -178,17 +178,28 @@ class _NetWorthHero extends ConsumerWidget {
       (sum, account) => sum + account.balance,
     );
 
+    final isNetPositive = flow.saved >= 0;
+    const incomeGreen = Color(0xFF22C55E);
+    const expenseRed = Color(0xFFEF4444);
+    final trendColor = isNetPositive ? incomeGreen : expenseRed;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GlowCard(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-          glowStrength: 0.4,
+          glowStrength: 0.3,
           child: Stack(
             children: [
               Positioned.fill(
                 child: IgnorePointer(
-                  child: RepaintBoundary(child: _BalanceFinish()),
+                  child: RepaintBoundary(
+                    child: _BalanceTrendSparkline(
+                      snapshot: snapshot,
+                      currentBalance: balance,
+                      color: trendColor,
+                    ),
+                  ),
                 ),
               ),
               Column(
@@ -200,11 +211,11 @@ class _NetWorthHero extends ConsumerWidget {
                         width: 5,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: c.ac,
+                          color: trendColor,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: c.ac.withValues(alpha: 0.45),
+                              color: trendColor.withValues(alpha: 0.45),
                               blurRadius: 8,
                             ),
                           ],
@@ -217,6 +228,25 @@ class _NetWorthHero extends ConsumerWidget {
                           size: 11,
                           color: c.mu,
                           letterSpacing: 1.32,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: trendColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${isNetPositive ? '+' : ''}${formatINR(flow.saved)} this mo',
+                          style: AppTypography.sans(
+                            size: 10,
+                            weight: FontWeight.w600,
+                            color: trendColor,
+                          ),
                         ),
                       ),
                       const Spacer(),
@@ -241,7 +271,7 @@ class _NetWorthHero extends ConsumerWidget {
                         ).copyWith(
                           shadows: [
                             Shadow(
-                              color: c.ac.withValues(
+                              color: trendColor.withValues(
                                 alpha: c.dark ? 0.22 : 0.12,
                               ),
                               blurRadius: 20,
@@ -273,142 +303,167 @@ class _NetWorthHero extends ConsumerWidget {
   }
 }
 
-class _BalanceFinish extends StatefulWidget {
-  const _BalanceFinish();
+class _BalanceTrendSparkline extends StatelessWidget {
+  const _BalanceTrendSparkline({
+    required this.snapshot,
+    required this.currentBalance,
+    required this.color,
+  });
 
-  @override
-  State<_BalanceFinish> createState() => _BalanceFinishState();
-}
+  final FinanceSnapshot snapshot;
+  final double currentBalance;
+  final Color color;
 
-class _BalanceFinishState extends State<_BalanceFinish>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  List<double> _buildHistory() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    const days = 30;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
+    final liquidIds = <String>{
+      for (final a in snapshot.accounts)
+        if (a.type == AccountType.savings || a.type == AccountType.cash) a.id,
+    };
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    final deltas = <int, double>{};
+    for (final t in snapshot.transactions) {
+      if (t.cardId != null && t.cardId!.isNotEmpty) continue;
+      if (t.accountId != null && !liquidIds.contains(t.accountId)) continue;
+
+      final diff = today
+          .difference(DateTime(t.date.year, t.date.month, t.date.day))
+          .inDays;
+      if (diff >= 0 && diff < days) {
+        deltas[diff] = (deltas[diff] ?? 0.0) + t.amount;
+      }
+    }
+
+    final history = List<double>.filled(days, 0.0);
+    var running = currentBalance;
+    history[days - 1] = running;
+    for (var i = 0; i < days - 1; i++) {
+      running -= deltas[i] ?? 0.0;
+      history[days - 2 - i] = running;
+    }
+    return history;
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) => CustomPaint(
-        painter: _BalanceFinishPainter(
-          progress: _controller.value,
-          accent: c.ac,
-          dark: c.dark,
-        ),
-        child: const SizedBox.expand(),
+    final history = _buildHistory();
+    return CustomPaint(
+      painter: _BalanceTrendPainter(
+        history: history,
+        color: color,
+        dark: c.dark,
       ),
+      child: const SizedBox.expand(),
     );
   }
 }
 
-class _BalanceFinishPainter extends CustomPainter {
-  const _BalanceFinishPainter({
-    required this.progress,
-    required this.accent,
+class _BalanceTrendPainter extends CustomPainter {
+  const _BalanceTrendPainter({
+    required this.history,
+    required this.color,
     required this.dark,
   });
 
-  final double progress;
-  final Color accent;
+  final List<double> history;
+  final Color color;
   final bool dark;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (history.isEmpty) return;
+
     final w = size.width;
     final h = size.height;
-    final t = progress * math.pi * 2;
 
     canvas.save();
     canvas.clipRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(28)),
     );
 
-    final field = Offset.zero & size;
-    canvas.drawRect(
-      field,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [
-            accent.withValues(alpha: dark ? 0.045 : 0.03),
-            accent.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.78],
-        ).createShader(field),
-    );
+    var minVal = history.reduce(math.min);
+    var maxVal = history.reduce(math.max);
+    if (maxVal == minVal) {
+      minVal -= 1;
+      maxVal += 1;
+    }
+    final range = maxVal - minVal;
 
-    final rim = Rect.fromLTWH(w * 0.14, 0, w * 0.72, 1);
-    canvas.drawRect(
-      rim,
-      Paint()
-        ..shader = LinearGradient(
-          colors: [
-            accent.withValues(alpha: 0),
-            accent.withValues(alpha: dark ? 0.34 : 0.22),
-            accent.withValues(alpha: 0),
-          ],
-        ).createShader(rim),
-    );
+    final topY = h * 0.40;
+    final bottomY = h * 0.90;
+    final chartHeight = bottomY - topY;
 
-    final under = Rect.fromLTWH(w * 0.28, h - 1, w * 0.44, 1);
-    canvas.drawRect(
-      under,
-      Paint()..color = Colors.white.withValues(alpha: dark ? 0.035 : 0.02),
-    );
+    final points = <Offset>[];
+    final step = w / math.max(1, history.length - 1);
+    for (var i = 0; i < history.length; i++) {
+      final x = i * step;
+      final normalized = ((history[i] - minVal) / range).clamp(0.0, 1.0);
+      final y = bottomY - normalized * chartHeight;
+      points.add(Offset(x, y));
+    }
 
-    canvas.save();
-    canvas.rotate(-0.28);
-    final sweepX = -w * 0.6 + ((progress * 1.0) % 1) * (w * 2.2);
-    final sweep = Rect.fromLTWH(sweepX, -h * 0.6, w * 0.12, h * 2.2);
-    canvas.drawRect(
-      sweep,
-      Paint()
-        ..shader = LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0),
-            Colors.white.withValues(alpha: dark ? 0.022 : 0.012),
-            Colors.white.withValues(alpha: 0),
-          ],
-        ).createShader(sweep),
-    );
-    canvas.restore();
+    final path = Path();
+    path.moveTo(points[0].dx, points[0].dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = points[i];
+      final p1 = points[i + 1];
+      final cx = (p0.dx + p1.dx) / 2;
+      path.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
+    }
 
-    final glint = Offset(
-      w * 0.76 + 3 * math.sin(t),
-      h * 0.34 + 2 * math.cos(t),
+    final fillPath = Path.from(path)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: dark ? 0.16 : 0.10),
+          color.withValues(alpha: dark ? 0.04 : 0.02),
+          color.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.65, 1.0],
+      ).createShader(Rect.fromLTWH(0, topY, w, h - topY));
+
+    canvas.drawPath(fillPath, fillPaint);
+
+    final linePaint = Paint()
+      ..color = color.withValues(alpha: dark ? 0.42 : 0.30)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(path, linePaint);
+
+    final endPoint = points.last;
+    canvas.drawCircle(
+      endPoint,
+      4.5,
+      Paint()..color = color.withValues(alpha: 0.22),
     );
     canvas.drawCircle(
-      glint,
-      1.1,
-      Paint()..color = Colors.white.withValues(alpha: dark ? 0.12 : 0.08),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.9, h * 0.72),
-      1,
-      Paint()..color = accent.withValues(alpha: dark ? 0.12 : 0.08),
+      endPoint,
+      2.2,
+      Paint()..color = color.withValues(alpha: 0.9),
     );
 
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _BalanceFinishPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BalanceTrendPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.dark != dark ||
+        oldDelegate.history != history;
+  }
 }
 
 class _Trio extends StatelessWidget {
