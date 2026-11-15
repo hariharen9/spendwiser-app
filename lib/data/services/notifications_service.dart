@@ -12,20 +12,23 @@ import '../models/bill.dart';
 import '../models/finance_snapshot.dart';
 import '../services/finance_calculator.dart';
 
-/// Local notifications: bill reminders (2 days before due), weekly digest
-/// (Sunday 20:00), and budget alerts (fired imperatively from the add-
-/// transaction sheet when an envelope crosses its alert level).
+/// Local notifications: bill reminders (2 days before & due date morning),
+/// overdue payment escalations, daily check-in (20:00), weekly summary
+/// (Sunday), and budget alerts with deep-linking payload support.
 abstract final class NotificationsService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
+
+  /// Holds the most recently received notification payload for deep linking.
+  static final ValueNotifier<String?> pendingPayload = ValueNotifier<String?>(null);
 
   static const _channelId = 'spendwiser';
   static const _channelName = 'Spendwiser reminders';
   static const _dailyId = 50;
   static const _weeklyId = 60;
   static const _billIdStart = 100;
-  static const _billIdEnd = 200;
+  static const _billIdEnd = 1000;
   static const _billRecordPrefix = 'billReminderSent:';
   static String? _lastSignature;
   static Future<void> _queue = Future<void>.value();
@@ -37,7 +40,7 @@ abstract final class NotificationsService {
       final zone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(zone.identifier));
     } catch (_) {
-      // Fall back to the package default if the platform cannot report a zone.
+      // Fall back to package default if platform cannot report a zone.
     }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings();
@@ -46,7 +49,26 @@ abstract final class NotificationsService {
       iOS: darwin,
       macOS: darwin,
     );
-    await _plugin.initialize(settings: settings);
+    await _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          pendingPayload.value = payload;
+        }
+      },
+    );
+
+    try {
+      final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp ?? false) {
+        final payload = launchDetails?.notificationResponse?.payload;
+        if (payload != null && payload.isNotEmpty) {
+          pendingPayload.value = payload;
+        }
+      }
+    } catch (_) {}
+
     _initialized = true;
   }
 
@@ -73,13 +95,19 @@ abstract final class NotificationsService {
     iOS: DarwinNotificationDetails(),
   );
 
-  static Future<void> showNow(String title, String body, {int id = 0}) async {
+  static Future<void> showNow(
+    String title,
+    String body, {
+    int id = 0,
+    String? payload,
+  }) async {
     if (!_initialized) return;
     await _plugin.show(
       id: id,
       title: title,
       body: body,
       notificationDetails: _details,
+      payload: payload,
     );
   }
 
@@ -119,7 +147,7 @@ abstract final class NotificationsService {
       settings.reminderMinute,
       for (final bill in bills)
         '${bill.kind.name}:${bill.name.trim().toLowerCase()}:'
-            '${bill.amount.toStringAsFixed(2)}:${dateOnly(bill.dueDate)}',
+            '${bill.amount.toStringAsFixed(2)}:${dateOnly(bill.dueDate)}:${bill.days}',
     ].join('|');
   }
 
@@ -130,8 +158,8 @@ abstract final class NotificationsService {
     return null;
   }
 
-  static String _billRecordKey(BillItem bill) =>
-      '$_billRecordPrefix${bill.kind.name}:${bill.name.trim().toLowerCase()}:'
+  static String _billRecordKey(BillItem bill, String phase) =>
+      '$_billRecordPrefix$phase:${bill.kind.name}:${bill.name.trim().toLowerCase()}:'
       '${dateOnly(bill.dueDate).toIso8601String()}';
 
   static Future<void> _cleanBillRecords(Box<String>? box, DateTime now) async {
@@ -169,6 +197,7 @@ abstract final class NotificationsService {
         ? AndroidScheduleMode.exactAllowWhileIdle
         : AndroidScheduleMode.inexactAllowWhileIdle;
 
+    // 1. Daily Check-in (Evening, configured time)
     if (settings.dailyReminder) {
       var when = tz.TZDateTime(
         tz.local,
@@ -187,49 +216,133 @@ abstract final class NotificationsService {
         title: 'Daily check-in',
         body: 'Log today\'s spends and keep your streak alive.',
         matchDateTimeComponents: DateTimeComponents.time,
+        payload: 'module:ledger',
       );
     }
 
+    // 2. Bill & Payment Reminders (Advance, Due Today & Overdue Escalation)
     if (settings.billReminders) {
       final box = _settingsBox;
       await _cleanBillRecords(box, nowLocal);
-      var id = _billIdStart;
-      for (final bill in bills) {
-        if (bill.days < 0) continue;
-        final recordKey = _billRecordKey(bill);
-        final previousRaw = box?.get(recordKey);
-        final previous = previousRaw == null
-            ? null
-            : DateTime.tryParse(previousRaw)?.toLocal();
-        // A reminder already scheduled for this due date and now in the past
-        // has fired. Never recreate the same catch-up reminder again.
-        if (previous != null && !previous.isAfter(nowLocal)) continue;
+      var advanceId = _billIdStart;
+      var todayId = _billIdStart + 300;
+      var overdueId = _billIdStart + 600;
 
-        final reminderDate = bill.dueDate.subtract(const Duration(days: 2));
-        var when = tz.TZDateTime(
-          tz.local,
-          reminderDate.year,
-          reminderDate.month,
-          reminderDate.day,
-          hour,
-          minute,
-        );
-        if (!when.isAfter(now)) {
-          if (bill.days > 2) continue;
-          when = now.add(const Duration(minutes: 1));
+      // Morning bill notification timing (09:00 AM)
+      const billHour = 9;
+      const billMinute = 0;
+
+      for (final bill in bills) {
+        final billPayload = switch (bill.kind) {
+          BillKind.card => 'module:cards',
+          BillKind.loan => 'module:debt',
+          BillKind.subscription => 'module:subscriptions',
+        };
+
+        // A. Advance Reminder: 2 days before due date
+        if (bill.days >= 2) {
+          final recordKey = _billRecordKey(bill, 'advance');
+          final previousRaw = box?.get(recordKey);
+          final previous = previousRaw == null
+              ? null
+              : DateTime.tryParse(previousRaw)?.toLocal();
+
+          if (previous == null || previous.isAfter(nowLocal)) {
+            final reminderDate = bill.dueDate.subtract(const Duration(days: 2));
+            var when = tz.TZDateTime(
+              tz.local,
+              reminderDate.year,
+              reminderDate.month,
+              reminderDate.day,
+              billHour,
+              billMinute,
+            );
+            if (!when.isAfter(now)) {
+              if (bill.days == 2) {
+                when = now.add(const Duration(minutes: 1));
+              }
+            }
+            if (when.isAfter(now)) {
+              await _plugin.zonedSchedule(
+                id: advanceId++,
+                scheduledDate: when,
+                notificationDetails: _details,
+                androidScheduleMode: scheduleMode,
+                title: 'Bill reminder · ${bill.name}',
+                body:
+                    '${rupee(bill.amount)} is due in 2 days on ${dayMonth(bill.dueDate)}.',
+                payload: billPayload,
+              );
+              await box?.put(recordKey, when.toLocal().toIso8601String());
+            }
+          }
         }
-        await _plugin.zonedSchedule(
-          id: id++,
-          scheduledDate: when,
-          notificationDetails: _details,
-          androidScheduleMode: scheduleMode,
-          title: 'Bill reminder',
-          body: '${bill.name} · ${rupee(bill.amount)} ${bill.relativeLabel}',
-        );
-        await box?.put(recordKey, when.toLocal().toIso8601String());
+
+        // B. Due Today Reminder: Morning of the due date
+        if (bill.days >= 0) {
+          final recordKey = _billRecordKey(bill, 'today');
+          final previousRaw = box?.get(recordKey);
+          final previous = previousRaw == null
+              ? null
+              : DateTime.tryParse(previousRaw)?.toLocal();
+
+          if (previous == null || previous.isAfter(nowLocal)) {
+            var when = tz.TZDateTime(
+              tz.local,
+              bill.dueDate.year,
+              bill.dueDate.month,
+              bill.dueDate.day,
+              billHour,
+              billMinute,
+            );
+            if (!when.isAfter(now)) {
+              if (bill.days == 0 && now.hour < 18) {
+                when = now.add(const Duration(minutes: 1));
+              }
+            }
+            if (when.isAfter(now)) {
+              await _plugin.zonedSchedule(
+                id: todayId++,
+                scheduledDate: when,
+                notificationDetails: _details,
+                androidScheduleMode: scheduleMode,
+                title: 'Due today · ${bill.name}',
+                body:
+                    '${rupee(bill.amount)} is due today. Pay before cut-off to avoid late fees.',
+                payload: billPayload,
+              );
+              await box?.put(recordKey, when.toLocal().toIso8601String());
+            }
+          }
+        }
+
+        // C. Overdue Escalation: Overdue bills requiring immediate clearance
+        if (bill.days < 0 && bill.days >= -14) {
+          final recordKey = _billRecordKey(bill, 'overdue');
+          final previousRaw = box?.get(recordKey);
+          final previous = previousRaw == null
+              ? null
+              : DateTime.tryParse(previousRaw)?.toLocal();
+
+          if (previous == null) {
+            final when = now.add(const Duration(minutes: 1));
+            await _plugin.zonedSchedule(
+              id: overdueId++,
+              scheduledDate: when,
+              notificationDetails: _details,
+              androidScheduleMode: scheduleMode,
+              title: 'Overdue · ${bill.name}',
+              body:
+                  '${rupee(bill.amount)} was due on ${dayMonth(bill.dueDate)}. Clear immediately to protect credit score.',
+              payload: billPayload,
+            );
+            await box?.put(recordKey, when.toLocal().toIso8601String());
+          }
+        }
       }
     }
 
+    // 3. Weekly Financial Summary (Sunday Evening)
     if (settings.weeklyDigest) {
       final dayOffset = (7 - now.weekday) % 7; // next Sunday (weekday 7)
       final sunday = now.add(Duration(days: dayOffset));
@@ -242,17 +355,15 @@ abstract final class NotificationsService {
         minute,
       );
       if (!when.isAfter(now)) when = when.add(const Duration(days: 7));
-      final month = monthStart(now.toLocal());
-      final flow = snapshot.flow(month);
       await _plugin.zonedSchedule(
         id: _weeklyId,
         scheduledDate: when,
         notificationDetails: _details,
         androidScheduleMode: scheduleMode,
-        title: 'Weekly digest',
-        body:
-            'Spent ${rupee(flow.expense)} · Earned ${rupee(flow.income)} this month',
+        title: 'Weekly financial summary',
+        body: 'Review your spending trends and savings breakdown for this week in Insights.',
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: 'module:insights',
       );
     }
   }
@@ -282,6 +393,7 @@ abstract final class NotificationsService {
       'Budget alert',
       '$category is at ${(progress * 100).round()}% (alert $alertAt%)',
       id: 999,
+      payload: 'module:budgets',
     );
   }
 }

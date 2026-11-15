@@ -951,8 +951,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   await NotificationsService.requestPermissions();
                   await NotificationsService.showNow(
                     'Spendwiser test',
-                    'Notifications are working on this device.',
+                    'Notifications and deep linking are working on this device.',
                     id: 42,
+                    payload: 'module:insights',
                   );
                 },
               ),

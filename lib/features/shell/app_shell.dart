@@ -15,6 +15,8 @@ import '../../core/widgets/app_icons.dart';
 import '../../core/widgets/atmosphere_background.dart';
 import '../../core/widgets/pressable.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/services/notifications_service.dart';
+import '../../data/sms/sms_inbox.dart';
 import '../accounts/accounts_screen.dart';
 import '../budgets/budgets_screen.dart';
 import '../calendar/calendar_screen.dart';
@@ -30,6 +32,7 @@ import '../ledger/ledger_screen.dart';
 import '../lock/lock_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../settings/settings_screen.dart';
+import '../sms/sms_review_sheet.dart';
 import '../split/split_screen.dart';
 import '../subscriptions/subscriptions_screen.dart';
 import '../tools/tools_screen.dart';
@@ -69,6 +72,7 @@ class _AppShellState extends ConsumerState<AppShell>
   );
 
   late final AnimationController _fabPulse;
+  StreamSubscription<void>? _smsReviewSub;
 
   @override
   void initState() {
@@ -79,6 +83,19 @@ class _AppShellState extends ConsumerState<AppShell>
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     )..repeat(reverse: true);
+
+    SmsInbox.initMethodHandler();
+    _smsReviewSub = SmsInbox.onOpenSmsReview.listen((_) {
+      _handleOpenSmsReview();
+    });
+    NotificationsService.pendingPayload.addListener(_handlePendingPayload);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _handlePendingPayload();
+      final shouldOpenSms = await SmsInbox.checkOpenSmsReview();
+      if (shouldOpenSms && mounted) {
+        _handleOpenSmsReview();
+      }
+    });
   }
 
   @override
@@ -94,6 +111,13 @@ class _AppShellState extends ConsumerState<AppShell>
       final pausedTime = _pausedAt;
       _pausedAt = null;
       ref.read(smsReviewProvider.notifier).refresh();
+
+      SmsInbox.checkOpenSmsReview().then((shouldOpen) {
+        if (shouldOpen && mounted) {
+          _handleOpenSmsReview();
+        }
+      });
+      _handlePendingPayload();
 
       // Do not re-lock if biometrics are in progress or completed just now
       if (sec.isAuthenticatingBiometrics ||
@@ -111,10 +135,37 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _smsReviewSub?.cancel();
+    NotificationsService.pendingPayload.removeListener(_handlePendingPayload);
     _fabPulse.dispose();
     _swipeProgress.dispose();
     _swipeTarget.dispose();
     super.dispose();
+  }
+
+  void _handlePendingPayload() {
+    final payload = NotificationsService.pendingPayload.value;
+    if (payload == null) return;
+    NotificationsService.pendingPayload.value = null;
+    if (!mounted) return;
+    if (payload == 'sms_review') {
+      _handleOpenSmsReview();
+      return;
+    }
+    if (payload.startsWith('module:')) {
+      final modId = payload.substring('module:'.length);
+      for (final m in AppModule.values) {
+        if (m.id == modId) {
+          _go(m);
+          break;
+        }
+      }
+    }
+  }
+
+  void _handleOpenSmsReview() {
+    if (!mounted) return;
+    showSmsReviewSheet(context);
   }
 
   bool get _canSwipe =>

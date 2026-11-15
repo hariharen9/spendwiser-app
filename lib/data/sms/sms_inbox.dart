@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -174,5 +176,30 @@ abstract final class SmsInbox {
         .where((event) => event is Map)
         .map((event) => SmsMessage.fromMap(event as Map))
         .handleError((Object _) {});
+  }
+
+  static final _openSmsReviewController = StreamController<void>.broadcast();
+  static Stream<void> get onOpenSmsReview => _openSmsReviewController.stream;
+  static bool _handlerInitialized = false;
+
+  static void initMethodHandler() {
+    if (_handlerInitialized || !isSupported) return;
+    _handlerInitialized = true;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'openSmsReview') {
+        _openSmsReviewController.add(null);
+      }
+    });
+  }
+
+  static Future<bool> checkOpenSmsReview() async {
+    if (!isSupported) return false;
+    try {
+      return await _channel.invokeMethod<bool>('checkOpenSmsReview') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
   }
 }

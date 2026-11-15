@@ -2,6 +2,7 @@ package com.spendwiser.spendwiser_app
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -12,12 +13,15 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private var smsPermissionResult: MethodChannel.Result? = null
+    private var smsMethodChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        MethodChannel(messenger, "spendwiser/sms").setMethodCallHandler { call, result ->
+        val channel = MethodChannel(messenger, "spendwiser/sms")
+        smsMethodChannel = channel
+        channel.setMethodCallHandler { call, result ->
             handleSmsCall(call, result)
         }
 
@@ -34,11 +38,27 @@ class MainActivity : FlutterFragmentActivity() {
         )
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra("open_sms_review", false)) {
+            intent.removeExtra("open_sms_review")
+            smsMethodChannel?.invokeMethod("openSmsReview", null)
+        }
+    }
+
     private fun handleSmsCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "hasPermission" -> result.success(hasSmsPermission())
             "requestPermission" -> requestSmsPermission(result)
             "getPending" -> result.success(SmsInboxStore(this).list())
+            "checkOpenSmsReview" -> {
+                val shouldOpen = intent?.getBooleanExtra("open_sms_review", false) ?: false
+                if (shouldOpen) {
+                    intent?.removeExtra("open_sms_review")
+                }
+                result.success(shouldOpen)
+            }
             "count" -> result.success(SmsInboxStore(this).count())
             "addRaw" -> {
                 val sender = call.argument<String>("sender") ?: "TEST"
