@@ -267,6 +267,10 @@ class GroupedBarChart extends StatelessWidget {
     required this.labels,
     this.height = 170,
     this.budgetValue,
+    this.incomeColor,
+    this.incomeColor2,
+    this.expenseColor,
+    this.expenseColor2,
   });
 
   final List<double> income;
@@ -274,10 +278,19 @@ class GroupedBarChart extends StatelessWidget {
   final List<String> labels;
   final double height;
   final double? budgetValue;
+  final Color? incomeColor;
+  final Color? incomeColor2;
+  final Color? expenseColor;
+  final Color? expenseColor2;
 
   @override
   Widget build(BuildContext context) {
     final c = context.spend;
+    final inColor = incomeColor ?? c.ac;
+    final inColor2 = incomeColor2 ?? c.ac2;
+    final exColor = expenseColor ?? c.co;
+    final exColor2 = expenseColor2 ?? AppColors.accentSecondary(exColor);
+
     return SizedBox(
       height: height,
       width: double.infinity,
@@ -286,13 +299,13 @@ class GroupedBarChart extends StatelessWidget {
           income: income,
           expense: expense,
           labels: labels,
-          accent: c.ac,
-          accent2: c.ac2,
-          coral: c.co,
-          coral2: AppColors.accentSecondary(c.co),
+          accent: inColor,
+          accent2: inColor2,
+          coral: exColor,
+          coral2: exColor2,
           labelColor: c.mu,
           budgetValue: budgetValue,
-          budgetColor: c.co,
+          budgetColor: exColor,
         ),
       ),
     );
