@@ -1,0 +1,1892 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>SpendWiser — Sovereign Financial OS for Android</title>
+    <meta name="description" content="Your bank app shows what’s left. SpendWiser shows what happens next. A local-first, phase-aware financial operating system engineered for UPI velocity, Indian bank SMS alerts, debt payoff math, and offline intelligence with optional BYOK AI." />
+
+    <!-- OpenGraph & Twitter -->
+    <meta property="og:title" content="SpendWiser — Sovereign Financial OS" />
+    <meta property="og:description" content="Your bank app shows what’s left. SpendWiser shows what happens next. Zero credentials, 100% offline-first." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              bg: "#09090B",
+              c1: "#131317",
+              c2: "#1C1C22",
+              c3: "#26262F",
+              tx: "#F4F1EA",
+              mu: "#8B8883",
+              ln: "rgba(255, 255, 255, 0.08)",
+              ac: "#D4FF3A",
+              aci: "#0B0D02",
+              co: "#FF6B4A",
+              cy: "#6EE7FF",
+              pu: "#C084FC",
+              gd: "#FFD23F",
+              mt: "#7BE495",
+            },
+            fontFamily: {
+              sans: ["DM Sans", "system-ui", "sans-serif"],
+              serif: ["Instrument Serif", "Georgia", "serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090b;
+        --c1: #131317;
+        --c2: #1c1c22;
+        --c3: #26262f;
+        --tx: #f4f1ea;
+        --mu: #8b8883;
+        --ln: rgba(255, 255, 255, 0.08);
+        --ac: #d4ff3a;
+        --aci: #0b0d02;
+        --co: #ff6b4a;
+        --cy: #6ee7ff;
+        --pu: #c084fc;
+        --gd: #ffd23f;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        background-color: var(--bg);
+        color: var(--tx);
+        font-family: "DM Sans", system-ui, sans-serif;
+        overflow-x: hidden;
+      }
+
+      ::selection {
+        background: #d4ff3a;
+        color: #0b0d02;
+      }
+
+      /* Noise Canvas Overlay */
+      .bg-grid-subtle {
+        background-image:
+          linear-gradient(to right, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+        background-size: 36px 36px;
+      }
+
+      /* Glass Morphism Cards */
+      .glass-panel {
+        background: rgba(19, 19, 23, 0.72);
+        backdrop-filter: blur(28px);
+        -webkit-backdrop-filter: blur(28px);
+        border: 1px solid var(--ln);
+        border-radius: 28px;
+        transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .glass-panel:hover {
+        border-color: rgba(212, 255, 58, 0.3);
+      }
+
+      /* Glowing Spotlights */
+      .ambient-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(140px);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* Buttons */
+      .btn-lime {
+        background: var(--ac);
+        color: var(--aci);
+        font-weight: 700;
+        border-radius: 9999px;
+        padding: 0.9rem 2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 30px -4px rgba(212, 255, 58, 0.45);
+      }
+
+      .btn-lime:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 14px 44px -4px rgba(212, 255, 58, 0.7);
+      }
+
+      .btn-glass {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--tx);
+        border: 1px solid var(--ln);
+        font-weight: 500;
+        border-radius: 9999px;
+        padding: 0.9rem 2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .btn-glass:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.22);
+        transform: translateY(-2px);
+      }
+
+      /* Android Device Holographic Frame */
+      .device-outer {
+        width: min(380px, 100%);
+        border-radius: 50px;
+        background: linear-gradient(150deg, #24242c 0%, #121217 50%, #09090c 100%);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        padding: 12px;
+        box-shadow:
+          0 40px 120px -20px rgba(0, 0, 0, 0.95),
+          0 0 0 1px rgba(255, 255, 255, 0.06),
+          0 0 90px -10px rgba(212, 255, 58, 0.25);
+        position: relative;
+      }
+
+      .device-inner {
+        background: #09090b;
+        border-radius: 40px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      /* Interactive Bento App Tiles */
+      .app-bento-tile {
+        background: rgba(28, 28, 34, 0.65);
+        border: 1px solid var(--ln);
+        border-radius: 22px;
+        padding: 1.1rem;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .app-bento-tile:hover {
+        transform: translateY(-3px);
+        border-color: rgba(212, 255, 58, 0.4);
+        background: rgba(38, 38, 47, 0.85);
+        box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6);
+      }
+
+      .app-bento-tile.active-pill {
+        border-color: var(--ac);
+        background: rgba(212, 255, 58, 0.08);
+      }
+
+      /* Orb pulse */
+      @keyframes orb-glow-pulse {
+        0%, 100% {
+          transform: scale(1);
+          box-shadow: 0 0 50px 10px rgba(212, 255, 58, 0.35);
+        }
+        50% {
+          transform: scale(1.06);
+          box-shadow: 0 0 85px 22px rgba(212, 255, 58, 0.65);
+        }
+      }
+
+      .orb-glow {
+        animation: orb-glow-pulse 4s ease-in-out infinite;
+      }
+
+      /* Infinite marquee */
+      .marquee-row {
+        display: flex;
+        gap: 3rem;
+        white-space: nowrap;
+        animation: marquee 32s linear infinite;
+        width: max-content;
+      }
+
+      .marquee-row:hover {
+        animation-play-state: paused;
+      }
+
+      @keyframes marquee {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+      }
+
+      /* Switch */
+      .toggle-bar {
+        width: 52px;
+        height: 30px;
+        border-radius: 999px;
+        background: var(--c2);
+        border: 1px solid var(--ln);
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .toggle-bar::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--mu);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .toggle-bar[data-active="true"] {
+        background: var(--co);
+        border-color: var(--co);
+      }
+
+      .toggle-bar[data-active="true"]::after {
+        left: 25px;
+        background: #ffffff;
+      }
+
+      /* Feed animation */
+      .entry-row.just-inserted {
+        animation: insert-anim 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes insert-anim {
+        0% {
+          opacity: 0;
+          transform: translateY(-12px) scale(0.96);
+          background: rgba(212, 255, 58, 0.2);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          background: transparent;
+        }
+      }
+
+      ::-webkit-scrollbar { width: 7px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: #26262f; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #3b3b47; }
+    </style>
+  </head>
+
+  <body class="bg-bg text-tx antialiased relative bg-grid-subtle selection:bg-ac selection:text-aci">
+    <!-- Ambient Spotlights -->
+    <div class="ambient-glow bg-ac w-[650px] h-[650px] -top-40 -right-36 opacity-15"></div>
+    <div class="ambient-glow bg-co w-[700px] h-[700px] top-[1400px] -left-48 opacity-10"></div>
+    <div class="ambient-glow bg-cy w-[600px] h-[600px] top-[2600px] -right-40 opacity-10"></div>
+    <div class="ambient-glow bg-pu w-[650px] h-[650px] top-[3800px] -left-40 opacity-10"></div>
+    <div class="ambient-glow bg-ac w-[850px] h-[850px] bottom-10 left-1/2 -translate-x-1/2 opacity-15"></div>
+
+    <!-- HEADER -->
+    <header class="fixed top-0 inset-x-0 z-50 backdrop-blur-2xl bg-bg/85 border-b border-ln">
+      <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <a href="#top" class="flex items-center gap-3.5 group">
+          <img
+            src="assets/branding/icon-money.svg"
+            alt="SpendWiser Logo"
+            class="w-9 h-9 rounded-full shadow-[0_0_24px_rgba(255,206,82,0.45)] transition-transform group-hover:scale-105"
+          />
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-xl tracking-tight">SpendWiser</span>
+            <span class="text-[10px] tracking-wider uppercase font-mono px-2 py-0.5 rounded-full bg-c2 text-mu border border-ln">v1.0.0</span>
+          </div>
+        </a>
+
+        <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-mu">
+          <a href="#runway" class="hover:text-tx transition-colors">Runway Engine</a>
+          <a href="#capture" class="hover:text-tx transition-colors">2-Sec Capture</a>
+          <a href="#apps" class="hover:text-tx transition-colors flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-ac"></span>
+            Apps & Matrix
+          </a>
+          <a href="#ai" class="hover:text-tx transition-colors">SpendWiser AI</a>
+          <a href="#privacy" class="hover:text-tx transition-colors">Sovereign Privacy</a>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <a
+            href="https://github.com/hariharen9/spendwiser-app"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hidden sm:inline-flex items-center gap-2 text-xs font-mono text-mu hover:text-tx px-3.5 py-2 rounded-full border border-ln hover:border-tx/30 transition-all bg-c1/60"
+          >
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>
+            Source
+          </a>
+          <a
+            href="https://github.com/hariharen9/spendwiser-app/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-lime !py-2.5 !px-5 text-xs uppercase tracking-wider"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            Get APK
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- HERO -->
+      <section class="relative pt-36 pb-20 md:pt-48 md:pb-36 px-6">
+        <div class="max-w-7xl mx-auto grid lg:grid-cols-[1.1fr_.9fr] gap-16 items-center">
+          <div>
+            <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-ac/30 bg-ac/10 text-xs font-mono text-ac mb-6 backdrop-blur-md">
+              <span class="w-2 h-2 rounded-full bg-ac animate-pulse"></span>
+              <span>Built in India · UPI Velocity · Offline-First · Zero Bank Scraping</span>
+            </div>
+
+            <h1 class="font-serif text-[clamp(3rem,6.8vw,5.8rem)] leading-[0.96] tracking-tight">
+              <span class="text-mu block font-normal">Your bank app shows what’s left.</span>
+              SpendWiser shows <span class="italic text-ac font-normal underline decoration-ac/40 decoration-wavy">what happens next.</span>
+            </h1>
+
+            <p class="mt-8 text-lg md:text-xl text-mu max-w-xl font-normal leading-relaxed">
+              The sovereign personal finance operating system for Android. Log expenses in 2 seconds, model your live cash runway without start-of-month panic, and interact with your money offline.
+            </p>
+
+            <div class="mt-10 flex flex-wrap items-center gap-4">
+              <a
+                href="https://github.com/hariharen9/spendwiser-app/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-lime text-sm"
+              >
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Download APK (v1.0.0 Free)
+              </a>
+
+              <a href="#apps" class="btn-glass text-sm">
+                Explore The App Suite
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </a>
+            </div>
+
+            <div class="mt-8 flex items-center gap-3 text-xs text-mu font-mono">
+              <span class="text-ac bg-ac/10 border border-ac/20 px-2 py-0.5 rounded">LIVE DEMO</span>
+              <span>Type on the phone or try:</span>
+              <button onclick="simulateQuickEntry('swiggy 420')" class="text-tx underline underline-offset-4 decoration-ac hover:text-ac transition-colors">"swiggy 420"</button>
+              <span>or</span>
+              <button onclick="simulateQuickEntry('uber 280')" class="text-tx underline underline-offset-4 decoration-ac hover:text-ac transition-colors">"uber 280"</button>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-ln grid grid-cols-3 gap-6 max-w-lg">
+              <div>
+                <p class="font-serif text-3xl md:text-4xl text-tx">0</p>
+                <p class="text-xs font-mono text-mu mt-1 uppercase tracking-wider">Bank Logins</p>
+              </div>
+              <div>
+                <p class="font-serif text-3xl md:text-4xl text-ac">&lt; 2s</p>
+                <p class="text-xs font-mono text-mu mt-1 uppercase tracking-wider">Capture Speed</p>
+              </div>
+              <div>
+                <p class="font-serif text-3xl md:text-4xl text-tx">100%</p>
+                <p class="text-xs font-mono text-mu mt-1 uppercase tracking-wider">Local & Offline</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Mobile Phone Frame -->
+          <div class="flex justify-center relative">
+            <div class="device-outer">
+              <div class="device-inner p-5 flex flex-col justify-between min-h-[610px]">
+                <div class="flex items-center justify-between text-xs text-mu pb-3 border-b border-ln font-mono">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-ac"></span>
+                    <span class="text-tx font-medium">Safe-to-Spend</span>
+                  </div>
+                  <span id="phoneSimDate">15 Nov 2026</span>
+                </div>
+
+                <div class="py-4">
+                  <p class="text-xs text-mu font-medium">Safe to spend today</p>
+                  <p id="liveSafeToday" class="font-serif text-5xl md:text-6xl text-tx mt-1 tracking-tight">₹0</p>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-ac/10 text-ac border border-ac/20">Phase 2: Mid-Month</span>
+                    <span class="text-[11px] font-mono text-mu">Buffer ₹5,000 intact</span>
+                  </div>
+                </div>
+
+                <div class="bg-c1/90 border border-ln rounded-2xl p-3.5 my-2">
+                  <div class="flex items-center justify-between text-[11px] text-mu mb-1.5 font-mono">
+                    <span>Cash Runway Curve</span>
+                    <span class="text-ac">Payday: 30 Nov</span>
+                  </div>
+                  <svg id="liveMiniSvg" viewBox="0 0 300 110" class="w-full h-24 overflow-visible" role="img" aria-label="Interactive mini runway chart"></svg>
+                </div>
+
+                <form onsubmit="handleQuickCaptureSubmit(event)" class="relative my-2">
+                  <input
+                    id="phoneQuickInput"
+                    class="w-full bg-c2/80 border border-ln rounded-full py-2.5 pl-4 pr-12 text-sm text-tx placeholder-mu focus:outline-none focus:border-ac transition-all"
+                    placeholder="chai 40 or zomato 350"
+                    autocomplete="off"
+                    aria-label="Interactive demo entry"
+                  />
+                  <button
+                    type="submit"
+                    class="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-ac text-aci font-black flex items-center justify-center hover:scale-105 transition-transform"
+                    aria-label="Add transaction"
+                  >
+                    +
+                  </button>
+                </form>
+
+                <div class="mt-1">
+                  <p class="text-[10px] uppercase font-mono tracking-wider text-mu mb-1.5">Live Feed (Add Above)</p>
+                  <div id="liveLedgerRows" class="space-y-1"></div>
+                </div>
+
+                <div class="pt-3 border-t border-ln flex items-center justify-around text-xs text-mu font-mono">
+                  <span class="text-ac font-semibold">Home</span>
+                  <span>Ledger</span>
+                  <span>Cards</span>
+                  <span>Apps</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BRAND TICKER -->
+      <section class="border-y border-ln py-5 overflow-hidden bg-c1/30" aria-hidden="true">
+        <div class="marquee-row font-serif italic text-2xl text-mu/80">
+          <span>Swiggy</span><span>•</span>
+          <span>Zomato</span><span>•</span>
+          <span>Blinkit</span><span>•</span>
+          <span>Zepto</span><span>•</span>
+          <span>BigBasket</span><span>•</span>
+          <span>Uber India</span><span>•</span>
+          <span>Ola Cabs</span><span>•</span>
+          <span>Rapido</span><span>•</span>
+          <span>IRCTC</span><span>•</span>
+          <span>Jio</span><span>•</span>
+          <span>Airtel</span><span>•</span>
+          <span>Amazon Pay</span><span>•</span>
+          <span>Flipkart</span><span>•</span>
+          <span>Netflix</span><span>•</span>
+          <span>Spotify</span><span>•</span>
+          <span>HDFC Bank</span><span>•</span>
+          <span>ICICI Bank</span><span>•</span>
+          <span>State Bank of India</span><span>•</span>
+          <span>Axis Bank</span><span>•</span>
+          <span>Kotak Mahindra</span><span>•</span>
+          <span>American Express</span><span>•</span>
+          <span>Zerodha</span><span>•</span>
+          <span>CRED</span><span>•</span>
+          <!-- Duplicate for seamless looping -->
+          <span>Swiggy</span><span>•</span>
+          <span>Zomato</span><span>•</span>
+          <span>Blinkit</span><span>•</span>
+          <span>Zepto</span><span>•</span>
+          <span>BigBasket</span><span>•</span>
+          <span>Uber India</span><span>•</span>
+          <span>Ola Cabs</span><span>•</span>
+          <span>Rapido</span><span>•</span>
+          <span>IRCTC</span><span>•</span>
+          <span>Jio</span><span>•</span>
+          <span>Airtel</span><span>•</span>
+          <span>Amazon Pay</span><span>•</span>
+          <span>Flipkart</span><span>•</span>
+          <span>Netflix</span><span>•</span>
+          <span>Spotify</span><span>•</span>
+          <span>HDFC Bank</span><span>•</span>
+          <span>ICICI Bank</span><span>•</span>
+          <span>State Bank of India</span><span>•</span>
+          <span>Axis Bank</span><span>•</span>
+          <span>Kotak Mahindra</span><span>•</span>
+          <span>American Express</span><span>•</span>
+          <span>Zerodha</span><span>•</span>
+          <span>CRED</span>
+        </div>
+      </section>
+
+      <!-- SECTION 1: THE INTELLIGENT CASH RUNWAY -->
+      <section id="runway" class="py-28 px-6 relative">
+        <div class="max-w-7xl mx-auto">
+          <div class="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <span class="text-xs font-mono uppercase tracking-wider text-ac bg-ac/10 border border-ac/20 px-3 py-1 rounded-full">
+                Mathematical Modeling
+              </span>
+              <h2 class="font-serif text-5xl md:text-7xl tracking-tight leading-[1] mt-6">
+                Rent lands on the 1st.<br />
+                Your month isn’t over on the 2nd.
+              </h2>
+              <p class="mt-6 text-lg text-mu leading-relaxed max-w-xl">
+                Every other app takes your spend in the first week, divides by days elapsed, and multiplies by 30. When ₹35,000 in rent, maintenance and utilities hits on day 3, they predict you’ll go broke before mid-month.
+              </p>
+              <p class="mt-4 text-lg text-tx/90 leading-relaxed max-w-xl font-medium">
+                SpendWiser’s phase-aware engine detects monthly bills, schedules unpaid ones, and calibrates burn curves across 3 distinct phases to your actual payday.
+              </p>
+
+              <!-- Interactive Simulator Toggle -->
+              <div class="mt-10 p-5 rounded-2xl bg-c1 border border-ln flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <button
+                      id="naiveToggleBtn"
+                      class="toggle-bar"
+                      data-active="false"
+                      onclick="toggleNaiveEngine()"
+                      aria-label="Toggle naive extrapolation"
+                    ></button>
+                    <div>
+                      <p class="text-sm font-semibold text-tx">Compare with a naive budgeting app</p>
+                      <p class="text-xs text-mu">See the red false panic curve</p>
+                    </div>
+                  </div>
+                  <span id="naivePill" class="text-xs font-mono text-mu">Off</span>
+                </div>
+
+                <div id="naiveWarning" class="text-xs text-co bg-co/10 border border-co/20 p-3 rounded-xl hidden">
+                  ⚠️ <b>False Shortfall Detected:</b> The naive model extrapolated your ₹18,000 rent payment as a ₹4,800/day ongoing burn rate, falsely predicting total depletion by 16 Nov.
+                </div>
+              </div>
+
+              <div class="mt-8 grid sm:grid-cols-3 gap-4 text-xs font-mono">
+                <div class="p-4 rounded-xl bg-c1/60 border border-ln">
+                  <p class="font-bold text-tx text-sm mb-1">🔍 Unregistered Bills</p>
+                  <p class="text-mu font-sans leading-snug">Auto-detects maid, Wi-Fi & maintenance; skips once paid.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-c1/60 border border-ln">
+                  <p class="font-bold text-tx text-sm mb-1">📊 Winsorized Spikes</p>
+                  <p class="text-mu font-sans leading-snug">A one-off gadget purchase won't distort daily grocery burn.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-c1/60 border border-ln">
+                  <p class="font-bold text-tx text-sm mb-1">🗓️ Month Phases</p>
+                  <p class="text-mu font-sans leading-snug">Learns Days 1–7 (front-load), 8–20 (normal), and 21–31 (lean).</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-panel p-6 md:p-8">
+              <div class="flex items-center justify-between text-xs text-mu pb-4 border-b border-ln mb-4">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-ac"></span>
+                  <span class="font-mono text-tx font-medium">Cash Runway Simulator</span>
+                </div>
+                <div class="flex items-center gap-4 font-mono text-[11px]">
+                  <span class="text-ac">● SpendWiser Phase Model</span>
+                  <span id="legendNaiveCompare" class="text-co hidden">--- Naive Extrapolation</span>
+                </div>
+              </div>
+
+              <div class="py-4">
+                <svg id="liveBigSvg" viewBox="0 0 420 180" class="w-full h-64 overflow-visible" role="img" aria-label="Detailed runway curve"></svg>
+              </div>
+
+              <div class="flex items-center justify-between text-xs font-mono text-mu pt-4 border-t border-ln">
+                <span>1 Nov (Salary ₹64k)</span>
+                <span>Rent & Bills (₹23.6k)</span>
+                <span class="text-tx font-bold">Today (15 Nov)</span>
+                <span class="text-ac">30 Nov (₹18.4k buffer)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: 2-SECOND CAPTURE -->
+      <section id="capture" class="py-28 px-6 bg-c1/40 border-y border-ln">
+        <div class="max-w-7xl mx-auto">
+          <div class="max-w-2xl">
+            <span class="text-xs font-mono uppercase tracking-wider text-ac bg-ac/10 border border-ac/20 px-3 py-1 rounded-full">
+              Frictionless Inputs
+            </span>
+            <h2 class="font-serif text-5xl md:text-7xl tracking-tight leading-[1] mt-6">
+              Two seconds, any way you like.
+            </h2>
+            <p class="mt-4 text-lg text-mu leading-relaxed">
+              If tracking an expense requires 8 taps and category dropdowns, nobody does it. SpendWiser is engineered for extreme input velocity.
+            </p>
+          </div>
+
+          <div class="mt-12 flex flex-wrap gap-2.5" role="tablist">
+            <button
+              class="capture-tab-btn px-5 py-2.5 rounded-full border border-ac bg-ac text-aci font-bold text-sm transition-all"
+              role="tab"
+              aria-selected="true"
+              onclick="switchCaptureMode(0, this)"
+            >
+              ⚡ Quick Type
+            </button>
+            <button
+              class="capture-tab-btn px-5 py-2.5 rounded-full border border-ln bg-c2 text-mu hover:text-tx text-sm font-medium transition-all"
+              role="tab"
+              aria-selected="false"
+              onclick="switchCaptureMode(1, this)"
+            >
+              🎙️ Voice (Speech-to-Text)
+            </button>
+            <button
+              class="capture-tab-btn px-5 py-2.5 rounded-full border border-ln bg-c2 text-mu hover:text-tx text-sm font-medium transition-all"
+              role="tab"
+              aria-selected="false"
+              onclick="switchCaptureMode(2, this)"
+            >
+              📷 Receipt OCR (On-Device ML)
+            </button>
+            <button
+              class="capture-tab-btn px-5 py-2.5 rounded-full border border-ln bg-c2 text-mu hover:text-tx text-sm font-medium transition-all"
+              role="tab"
+              aria-selected="false"
+              onclick="switchCaptureMode(3, this)"
+            >
+              📩 Bank SMS Auto-Parser
+            </button>
+          </div>
+
+          <div class="mt-8 grid md:grid-cols-[1.2fr_auto_1fr] gap-6 items-stretch">
+            <div class="glass-panel p-8 flex flex-col justify-between">
+              <div>
+                <p class="text-xs font-mono uppercase text-mu" id="captureCardSrc">Raw Input</p>
+                <p class="font-serif text-3xl md:text-5xl text-tx mt-4 leading-tight font-normal" id="captureCardInput">
+                  "chai 40"
+                </p>
+              </div>
+              <div class="mt-8 pt-4 border-t border-ln text-xs font-mono text-mu flex items-center justify-between">
+                <span>Method: <b class="text-tx" id="captureCardMethod">Terminal Regex</b></span>
+                <span class="text-ac">Latency: &lt; 2ms</span>
+              </div>
+            </div>
+
+            <div class="hidden md:flex items-center justify-center text-3xl text-ac font-bold px-2" aria-hidden="true">
+              →
+            </div>
+
+            <div class="glass-panel p-8 border-ac/40 relative overflow-hidden flex flex-col justify-between">
+              <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-ac/10 rounded-full blur-2xl pointer-events-none"></div>
+              <div>
+                <p class="text-xs font-mono uppercase text-ac">Parsed Transaction Entity</p>
+                <p class="font-serif text-3xl md:text-4xl text-tx mt-4 leading-snug" id="captureCardTitle">
+                  Chai Point · Food
+                </p>
+                <p class="text-2xl font-serif text-tx mt-2 text-ac" id="captureCardAmount">
+                  −₹40.00
+                </p>
+              </div>
+              <p class="mt-6 text-sm text-mu leading-relaxed" id="captureCardDetails">
+                Auto-assigned category, updated Cash Runway, and synced instantly with zero external network roundtrips.
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-6 text-sm text-mu max-w-3xl" id="captureCardFootnote">
+            Merchants across Indian and global brands sort themselves automatically, with pixel-perfect brand icons and vector fallbacks.
+          </p>
+        </div>
+      </section>
+
+      <!-- SECTION 3: THE APPS LAUNCHER & INTERACTIVE MODULE MATRIX -->
+      <section id="apps" class="py-28 px-6">
+        <div class="max-w-7xl mx-auto">
+          <!-- Section Header -->
+          <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div class="max-w-2xl">
+              <span class="text-xs font-mono uppercase tracking-wider text-ac bg-ac/10 border border-ac/20 px-3.5 py-1.5 rounded-full inline-flex items-center gap-2">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                Financial OS · Integrated Bento Architecture
+              </span>
+              <h2 class="font-serif text-5xl md:text-7xl tracking-tight leading-[1] mt-6">
+                The Apps Suite.
+              </h2>
+              <p class="mt-4 text-lg text-mu leading-relaxed">
+                Click any module tile to inspect its real-time telemetry, engine algorithms, and live UI capabilities.
+              </p>
+            </div>
+
+            <!-- Launcher Mode Indicator -->
+            <div class="flex items-center gap-2.5 p-2 rounded-full bg-c1 border border-ln text-xs font-mono self-start md:self-auto">
+              <span class="px-3 py-1 rounded-full bg-ac text-aci font-bold">Orb Bento</span>
+              <span class="px-3 py-1 text-mu">Custom Nav Bar</span>
+            </div>
+          </div>
+
+          <!-- Interactive 2-Column Split: Master Bento Matrix (Left) + Detail Inspector (Right) -->
+          <div class="mt-14 grid lg:grid-cols-12 gap-8 items-start">
+            <!-- Left: 14-Module Interactive Bento Grid (7 cols) -->
+            <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-3.5" id="modulesGridContainer">
+              <!-- Dynamically populated or rendered tiles -->
+            </div>
+
+            <!-- Right: Interactive Deep-Dive Inspector Card (5 cols) -->
+            <div class="lg:col-span-5 sticky top-28">
+              <div class="glass-panel p-8 border-ac/30 relative overflow-hidden shadow-2xl" id="inspectorCard">
+                <div class="flex items-center justify-between pb-4 border-b border-ln">
+                  <div class="flex items-center gap-3">
+                    <div id="inspIconBadge" class="w-10 h-10 rounded-2xl bg-ac/10 border border-ac/30 flex items-center justify-center text-ac">
+                      <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <h3 id="inspTitle" class="font-serif text-3xl text-tx">SpendWiser AI</h3>
+                      <p id="inspSubtitle" class="text-xs font-mono text-ac">AppModule.ai · Copilot</p>
+                    </div>
+                  </div>
+                  <span id="inspLiveLabel" class="text-xs font-mono px-2.5 py-1 rounded-full bg-c2 text-tx border border-ln">BYOK Copilot</span>
+                </div>
+
+                <!-- Live Metrics & What it does -->
+                <div class="py-6 space-y-4">
+                  <div>
+                    <p class="text-xs font-mono uppercase tracking-wider text-mu mb-1">Architecture & Purpose</p>
+                    <p id="inspDescription" class="text-sm text-tx leading-relaxed">
+                      A dedicated conversational copilot with 1-tap natural-language action execution ("Log chai 40", "Create ₹25k Goa budget"), grounded in your live Cash Runway.
+                    </p>
+                  </div>
+
+                  <!-- Dynamic Deep Feature List -->
+                  <div>
+                    <p class="text-xs font-mono uppercase tracking-wider text-mu mb-2">Capabilities Under The Hood</p>
+                    <div id="inspBullets" class="space-y-2 text-xs font-mono">
+                      <!-- Populated via JS -->
+                    </div>
+                  </div>
+
+                  <!-- Live Mini Metric Card -->
+                  <div class="p-4 rounded-2xl bg-c2 border border-ln" id="inspMetricBox">
+                    <p class="text-[11px] font-mono text-mu uppercase" id="inspMetricTitle">Live Telemetry</p>
+                    <p class="font-serif text-2xl text-tx mt-1" id="inspMetricVal">Multi-Turn Session Memory</p>
+                    <p class="text-[11px] text-mu mt-1" id="inspMetricSub">Grounded in live runway curves</p>
+                  </div>
+                </div>
+
+                <div class="pt-4 border-t border-ln flex items-center justify-between text-xs font-mono text-mu">
+                  <span>Android Local Execution</span>
+                  <span class="text-ac font-bold flex items-center gap-1">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                    Active in v1.0.0
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: SPENDWISER AI & LOCAL ASK ENGINE -->
+      <section id="ai" class="py-28 px-6 bg-c1/40 border-y border-ln relative">
+        <div class="max-w-7xl mx-auto">
+          <div class="grid lg:grid-cols-2 gap-16 items-start">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-ac/30 bg-ac/10 text-xs font-mono text-ac mb-6">
+                <span class="w-2 h-2 rounded-full bg-ac"></span>
+                <span>Optional BYOK Intelligence (100% Free Tiers Supported)</span>
+              </div>
+
+              <h2 class="font-serif text-5xl md:text-7xl tracking-tight leading-[1]">
+                Ask your money anything.<br />
+                <span class="italic font-normal text-ac">Offline or AI Copilot.</span>
+              </h2>
+
+              <p class="mt-6 text-lg text-mu leading-relaxed">
+                Out of the box, SpendWiser includes the <b>LocalAskEngine</b>: an instant, zero-latency natural language parser that answers queries on-device without an API key, without the internet, and without sending data outside your phone.
+              </p>
+
+              <p class="mt-4 text-lg text-tx/90 leading-relaxed font-normal">
+                Want deeper executive advice? Connect your own <b>Gemini, OpenRouter, or Claude</b> API key (Bring Your Own Key) in Settings to unlock <b>SpendWiser AI</b>:
+              </p>
+
+              <div class="mt-8 space-y-4 text-sm">
+                <div class="flex items-start gap-3 p-3.5 rounded-xl bg-c1 border border-ln">
+                  <span class="text-ac font-bold mt-0.5">✦</span>
+                  <div>
+                    <b class="text-tx">Multi-Turn Session Memory:</b>
+                    <span class="text-mu"> Ask "What about last October?", "Break that down by weekend", or "How do I cut ₹5,000 from dining out?"</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3 p-3.5 rounded-xl bg-c1 border border-ln">
+                  <span class="text-ac font-bold mt-0.5">✦</span>
+                  <div>
+                    <b class="text-tx">1-Tap Action Confirmation:</b>
+                    <span class="text-mu"> Say "Log chai 40" or "Create a ₹25,000 Goa trip budget" and save it into the database with a single tap.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3 p-3.5 rounded-xl bg-c1 border border-ln">
+                  <span class="text-ac font-bold mt-0.5">✦</span>
+                  <div>
+                    <b class="text-tx">"Can I Afford This?" Advisor:</b>
+                    <span class="text-mu"> Evaluates big purchases against your live Cash Runway curve and card dues before you swipe.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive AI Chat Playground -->
+            <div class="glass-panel p-6 md:p-8">
+              <div class="flex items-center justify-between pb-4 border-b border-ln mb-4">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-ac animate-ping"></span>
+                  <span class="font-mono text-xs text-tx font-bold uppercase tracking-wider">Ask SpendWiser Playground</span>
+                </div>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-c2 text-mu border border-ln">Interactive</span>
+              </div>
+
+              <p class="text-xs text-mu font-mono mb-2">Tap a question to ask:</p>
+              <div class="flex flex-wrap gap-2 mb-6" id="playgroundPills"></div>
+
+              <div class="p-6 rounded-2xl bg-c2/80 border border-ln min-h-[190px] flex flex-col justify-between" aria-live="polite">
+                <div>
+                  <div class="flex items-center gap-2 text-xs font-mono text-ac mb-2">
+                    <span>Q:</span>
+                    <span id="playgroundQ" class="text-tx font-medium">What is my cash runway?</span>
+                  </div>
+                  <p id="playgroundA" class="font-serif text-2xl md:text-3xl text-tx mt-2 leading-snug">
+                    ₹18,400 lowest point on 28 Nov before payday. Safe-to-spend is ₹446/day after rent.
+                  </p>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-ln flex items-center justify-between text-[11px] font-mono text-mu">
+                  <span id="playgroundEngine">Engine: LocalAskEngine (Offline)</span>
+                  <span class="text-ac font-bold">Confidence: 100%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5: SOVEREIGN PRIVACY MANIFESTO -->
+      <section id="privacy" class="py-28 px-6">
+        <div class="max-w-7xl mx-auto">
+          <div class="grid lg:grid-cols-2 gap-16 items-start">
+            <div>
+              <span class="text-xs font-mono uppercase tracking-wider text-ac bg-ac/10 border border-ac/20 px-3 py-1 rounded-full">
+                Sovereignty
+              </span>
+              <h2 class="font-serif text-5xl md:text-7xl tracking-tight leading-[1] mt-6">
+                Your financial ledger belongs on your phone.
+              </h2>
+              <p class="mt-6 text-lg text-mu leading-relaxed max-w-xl">
+                Modern fintech apps operate like data brokers pretending to be calculators. They scrape your email inbox, hold your banking tokens, and monetize your salary cadence.
+              </p>
+              <p class="mt-4 text-lg text-tx/90 leading-relaxed max-w-xl font-medium">
+                SpendWiser is built with an uncompromising local-first ethos:
+              </p>
+            </div>
+
+            <div class="space-y-6">
+              <div class="glass-panel p-6">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-full bg-c2 border border-ln flex items-center justify-center text-ac font-bold text-sm">1</span>
+                  <h3 class="text-lg font-semibold text-tx">Zero Bank Credentials or Scraping</h3>
+                </div>
+                <p class="mt-3 text-sm text-mu leading-relaxed pl-11">
+                  SpendWiser never asks for net banking logins, passwords, or aggregators. It parses standard on-device transaction alerts and quick voice/text entries you already control.
+                </p>
+              </div>
+
+              <div class="glass-panel p-6">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-full bg-c2 border border-ln flex items-center justify-center text-ac font-bold text-sm">2</span>
+                  <h3 class="text-lg font-semibold text-tx">Biometrics & Configurable Auto-Lock</h3>
+                </div>
+                <p class="mt-3 text-sm text-mu leading-relaxed pl-11">
+                  Protected with a hashed SHA-256 PIN and biometric authentication. Configurable post-unlock grace period (default 5 min) keeps the app fluid while you switch tasks.
+                </p>
+              </div>
+
+              <div class="glass-panel p-6">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-full bg-c2 border border-ln flex items-center justify-center text-ac font-bold text-sm">3</span>
+                  <h3 class="text-lg font-semibold text-tx">100% Optional AI (Strict BYOK)</h3>
+                </div>
+                <p class="mt-3 text-sm text-mu leading-relaxed pl-11">
+                  Zero AI requests are ever made by default. Adding your own Gemini, OpenRouter, or Claude key sends requests directly to that provider with your key. Clear it anytime to revert to offline.
+                </p>
+              </div>
+
+              <div class="glass-panel p-6">
+                <div class="flex items-center gap-3">
+                  <span class="w-8 h-8 rounded-full bg-c2 border border-ln flex items-center justify-center text-ac font-bold text-sm">4</span>
+                  <h3 class="text-lg font-semibold text-tx">Data Portability Guarantee</h3>
+                </div>
+                <p class="mt-3 text-sm text-mu leading-relaxed pl-11">
+                  Export complete annual PDF dossiers, multi-sheet Excel statements, or raw JSON backups. Delete everything in one tap whenever you decide.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 6: SOVEREIGN DOWNLOAD STUDIO & RELEASE COCKPIT -->
+      <section id="get" class="py-32 px-6 relative overflow-hidden border-t border-ln bg-gradient-to-b from-c0 via-c1/40 to-c0">
+        <!-- Ambient lighting mesh -->
+        <div class="ambient-glow bg-ac w-[800px] h-[500px] left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 opacity-15 blur-[140px] pointer-events-none"></div>
+        <div class="ambient-glow bg-cy w-[500px] h-[400px] right-0 bottom-0 opacity-10 blur-[120px] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto relative z-10">
+          <!-- Section Masthead -->
+          <div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+            <div class="max-w-3xl">
+              <div class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-ac/30 bg-ac/10 text-xs font-mono text-ac mb-6">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ac opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-ac"></span>
+                </span>
+                <span>OFFICIAL RELEASE CHANNEL · v1.0.0 STABLE</span>
+              </div>
+              <h2 class="font-serif text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[0.94] text-tx">
+                Your financial truth.<br />
+                <span class="italic text-mu font-normal">Sovereign. Private. Forever.</span>
+              </h2>
+            </div>
+            <p class="text-mu text-base md:text-lg max-w-md leading-relaxed">
+              No cloud accounts. No banking credentials surrendered. Download the release binary and run your entire financial life offline on your Android device.
+            </p>
+          </div>
+
+          <!-- Main Asymmetric Download Console -->
+          <div class="grid lg:grid-cols-[1.25fr_1fr] gap-8 items-stretch">
+            
+            <!-- LEFT PANEL: Primary Install & Direct Actions -->
+            <div class="glass-panel p-8 md:p-12 flex flex-col justify-between border-ac/30 relative overflow-hidden">
+              <div class="absolute -right-20 -top-20 w-60 h-60 bg-ac/10 rounded-full blur-3xl pointer-events-none"></div>
+
+              <div>
+                <div class="flex items-center justify-between pb-6 border-b border-ln">
+                  <div class="flex items-center gap-3">
+                    <img
+                      src="assets/branding/icon-money.svg"
+                      alt="SpendWiser Logo"
+                      class="w-10 h-10 rounded-xl shadow-[0_0_20px_rgba(255,206,82,0.4)]"
+                    />
+                    <div>
+                      <h3 class="font-bold text-tx text-lg">SpendWiser Android</h3>
+                      <p class="text-xs font-mono text-mu">Package: space.hariharen.spendwiser</p>
+                    </div>
+                  </div>
+                  <span class="px-3 py-1 rounded-full bg-ac/10 border border-ac/30 text-ac font-mono text-xs font-semibold">
+                    v1.0.0
+                  </span>
+                </div>
+
+                <!-- Primary CTA Button (Oversized & Ultra-Tactile) -->
+                <div class="mt-8">
+                  <a
+                    href="https://github.com/hariharen9/spendwiser-app/releases/latest"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group relative w-full flex items-center justify-between p-6 rounded-2xl bg-ac text-aci font-bold text-lg shadow-[0_12px_40px_rgba(212,255,58,0.35)] hover:shadow-[0_16px_50px_rgba(212,255,58,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300"
+                  >
+                    <div class="flex items-center gap-4">
+                      <div class="w-12 h-12 rounded-xl bg-aci/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i data-lucide="download" class="w-6 h-6 text-aci"></i>
+                      </div>
+                      <div class="text-left">
+                        <div class="text-xl md:text-2xl font-bold tracking-tight">Download SpendWiser APK</div>
+                        <div class="text-xs font-mono text-aci/75 font-normal">v1.0.0 · Universal Build · 96.4 MB</div>
+                      </div>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-1 font-mono text-xs uppercase px-3 py-1.5 rounded-lg bg-aci text-ac font-semibold">
+                      Direct APK <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
+                    </div>
+                  </a>
+                </div>
+
+                <!-- Secondary Actions Row -->
+                <div class="mt-4 grid sm:grid-cols-2 gap-3">
+                  <a
+                    href="https://github.com/hariharen9/spendwiser-app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-glass flex items-center justify-center gap-2 py-3.5 px-4 text-sm font-medium w-full"
+                  >
+                    <i data-lucide="star" class="w-4 h-4 text-gold"></i>
+                    <span>Star on GitHub</span>
+                    <span class="text-xs font-mono text-mu">hariharen9</span>
+                  </a>
+
+                  <a
+                    href="https://github.com/hariharen9/spendwiser-app/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-glass flex items-center justify-center gap-2 py-3.5 px-4 text-sm font-medium w-full"
+                  >
+                    <i data-lucide="git-branch" class="w-4 h-4 text-cy"></i>
+                    <span>Release Changelog</span>
+                  </a>
+                </div>
+
+                <!-- Power User ADB Terminal Strip -->
+                <div class="mt-8 rounded-xl bg-c0 border border-ln p-4">
+                  <div class="flex items-center justify-between text-xs font-mono text-mu mb-2">
+                    <span class="flex items-center gap-1.5">
+                      <i data-lucide="terminal" class="w-3.5 h-3.5 text-ac"></i>
+                      Power Users · Install via ADB
+                    </span>
+                    <button
+                      onclick="copyAdbCommand(this)"
+                      class="text-xs font-mono text-ac hover:text-tx flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                      <span id="copyAdbLabel">Copy</span>
+                    </button>
+                  </div>
+                  <code class="block font-mono text-xs text-tx bg-c1/60 p-2.5 rounded-lg border border-ln/60 select-all overflow-x-auto">
+                    adb install -r spendwiser-v1.0.0.apk
+                  </code>
+                </div>
+              </div>
+
+              <!-- Security & Cryptographic Verifications -->
+              <div class="mt-8 pt-6 border-t border-ln flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-mu">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-ac"></i>
+                  <span>SHA-256 Verified · Built with Flutter 3.29</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="flex items-center gap-1 text-tx"><i data-lucide="check" class="w-3.5 h-3.5 text-ac"></i> Zero Trackers</span>
+                  <span class="flex items-center gap-1 text-tx"><i data-lucide="check" class="w-3.5 h-3.5 text-ac"></i> No Play Services Needed</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT PANEL: Mobile QR Scan & Runtime Manifest -->
+            <div class="glass-panel p-8 md:p-10 flex flex-col justify-between border-ln relative">
+              <div>
+                <div class="flex items-center justify-between pb-4 border-b border-ln">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="smartphone" class="w-4 h-4 text-ac"></i>
+                    <span class="font-mono text-xs uppercase tracking-wider text-mu">Mobile Installation Station</span>
+                  </div>
+                  <span class="text-xs font-mono text-mint">Android 8.0 to 15 Ready</span>
+                </div>
+
+                <!-- QR Code Block for Mobile Users -->
+                <div class="mt-6 flex flex-col sm:flex-row items-center gap-6 p-5 rounded-2xl bg-c1 border border-ln">
+                  <div class="relative shrink-0 p-2 rounded-xl bg-c0 border border-ac/30 shadow-[0_0_25px_rgba(212,255,58,0.15)]">
+                    <img
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https%3A%2F%2Fgithub.com%2Fhariharen9%2Fspendwiser-app%2Freleases%2Flatest&bgcolor=131317&color=d4ff3a&margin=6"
+                      alt="Scan QR to download SpendWiser APK"
+                      class="w-32 h-32 rounded-lg"
+                      loading="lazy"
+                    />
+                    <div class="absolute inset-0 border border-ac/40 rounded-xl pointer-events-none"></div>
+                  </div>
+
+                  <div class="text-center sm:text-left">
+                    <p class="font-serif text-xl text-tx font-medium leading-snug">
+                      Visiting on desktop?
+                    </p>
+                    <p class="text-xs text-mu mt-2 leading-relaxed">
+                      Aim your phone camera at this QR code to download the release APK directly to your device.
+                    </p>
+                    <div class="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono text-ac">
+                      <i data-lucide="scan-line" class="w-3.5 h-3.5"></i>
+                      <span>Instant APK Sideload</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Architecture & Specifications Spec Sheet -->
+                <div class="mt-6 space-y-2.5">
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-c1/40 border border-ln/60 text-xs">
+                    <span class="text-mu flex items-center gap-2 font-mono">
+                      <i data-lucide="cpu" class="w-3.5 h-3.5 text-cy"></i> Supported ABI
+                    </span>
+                    <span class="font-mono text-tx font-medium">arm64-v8a · armeabi-v7a · x86_64</span>
+                  </div>
+
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-c1/40 border border-ln/60 text-xs">
+                    <span class="text-mu flex items-center gap-2 font-mono">
+                      <i data-lucide="database" class="w-3.5 h-3.5 text-ac"></i> Database Engine
+                    </span>
+                    <span class="font-mono text-tx font-medium">Isar Local NoSQL (Embedded Native)</span>
+                  </div>
+
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-c1/40 border border-ln/60 text-xs">
+                    <span class="text-mu flex items-center gap-2 font-mono">
+                      <i data-lucide="fingerprint" class="w-3.5 h-3.5 text-mint"></i> Biometrics Guard
+                    </span>
+                    <span class="font-mono text-tx font-medium">Android KeyStore · Configurable 5m Delay</span>
+                  </div>
+
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-c1/40 border border-ln/60 text-xs">
+                    <span class="text-mu flex items-center gap-2 font-mono">
+                      <i data-lucide="network" class="w-3.5 h-3.5 text-pu"></i> Network Requirement
+                    </span>
+                    <span class="font-mono text-tx font-medium">None · Zero Remote Callouts</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6 pt-4 border-t border-ln flex items-center justify-between text-[11px] font-mono text-mu">
+                <span>License: Open Source (FOSS)</span>
+                <span>Crafted by <a href="https://hariharen.space" target="_blank" rel="noopener noreferrer" class="text-ac hover:underline">Hariharen</a></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Pillars Ribbon -->
+          <div class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-c1/50 border border-ln text-center">
+              <p class="font-mono text-2xl font-bold text-ac">0</p>
+              <p class="text-xs font-mono text-mu mt-1">Bank Logins Required</p>
+            </div>
+            <div class="p-4 rounded-xl bg-c1/50 border border-ln text-center">
+              <p class="font-mono text-2xl font-bold text-tx">100%</p>
+              <p class="text-xs font-mono text-mu mt-1">On-Device Storage</p>
+            </div>
+            <div class="p-4 rounded-xl bg-c1/50 border border-ln text-center">
+              <p class="font-mono text-2xl font-bold text-cy">&lt; 2ms</p>
+              <p class="text-xs font-mono text-mu mt-1">Search & Regex Latency</p>
+            </div>
+            <div class="p-4 rounded-xl bg-c1/50 border border-ln text-center">
+              <p class="font-mono text-2xl font-bold text-mint">₹0.00</p>
+              <p class="text-xs font-mono text-mu mt-1">Forever Free & Ad-Free</p>
+            </div>
+          </div>
+        </div>
+      </section>
+</main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-ln py-12 px-6 bg-c1/60 text-sm text-mu">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <img
+            src="assets/branding/icon-money.svg"
+            alt="SpendWiser Logo"
+            class="w-6 h-6 rounded-full shadow-sm"
+          />
+          <span class="font-bold text-tx">SpendWiser</span>
+          <span>— Sovereign Financial OS</span>
+        </div>
+
+        <div class="flex items-center gap-6 text-xs font-mono">
+          <a href="#runway" class="hover:text-tx">Cash Runway</a>
+          <a href="#capture" class="hover:text-tx">Capture</a>
+          <a href="#apps" class="hover:text-tx">App Matrix</a>
+          <a href="#ai" class="hover:text-tx">AI Engine</a>
+          <a href="#privacy" class="hover:text-tx">Privacy</a>
+          <a href="https://github.com/hariharen9/spendwiser-app" target="_blank" rel="noopener noreferrer" class="hover:text-tx">Source Code</a>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span>Crafted with care by</span>
+          <a
+            href="https://hariharen.space"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-tx font-serif text-lg tracking-wide hover:text-ac transition-colors underline underline-offset-4 decoration-ac"
+          >
+            Hariharen
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- INTERACTIVE SCRIPTS -->
+    <script>
+      // Initialize Lucide Icons
+      lucide.createIcons();
+
+      const $ = (id) => document.getElementById(id);
+      const inr = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
+
+      // Parameters
+      const simDay = 15;
+      const simSalary = 64000;
+      let extraExpenses = [];
+      let extraSum = 0;
+      let isNaiveActive = false;
+
+      // Seed historical spend (1..15 Nov)
+      const histBalances = [];
+      (function initHistoricalSpend() {
+        let b = simSalary;
+        for (let d = 1; d <= simDay; d++) {
+          if (d === 1) b -= 18000; // Rent
+          if (d === 3) b -= 2400;  // Wi-Fi & Electricity
+          if (d === 5) b -= 3200;  // Maintenance & Groceries
+          b -= 550; // Daily burn
+          histBalances[d] = b;
+        }
+      })();
+
+      const getProjectedBalance = (d) => {
+        const remainingDays = d - simDay;
+        const dailyBurn = 520; // calibrated mid/late phase daily burn
+        return histBalances[simDay] - (dailyBurn * remainingDays) - extraSum;
+      };
+
+      const scaleX = (d, maxD = 30, width = 300) => ((d - 1) / (maxD - 1)) * width;
+      const scaleY = (amt, maxVal = 70000, height = 110) => height - 8 - (Math.max(0, Math.min(amt, maxVal)) / maxVal) * (height - 20);
+
+      function renderMiniRunwaySvg() {
+        const svg = $("liveMiniSvg");
+        if (!svg) return;
+
+        let content = `
+          <defs>
+            <linearGradient id="miniGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#D4FF3A" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#D4FF3A" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+        `;
+
+        for (let i = 0; i <= 3; i++) {
+          const y = 15 + i * 26;
+          content += `<line x1="0" x2="300" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+        }
+
+        let histPath = "";
+        for (let d = 1; d <= simDay; d++) {
+          histPath += (d > 1 ? "L" : "M") + `${scaleX(d, 30, 300)} ${scaleY(histBalances[d], 70000, 110)}`;
+        }
+
+        let projPath = "";
+        for (let d = simDay; d <= 30; d++) {
+          projPath += (d > simDay ? "L" : "M") + `${scaleX(d, 30, 300)} ${scaleY(getProjectedBalance(d), 70000, 110)}`;
+        }
+
+        content += `<path d="${histPath} L${scaleX(simDay, 30, 300)} 105 L0 105 Z" fill="url(#miniGradient)"/>`;
+        content += `<path d="${histPath}" stroke="#D4FF3A" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+        content += `<path d="${projPath}" stroke="#D4FF3A" stroke-width="2.5" stroke-dasharray="3 5" fill="none" stroke-linecap="round"/>`;
+
+        const cx = scaleX(simDay, 30, 300);
+        const cy = scaleY(histBalances[simDay], 70000, 110);
+        content += `<circle cx="${cx}" cy="${cy}" r="4.5" fill="#D4FF3A"/>`;
+        content += `<circle cx="${cx}" cy="${cy}" r="9" fill="#D4FF3A" opacity="0.3"><animate attributeName="r" values="4.5;11;4.5" dur="2s" repeatCount="indefinite"/></circle>`;
+
+        svg.innerHTML = content;
+      }
+
+      function renderBigRunwaySvg() {
+        const svg = $("liveBigSvg");
+        if (!svg) return;
+
+        const W = 420;
+        const H = 180;
+        const transformY = (amt) => H - 15 - (Math.max(0, Math.min(amt, 72000)) / 72000) * (H - 35);
+
+        let content = `
+          <defs>
+            <linearGradient id="bigGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#D4FF3A" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#D4FF3A" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+        `;
+
+        for (let i = 0; i <= 4; i++) {
+          const y = 20 + i * 32;
+          content += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+        }
+
+        let hp = "";
+        for (let d = 1; d <= simDay; d++) {
+          hp += (d > 1 ? "L" : "M") + `${scaleX(d, 30, W)} ${transformY(histBalances[d])}`;
+        }
+
+        let pp = "";
+        for (let d = simDay; d <= 30; d++) {
+          pp += (d > simDay ? "L" : "M") + `${scaleX(d, 30, W)} ${transformY(getProjectedBalance(d))}`;
+        }
+
+        content += `<path d="${hp} L${scaleX(simDay, 30, W)} ${H - 10} L0 ${H - 10} Z" fill="url(#bigGradient)"/>`;
+
+        if (isNaiveActive) {
+          const naiveDailyRate = (simSalary - histBalances[5]) / 5;
+          let naivePath = "";
+          for (let d = 5; d <= 30; d++) {
+            const naiveVal = histBalances[5] - (naiveDailyRate * (d - 5));
+            naivePath += (d > 5 ? "L" : "M") + `${scaleX(d, 30, W)} ${transformY(naiveVal)}`;
+          }
+          content += `<path d="${naivePath}" stroke="#FF6B4A" stroke-width="2.5" stroke-dasharray="6 6" fill="none"/>`;
+          content += `<text x="260" y="155" fill="#FF6B4A" font-size="11" font-family="monospace">Typical App: Zero by 16 Nov</text>`;
+        }
+
+        content += `<path d="${hp}" stroke="#D4FF3A" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+        content += `<path d="${pp}" stroke="#D4FF3A" stroke-width="3" stroke-dasharray="4 6" fill="none" stroke-linecap="round"/>`;
+
+        const cx = scaleX(simDay, 30, W);
+        const cy = transformY(histBalances[simDay]);
+        content += `<circle cx="${cx}" cy="${cy}" r="6" fill="#D4FF3A"/>`;
+        content += `<circle cx="${cx}" cy="${cy}" r="14" fill="#D4FF3A" opacity="0.2"><animate attributeName="r" values="6;16;6" dur="2.5s" repeatCount="indefinite"/></circle>`;
+
+        svg.innerHTML = content;
+      }
+
+      function updateDashboardValues() {
+        const finalSafe = Math.max(0, getProjectedBalance(30) - 5000);
+        const dailySafe = Math.round(finalSafe / 15);
+        $("liveSafeToday").textContent = inr(dailySafe);
+        renderMiniRunwaySvg();
+        renderBigRunwaySvg();
+      }
+
+      function toggleNaiveEngine() {
+        isNaiveActive = !isNaiveActive;
+        const btn = $("naiveToggleBtn");
+        const pill = $("naivePill");
+        const warning = $("naiveWarning");
+        const legend = $("legendNaiveCompare");
+
+        btn.setAttribute("data-active", isNaiveActive);
+        pill.textContent = isNaiveActive ? "Active" : "Off";
+        pill.className = isNaiveActive ? "text-xs font-mono text-co font-bold" : "text-xs font-mono text-mu";
+
+        if (isNaiveActive) {
+          warning.classList.remove("hidden");
+          legend.classList.remove("hidden");
+        } else {
+          warning.classList.add("hidden");
+          legend.classList.add("hidden");
+        }
+
+        renderBigRunwaySvg();
+      }
+
+      const categoryLookup = {
+        swiggy: "Food & Dining",
+        zomato: "Food & Dining",
+        chai: "Food & Dining",
+        blinkit: "Quick Commerce",
+        zepto: "Quick Commerce",
+        uber: "Transport",
+        ola: "Transport",
+        rapido: "Transport",
+        netflix: "Subscriptions",
+        spotify: "Subscriptions",
+        amazon: "Shopping",
+        flipkart: "Shopping"
+      };
+
+      function handleQuickCaptureSubmit(e) {
+        if (e) e.preventDefault();
+        const input = $("phoneQuickInput");
+        const raw = input.value.trim().replace(/,/g, "");
+        if (!raw) return;
+
+        const match = raw.match(/^(.*?)\s*(\d+(?:\.\d+)?)$/);
+        if (!match || !match[1]) {
+          input.placeholder = "Try: chai 40 or zomato 350";
+          input.value = "";
+          return;
+        }
+
+        const merchant = match[1].trim();
+        const amount = parseFloat(match[2]);
+        const key = merchant.toLowerCase().split(" ")[0];
+        const category = categoryLookup[key] || "Miscellaneous";
+
+        extraSum += amount;
+        extraExpenses.unshift({ merchant, category, amount });
+        if (extraExpenses.length > 3) extraExpenses.pop();
+
+        input.value = "";
+        renderLedgerFeed(true);
+        updateDashboardValues();
+      }
+
+      function simulateQuickEntry(text) {
+        const input = $("phoneQuickInput");
+        input.value = text;
+        input.focus();
+        handleQuickCaptureSubmit(null);
+      }
+
+      function renderLedgerFeed(isNew) {
+        const container = $("liveLedgerRows");
+        if (!container) return;
+
+        const defaultRows = [
+          { merchant: "Blinkit Groceries", category: "Quick Commerce", amount: 640 },
+          { merchant: "Uber to Office", category: "Transport", amount: 280 }
+        ];
+
+        const activeList = extraExpenses.length > 0 ? extraExpenses : defaultRows;
+
+        container.innerHTML = activeList.map((tx, idx) => `
+          <div class="entry-row flex items-center justify-between p-2 border-b border-ln ${idx === 0 && isNew ? 'just-inserted' : ''}">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-ac"></span>
+              <div>
+                <p class="text-xs font-medium text-tx capitalize">${tx.merchant}</p>
+                <p class="text-[10px] text-mu font-mono">${tx.category}</p>
+              </div>
+            </div>
+            <span class="text-xs font-semibold text-tx font-mono">−${inr(tx.amount)}</span>
+          </div>
+        `).join("");
+      }
+
+      // Capture Presets
+      const capturePresets = [
+        {
+          src: "Source: Terminal Quick Regex",
+          input: "chai 40",
+          method: "Terminal Regex",
+          title: "Chai Point · Food",
+          amount: "−₹40.00",
+          details: "Instant regex match. Category detected as Food, deducted from cash runway curve in < 2ms.",
+          footnote: "Type keyword + amount in the quick entry box. Works 100% offline with zero lag."
+        },
+        {
+          src: "Source: Natural Speech Voice",
+          input: '“Uber two eighty to Indiranagar”',
+          method: "On-Device Speech-to-Text",
+          title: "Uber · Transport",
+          amount: "−₹280.00",
+          details: "Processed on-device via speech-to-text. Cleans up messy phrasing and maps to Transport.",
+          footnote: "Speak naturally while walking or driving. Optional AI pass tidies unknown merchants."
+        },
+        {
+          src: "Source: Camera / Receipt OCR",
+          input: "Photo of Cafe Coffee Day Tax Invoice",
+          method: "Google ML Kit On-Device",
+          title: "CCD · Food & Cafe",
+          amount: "−₹485.00",
+          details: "On-device Google ML Kit extracts merchant name, date, item breakdown, and bill total.",
+          footnote: "No receipt photo ever touches a cloud server. Full offline OCR with itemized line parsing."
+        },
+        {
+          src: "Source: Bank SMS Notification",
+          input: "Rs 1,240.00 debited from A/c XX4821 to Amazon Pay via UPI",
+          method: "SMS Broadcast Receiver",
+          title: "Amazon · Shopping",
+          amount: "−₹1,240.00",
+          details: "Parsed via regex against HDFC / ICICI / SBI / Axis / Kotak bank SMS templates. Ignores OTPs and promos.",
+          footnote: "Background SMS receiver logs transactions seamlessly as you pay via GPay, PhonePe, or Paytm."
+        }
+      ];
+
+      function switchCaptureMode(index, button) {
+        document.querySelectorAll(".capture-tab-btn").forEach((b) => {
+          b.classList.remove("border-ac", "bg-ac", "text-aci", "font-bold");
+          b.classList.add("border-ln", "bg-c2", "text-mu", "font-medium");
+          b.setAttribute("aria-selected", "false");
+        });
+
+        button.classList.add("border-ac", "bg-ac", "text-aci", "font-bold");
+        button.classList.remove("border-ln", "bg-c2", "text-mu", "font-medium");
+        button.setAttribute("aria-selected", "true");
+
+        const data = capturePresets[index];
+        $("captureCardSrc").textContent = data.src;
+        $("captureCardInput").textContent = data.input;
+        $("captureCardMethod").textContent = data.method;
+        $("captureCardTitle").textContent = data.title;
+        $("captureCardAmount").textContent = data.amount;
+        $("captureCardDetails").textContent = data.details;
+        $("captureCardFootnote").textContent = data.footnote;
+      }
+
+      // ==========================================
+      // COMPLETE 14-MODULE DATA MATRIX & INSPECTOR
+      // ==========================================
+      const appModulesData = [
+        {
+          id: 'ai',
+          name: 'SpendWiser AI',
+          code: 'AppModule.ai',
+          icon: 'sparkles',
+          tint: '#D4FF3A',
+          metric: 'BYOK Copilot',
+          desc: 'A dedicated conversational financial copilot with 1-tap natural-language action execution, session history, and deep advice grounded in your Cash Runway and debt payoff schedules.',
+          bullets: [
+            '1-Tap Natural Actions: "Log chai 40", "Create ₹25k Goa budget"',
+            'Grounds answers in CashRunway + simulatePayoff curves',
+            'Subscription & Recurring charge leak audits',
+            'Zero default telemetry: user provides Gemini / OpenRouter / Claude key'
+          ],
+          metricTitle: 'Copilot Engine',
+          metricVal: 'Multi-Turn Session Memory',
+          metricSub: '1-Tap Confirmation Action Cards'
+        },
+        {
+          id: 'home',
+          name: 'Home & Runway',
+          code: 'AppModule.home',
+          icon: 'home',
+          tint: '#D4FF3A',
+          metric: '₹18,400 runway low',
+          desc: 'Your central command deck. Displays Net Worth hero cards, live Cash Runway curve, Safe-to-Spend daily guidance, and upcoming bill reminders without guilt.',
+          bullets: [
+            'Intelligent phase-aware burn curve to next payday',
+            'Auto-detects recurring rent & utilities, skipping paid ones',
+            'Safe-to-Spend daily allowance calculation',
+            'Customizable home widget bento layout'
+          ],
+          metricTitle: 'Live Runway Status',
+          metricVal: '₹18,400 Lowest Point',
+          metricSub: 'Phase 2: Mid-Month Normal Burn'
+        },
+        {
+          id: 'ledger',
+          name: 'Searchable Ledger',
+          code: 'AppModule.ledger',
+          icon: 'book-open',
+          tint: '#4DABF7',
+          metric: '248 entries',
+          desc: 'Every transaction you make, indexed and searchable in real time. Features calendar jump-to-date, real brand logos, and instant tag grouping.',
+          bullets: [
+            'Day-grouped chronologically with exact added time stamps',
+            'Instant keyword & #tag search (#trip, #tax, #work)',
+            'Direct pre-fill routing from Ask SpendWiser sheets',
+            'Instant inline amount & category edits'
+          ],
+          metricTitle: 'Ledger Engine',
+          metricVal: 'Zero Latency Indexing',
+          metricSub: 'Hive-backed local database'
+        },
+        {
+          id: 'accounts',
+          name: 'Banks & Cash',
+          code: 'AppModule.accounts',
+          icon: 'landmark',
+          tint: '#2DD4BF',
+          metric: '₹4,36,854 liquid',
+          desc: 'Savings accounts, current accounts, and cash wallets side by side. Displays real brand vector marks for SBI, HDFC, ICICI, Axis, Kotak, Amex, IDFC, and Yes Bank.',
+          bullets: [
+            'Real bank brand color badges & official SimpleIcons vectors',
+            'Dedicated green emerald cash wallet tracking',
+            '1-Tap internal account-to-account transfers',
+            'Default account assignment for rapid capture routing'
+          ],
+          metricTitle: 'Accounts Matrix',
+          metricVal: '5 Accounts Connected',
+          metricSub: 'SBI, HDFC, ICICI, Cash Wallet'
+        },
+        {
+          id: 'cards',
+          name: 'Cards & Dues',
+          code: 'AppModule.cards',
+          icon: 'credit-card',
+          tint: '#FF9F43',
+          metric: '₹14,200 due · 9d',
+          desc: 'Credit card command center. Tracks statement generation dates, payment due countdowns, interest-free periods, and credit utilization percentage bars.',
+          bullets: [
+            '30% bureau utilization warning indicators for credit health',
+            'Total statement due vs minimum due separation',
+            'Cardholder metadata & customizable visual card skins',
+            'Interest-free grace window calculation'
+          ],
+          metricTitle: 'Credit Health',
+          metricVal: '42.8% Utilization',
+          metricSub: 'HDFC Millennia statement due in 9d'
+        },
+        {
+          id: 'budgets',
+          name: 'Zero-Guilt Budgets',
+          code: 'AppModule.budgets',
+          icon: 'pie-chart',
+          tint: '#C084FC',
+          metric: '₹16,400 left',
+          desc: 'Category envelopes and total monthly limits engineered to guide rather than shame. Features monthly pace indicators and automatic rollover support.',
+          bullets: [
+            'Pacing indicators show if you are ahead or behind month curve',
+            'Rollover unspent balances into next month envelopes',
+            'Configurable 80% threshold gentle alerts',
+            'Custom categories with full 20+ color palette picker'
+          ],
+          metricTitle: 'Monthly Envelope',
+          metricVal: '68% Budget Consumed',
+          metricSub: 'Pacing normal across 8 active envelopes'
+        },
+        {
+          id: 'subscriptions',
+          name: 'Subs & Leaks',
+          code: 'AppModule.subscriptions',
+          icon: 'refresh-cw',
+          tint: '#FF6B9D',
+          metric: '₹3,420/mo',
+          desc: 'Tracks every active recurring service, renewal cadence, annual cost projection, and offers an AI Leak Audit pass to detect duplicate or forgotten services.',
+          bullets: [
+            'Tracks monthly, quarterly, annual, and custom renewal schedules',
+            '1-Tap "Audit leaks" sheet spots overlapping subscriptions',
+            'Annual recurring burn cost calculation',
+            'Direct integration into cash runway upcoming forecasts'
+          ],
+          metricTitle: 'Recurring Burn',
+          metricVal: '₹41,040 / Year',
+          metricSub: 'AI spotted ₹14,388 in potential savings'
+        },
+        {
+          id: 'debt',
+          name: 'Debt & Payoff',
+          code: 'AppModule.debt',
+          icon: 'trending-down',
+          tint: '#FF6B4A',
+          metric: '₹28,500 EMI/mo',
+          desc: 'Loan tracking, EMI payment schedules, and a mathematical Avalanche vs. Snowball payoff planner with custom extra prepayment simulations.',
+          bullets: [
+            'Full loan amortization schedules with principal/interest split',
+            'Avalanche Engine: mathematically saves max interest',
+            'Snowball Engine: psychologically builds momentum',
+            'Overdue EMI alerts and countdowns'
+          ],
+          metricTitle: 'Interest Optimization',
+          metricVal: 'Save ₹34,200',
+          metricSub: 'Avalanche eliminates debt 14 months faster'
+        },
+        {
+          id: 'split',
+          name: 'Split Expenses',
+          code: 'AppModule.split',
+          icon: 'users',
+          tint: '#6EE7FF',
+          metric: 'Owed ₹4,200',
+          desc: 'Shared expenses with roommates, dinner friends, or trip groups. Computes optimal debt simplification math without requiring third-party logins.',
+          bullets: [
+            'Roommate and trip group ledger separation',
+            '"You are owed" vs "You owe" net balance pills',
+            'Transaction minimization math for clean settlement',
+            '1-Tap settlement logging directly into personal ledger'
+          ],
+          metricTitle: 'Group Ledger',
+          metricVal: '3 Active Groups',
+          metricSub: 'Goa Trip, Flat 402, Office Dinners'
+        },
+        {
+          id: 'goals',
+          name: 'Wealth Goals',
+          code: 'AppModule.goals',
+          icon: 'target',
+          tint: '#FFD23F',
+          metric: '74% funded',
+          desc: 'Savings targets, deadlines, automated monthly deposit contributions, and visual circular progress rings to visualize long-term wealth.',
+          bullets: [
+            'Emergency Fund, Vacation, Gadget, and Vehicle savings pots',
+            'Monthly required contribution calculation to meet target date',
+            'Circular funded percentage gauges',
+            '1-Tap deposit logging from savings accounts'
+          ],
+          metricTitle: 'Target Progress',
+          metricVal: '₹3,70,000 / ₹5,00,000',
+          metricSub: 'Emergency Fund 74% funded'
+        },
+        {
+          id: 'calendar',
+          name: 'Bill Calendar',
+          code: 'AppModule.calendar',
+          icon: 'calendar',
+          tint: '#6EE7FF',
+          metric: '3 bills this week',
+          desc: 'Month-at-a-glance bill matrix showing exact dates credit card statements, loan EMIs, and recurring renewals hit your accounts.',
+          bullets: [
+            'Full interactive month grid with daily expense dots',
+            'Upcoming 7-day bill horizon alerts',
+            'Visual cash flow peaks and troughs across calendar days',
+            'Direct tap-to-inspect transaction history for any past day'
+          ],
+          metricTitle: 'Calendar Forecast',
+          metricVal: '3 Bills This Week',
+          metricSub: 'HDFC Card (24th), Wi-Fi (27th), SIP (28th)'
+        },
+        {
+          id: 'insights',
+          name: 'Analytics & Score',
+          code: 'AppModule.insights',
+          icon: 'activity',
+          tint: '#D4FF3A',
+          metric: 'Health 84/100',
+          desc: 'Financial analytics, 7-pillar Health Score gauge, monthly executive report sheets, Year-in-Review story cards, and merchant concentration curves.',
+          bullets: [
+            '7-factor proprietary Financial Health Score gauge',
+            'AI Takeaway cards in Monthly Reports & Year in Review',
+            'Top merchant concentration & category delta curves',
+            'Weekday vs Weekend spend disparity analysis'
+          ],
+          metricTitle: 'Health Gauge',
+          metricVal: '84 / 100 Score',
+          metricSub: 'Excellent liquidity & debt-to-income ratio'
+        },
+        {
+          id: 'tools',
+          name: 'Financial Tools',
+          code: 'AppModule.tools',
+          icon: 'calculator',
+          tint: '#FFD23F',
+          metric: 'Calc · SIP · GST',
+          desc: 'Instant India-native financial calculators for Mutual Fund SIP wealth compounding, loan EMI schedules, GST reverse lookups, and express ledger math.',
+          bullets: [
+            'Mutual Fund SIP Compound Wealth calculator',
+            'Home / Car / Personal Loan EMI calculator',
+            'GST reverse & forward tax rate calculator (5%, 12%, 18%, 28%)',
+            'Quick scratchpad calculator with memory functions'
+          ],
+          metricTitle: 'Tools Suite',
+          metricVal: '4 Native Calculators',
+          metricSub: 'SIP, Loan EMI, GST, Fast Calc'
+        },
+        {
+          id: 'settings',
+          name: 'Settings & Security',
+          code: 'AppModule.settings',
+          icon: 'settings',
+          tint: '#B8B2A7',
+          metric: 'Synced · Dark',
+          desc: 'App customization, theme switching (Dark/Light), 7 curated accent colors, SHA-256 PIN vault, biometric unlock, and configurable auto-lock timing.',
+          bullets: [
+            'SHA-256 PIN encryption + Biometric Face/Fingerprint unlock',
+            'Configurable auto-lock grace period (Immediate to 1 hr; default 5 min)',
+            'BYOK AI Provider Selector: Gemini, OpenRouter, Claude, or None',
+            'Full annual summary PDF, Excel (.xlsx), and JSON backups'
+          ],
+          metricTitle: 'Security State',
+          metricVal: 'Biometrics Active',
+          metricSub: 'Auto-lock grace period: 5 min'
+        }
+      ];
+
+      function renderModulesBentoGrid() {
+        const grid = $("modulesGridContainer");
+        if (!grid) return;
+
+        grid.innerHTML = appModulesData.map((m, idx) => `
+          <div
+            onclick="inspectModule(${idx})"
+            class="app-bento-tile ${idx === 0 ? 'active-pill' : ''}"
+            id="moduleTile_${idx}"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="w-8 h-8 rounded-xl flex items-center justify-center text-tx" style="background: ${m.tint}22; border: 1px solid ${m.tint}44; color: ${m.tint}">
+                <i data-lucide="${m.icon}" class="w-4 h-4"></i>
+              </div>
+              <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-c1 text-mu border border-ln">${m.id}</span>
+            </div>
+            <div>
+              <p class="font-serif text-lg text-tx leading-tight">${m.name}</p>
+              <p class="text-[11px] font-mono text-mu mt-1 truncate">${m.metric}</p>
+            </div>
+          </div>
+        `).join("");
+
+        lucide.createIcons();
+      }
+
+      function inspectModule(index) {
+        document.querySelectorAll(".app-bento-tile").forEach((tile) => tile.classList.remove("active-pill"));
+        const activeTile = $("moduleTile_" + index);
+        if (activeTile) activeTile.classList.add("active-pill");
+
+        const m = appModulesData[index];
+        $("inspTitle").textContent = m.name;
+        $("inspSubtitle").textContent = `${m.code} · ${m.id}`;
+        $("inspLiveLabel").textContent = m.metric;
+        $("inspDescription").textContent = m.desc;
+
+        const badge = $("inspIconBadge");
+        badge.style.background = `${m.tint}22`;
+        badge.style.borderColor = `${m.tint}55`;
+        badge.style.color = m.tint;
+        badge.innerHTML = `<i data-lucide="${m.icon}" class="w-5 h-5"></i>`;
+
+        $("inspBullets").innerHTML = m.bullets.map((b) => `
+          <div class="flex items-start gap-2">
+            <span class="text-ac">✦</span>
+            <span class="text-tx/90">${b}</span>
+          </div>
+        `).join("");
+
+        $("inspMetricTitle").textContent = m.metricTitle;
+        $("inspMetricVal").textContent = m.metricVal;
+        $("inspMetricSub").textContent = m.metricSub;
+
+        lucide.createIcons();
+      }
+
+      // AI Playground
+      const aiPlaygroundPresets = [
+        {
+          q: "What is my cash runway right now?",
+          a: "₹18,400 lowest point on 28 Nov before payday. Safe-to-spend is ₹446/day after rent & scheduled bills.",
+          engine: "LocalAskEngine (Instant Offline)",
+        },
+        {
+          q: "Can I afford a ₹35,000 laptop this weekend?",
+          a: "Your current liquid balance is ₹48,300, but with ₹14,200 card dues on 24 Nov, buying this creates a ₹4,300 shortfall before payday.",
+          engine: "SpendWiser AI (Grounded in Runway)",
+        },
+        {
+          q: "When are my credit card dues payable?",
+          a: "HDFC Millennia due in 9 days (24 Nov). Total statement due: ₹14,200. Minimum due: ₹710.",
+          engine: "LocalAskEngine (Instant Offline)",
+        },
+        {
+          q: "Audit my recurring charges for leaks",
+          a: "Found 2 overlapping streaming services (Netflix & Prime) and an unused ₹499 gym add-on. Cutting them saves ₹14,388/year.",
+          engine: "SpendWiser AI (Subscription Leak Pass)",
+        },
+        {
+          q: "Total spend on #goa trip so far?",
+          a: "₹14,850 across 11 tagged transactions. Ledger pre-filtered and ready for 1-tap review.",
+          engine: "LocalAskEngine (Instant Offline)",
+        }
+      ];
+
+      function renderPlaygroundPills() {
+        const container = $("playgroundPills");
+        if (!container) return;
+
+        container.innerHTML = aiPlaygroundPresets.map((item, idx) => `
+          <button
+            onclick="selectPlaygroundItem(${idx})"
+            class="px-3.5 py-1.5 rounded-full text-xs font-mono border border-ln bg-c1 hover:border-ac hover:text-tx text-mu transition-all cursor-pointer"
+          >
+            ${item.q}
+          </button>
+        `).join("");
+      }
+
+      
+      function copyAdbCommand(btn) {
+        navigator.clipboard.writeText('adb install -r spendwiser-v1.0.0.apk').then(() => {
+          const label = document.getElementById('copyAdbLabel');
+          if (label) label.textContent = 'Copied!';
+          setTimeout(() => {
+            if (label) label.textContent = 'Copy';
+          }, 2000);
+        });
+      }
+function selectPlaygroundItem(index) {
+        const item = aiPlaygroundPresets[index];
+        $("playgroundQ").textContent = item.q;
+        $("playgroundA").textContent = item.a;
+        $("playgroundEngine").textContent = "Engine: " + item.engine;
+      }
+
+      // Initialize on DOM load
+      window.addEventListener("DOMContentLoaded", () => {
+        renderLedgerFeed(false);
+        updateDashboardValues();
+        renderModulesBentoGrid();
+        inspectModule(0); // inspect AI by default
+        renderPlaygroundPills();
+        switchCaptureMode(0, document.querySelector(".capture-tab-btn"));
+      });
+    </script>
+  </body>
+</html>

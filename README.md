@@ -14,6 +14,11 @@ A local-first, India-native **Financial OS** built in Flutter — combining a ph
 ![Local--First](https://img.shields.io/badge/Local--First-Hive%20%2B%20Sync-D4FF3A?style=for-the-badge&labelColor=101010)
 ![Privacy](https://img.shields.io/badge/No%20Bank%20Logins-Privacy%20First-FF9933?style=for-the-badge&labelColor=101010)
 
+<p align="center">
+  <a href="https://hariharen9.github.io/spendwiser-app/"><strong>🌐 Interactive Website & Demo</strong></a> · 
+  <a href="https://github.com/hariharen9/spendwiser-app/releases/latest"><strong>📥 Download APK (v1.0.0)</strong></a>
+</p>
+
 </div>
 
 ---
@@ -52,7 +57,7 @@ Merchants are auto-categorized across **Indian & global brands** (Swiggy, Zomato
 | **Ledger** | Day-grouped transaction archive + calendar view, search, tags, and instant edits |
 | **Banks** | Savings, cash, and liquid account balances in one place |
 | **Cards** | Statement cycles, utilization, minimum vs. total due, cardholder details & due countdowns |
-| **Debt** | Loan tracking, EMI calendar, full amortization schedules & **Avalanche vs. Snowball** payoff simulator |
+| **Debt** | Loan tracking, monthly EMI calendar & payoff schedules |
 | **Budgets** | Category envelopes + total monthly pace without guilt-trip UI |
 | **Goals** | Target amounts, deadlines, progress tracking & contributions |
 | **Subscriptions** | Active renewals, recurring schedules & optional **AI Leak Audit** |
@@ -71,7 +76,7 @@ SpendWiser works **100% offline by default** — no API key required:
 - **Optional BYOK Copilot (`SpendWiser AI`)** — Add your own **Gemini**, **OpenRouter**, or **Claude** API key in Settings (free tiers supported) to unlock:
   - **Dedicated SpendWiser AI App** in the launcher with multi-turn follow-ups and rich formatted answers.
   - **1-Tap Natural-Language Actions** — Type `"Log chai 40"` or `"Create a ₹25k Goa trip budget"` and confirm with one tap.
-  - **"Can I Afford This?" & Debt Advisor** — Grounded in your live Cash Runway and Avalanche vs. Snowball payoff curve.
+  - **"Can I Afford This?" & Financial Advisor** — Grounded in your live Cash Runway and budget pacing.
   - **AI Executive Takeaways** inside Monthly Reports & Year in Review.
   - **Subscription & Leak Audit** and **Clean up with AI** for messy voice/OCR transaction text.
 
