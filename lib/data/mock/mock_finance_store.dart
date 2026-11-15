@@ -1403,13 +1403,35 @@ class MockFinanceStore
     required String name,
     required double price,
     required int renewsInDays,
+    String category = 'Entertainment',
+    String? note,
+    String? accountId,
+    RecurringFrequency frequency = RecurringFrequency.monthly,
   }) async {
+    final subId = 'sub-${_idCounter++}';
+    final recId = 'rec-${_idCounter++}';
     _subscriptions.add(
       Subscription(
-        id: 'sub-${_idCounter++}',
+        id: subId,
         name: name,
         price: price,
         renewsInDays: renewsInDays,
+        category: category,
+        note: note,
+        recurringId: recId,
+      ),
+    );
+    _recurring.add(
+      RecurringTransaction(
+        id: recId,
+        name: name,
+        amount: -price.abs(),
+        frequency: frequency,
+        isIncome: false,
+        category: category,
+        startDate: DateTime.now().add(Duration(days: renewsInDays)),
+        accountId: accountId,
+        note: note,
       ),
     );
     _commit();
@@ -1418,24 +1440,53 @@ class MockFinanceStore
   @override
   Future<void> updateSubscription(Subscription subscription) async {
     final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
-    if (index < 0) return;
-    _subscriptions[index] = subscription;
+    if (index >= 0) {
+      _subscriptions[index] = subscription;
+    }
+    if (subscription.recurringId != null) {
+      final rIndex = _recurring.indexWhere((r) => r.id == subscription.recurringId);
+      if (rIndex >= 0) {
+        final r = _recurring[rIndex];
+        _recurring[rIndex] = r.copyWith(
+          name: subscription.name,
+          amount: -subscription.price.abs(),
+          category: subscription.category,
+          note: subscription.note,
+          active: subscription.active,
+        );
+      }
+    }
     _commit();
   }
 
   @override
   Future<void> toggleSubscription(String subscriptionId) async {
     final index = _subscriptions.indexWhere((s) => s.id == subscriptionId);
-    if (index < 0) return;
-    final subscription = _subscriptions[index];
-    _subscriptions[index] = subscription.copyWith(active: !subscription.active);
-    _commit();
+    if (index >= 0) {
+      final subscription = _subscriptions[index];
+      final newActive = !subscription.active;
+      _subscriptions[index] = subscription.copyWith(active: newActive);
+      if (subscription.recurringId != null) {
+        final rIndex = _recurring.indexWhere((r) => r.id == subscription.recurringId);
+        if (rIndex >= 0) {
+          _recurring[rIndex] = _recurring[rIndex].copyWith(active: newActive);
+        }
+      }
+      _commit();
+    }
   }
 
   @override
   Future<void> removeSubscription(String subscriptionId) async {
-    _subscriptions.removeWhere((s) => s.id == subscriptionId);
-    _commit();
+    final index = _subscriptions.indexWhere((s) => s.id == subscriptionId);
+    if (index >= 0) {
+      final sub = _subscriptions[index];
+      _subscriptions.removeAt(index);
+      if (sub.recurringId != null) {
+        _recurring.removeWhere((r) => r.id == sub.recurringId);
+      }
+      _commit();
+    }
   }
 
   @override
@@ -1444,14 +1495,22 @@ class MockFinanceStore
     required double amount,
     required RecurringFrequency frequency,
     required bool isIncome,
+    String category = 'Bills',
+    DateTime? startDate,
+    String? accountId,
+    String? note,
   }) async {
     _recurring.add(
       RecurringTransaction(
         id: 'rec-${_idCounter++}',
         name: name,
-        amount: amount,
+        amount: isIncome ? amount.abs() : -amount.abs(),
         frequency: frequency,
         isIncome: isIncome,
+        category: category,
+        startDate: startDate ?? DateTime.now(),
+        accountId: accountId,
+        note: note,
       ),
     );
     _commit();

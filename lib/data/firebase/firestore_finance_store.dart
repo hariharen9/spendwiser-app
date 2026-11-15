@@ -1178,7 +1178,6 @@ class FirestoreFinanceStore
     String? note,
   }) async {
     final start = calendarDate(startDate);
-    final lastProcessed = start.subtract(const Duration(days: 1));
     final payload = <String, dynamic>{
       'name': name,
       'amount': amount,
@@ -1187,7 +1186,7 @@ class FirestoreFinanceStore
       'frequency': frequency.label,
       'startDate': firestoreDate(start),
       'endDate': null,
-      'lastProcessedDate': firestoreDate(lastProcessed),
+      'lastProcessedDate': null,
       'accountId': accountId ?? _defaultAccountId,
       'isPaused': false,
       'isMock': false,
@@ -1201,17 +1200,23 @@ class FirestoreFinanceStore
     required String name,
     required double price,
     required int renewsInDays,
+    String category = 'Entertainment',
+    String? note,
+    String? accountId,
+    RecurringFrequency frequency = RecurringFrequency.monthly,
   }) async {
     try {
       await _addRecurringRule(
         name: name,
         amount: -price.abs(),
-        category: 'Other',
+        category: category,
         isIncome: false,
-        frequency: RecurringFrequency.monthly,
+        frequency: frequency,
         startDate: DateTime.now().add(
           Duration(days: math.max(0, renewsInDays)),
         ),
+        accountId: accountId,
+        note: note,
       );
     } catch (error) {
       _error('Could not add subscription: $error');
@@ -1261,15 +1266,21 @@ class FirestoreFinanceStore
     required double amount,
     required RecurringFrequency frequency,
     required bool isIncome,
+    String category = 'Bills',
+    DateTime? startDate,
+    String? accountId,
+    String? note,
   }) async {
     try {
       await _addRecurringRule(
         name: name,
-        amount: amount,
-        category: 'Other',
+        amount: isIncome ? amount.abs() : -amount.abs(),
+        category: category,
         isIncome: isIncome,
         frequency: frequency,
-        startDate: DateTime.now(),
+        startDate: startDate ?? DateTime.now(),
+        accountId: accountId,
+        note: note,
       );
     } catch (error) {
       _error('Could not add recurring rule: $error');

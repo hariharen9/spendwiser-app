@@ -5,6 +5,10 @@ abstract interface class ISubscriptionRepository {
     required String name,
     required double price,
     required int renewsInDays,
+    String category = 'Entertainment',
+    String? note,
+    String? accountId,
+    RecurringFrequency frequency = RecurringFrequency.monthly,
   });
 
   Future<void> updateSubscription(Subscription subscription);
@@ -18,6 +22,10 @@ abstract interface class ISubscriptionRepository {
     required double amount,
     required RecurringFrequency frequency,
     required bool isIncome,
+    String category = 'Bills',
+    DateTime? startDate,
+    String? accountId,
+    String? note,
   });
 
   Future<void> updateRecurring(RecurringTransaction recurring);

@@ -337,19 +337,29 @@ Subscription? subscriptionFromRecurring(
   RecurringTransaction recurring, {
   required DateTime now,
 }) {
-  if (recurring.isIncome || !recurring.active) return null;
+  if (recurring.isIncome) return null;
   if (recurring.frequency != RecurringFrequency.monthly &&
       recurring.frequency != RecurringFrequency.yearly) {
     return null;
   }
-  var next = addFrequency(
-    recurring.lastProcessedDate ??
-        recurring.startDate ??
-        calendarDate(now).subtract(const Duration(days: 1)),
-    recurring.frequency.label,
-  );
+  final today = calendarDate(now);
+  DateTime next;
+  // If recurring has a startDate in the future and has not yet been processed,
+  // its next renewal is on startDate itself.
+  if (recurring.startDate != null &&
+      (recurring.lastProcessedDate == null ||
+          recurring.lastProcessedDate!.isBefore(recurring.startDate!))) {
+    next = calendarDate(recurring.startDate!);
+  } else if (recurring.lastProcessedDate != null) {
+    next = addFrequency(
+      calendarDate(recurring.lastProcessedDate!),
+      recurring.frequency.label,
+    );
+  } else {
+    next = today;
+  }
   var guard = 0;
-  while (next.isBefore(calendarDate(now)) && guard < 120) {
+  while (next.isBefore(today) && guard < 120) {
     next = addFrequency(next, recurring.frequency.label);
     guard++;
   }
@@ -357,7 +367,7 @@ Subscription? subscriptionFromRecurring(
     id: recurring.id,
     name: recurring.name,
     price: recurring.amount.abs(),
-    renewsInDays: next.difference(calendarDate(now)).inDays.clamp(0, 3650),
+    renewsInDays: next.difference(today).inDays.clamp(0, 3650),
     active: recurring.active,
     note: recurring.note,
     category: recurring.category,
